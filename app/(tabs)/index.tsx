@@ -1,74 +1,165 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ScrollView, ActivityIndicator, StyleSheet, Text } from "react-native";
+import StatsSlider from '@/components/Profile/StatsSlider';
+import ProfileDetailsHeader from '@/components/Profile/ProfileDetailsHeader';
+import { getWorkoutsCount, getWeekNumber } from '@/Services/StatsService.Service';
+import emitter from '@/hooks/CustomEventEmitter';
+import { User } from '@/Interfaces/User.Interface';
+import { getStordUserData } from '@/Services/UserService.Service';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const LoadingSlider = () => {
+    return (
+        <View style={styles.cardContainer}>
+            <View style={{
+                flex: 1,
+                margin: 10,
+            }}>
+                <View style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignContent: 'center',
+                    marginTop: -20
+                }}>
+                    <ActivityIndicator />
+                </View>
+            </View>
+        </View>
+    )
+}
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
+export default function ProfileScreen() {
+
+    const [weeklyCountLoading, setWeeklyCountLoading] = useState(true);
+    const [weeklyData, setWeeklyData] = useState<{ title: string, count: number }[]>();
+    const [trendCountLoading, setTrendCountLoading] = useState(true);
+    const [trendData, setTrendData] = useState<{ title: string, x: number[], y: number[] }[]>();
+    const [user, setUser] = useState<User>();
+
+    const createWeekylData = (data: any) => {
+        setWeeklyData([
+            {
+                title: 'This week',
+                count: data.weekly.length
+            },
+            {
+                title: 'Lifetime',
+                count: data.lifetime.length
+            }
+        ]);
+        setWeeklyCountLoading(false);
+    }
+
+    const createTrendData = (data: any) => {
+        const currentWeek = getWeekNumber(new Date());
+        const groupedDates = data.reduce((result: any, date: any) => {
+            const weekNumber = getWeekNumber(date);
+            if (!result[weekNumber]) {
+                result[weekNumber] = [];
+            }
+            result[weekNumber].push(date);
+            return result;
+        }, {});
+
+        let xArray = [];
+        let yArray = [];
+
+        for (let i = 0; i < 5; i++) {
+            let x = currentWeek - i;
+            if (x < 1) {
+                x = 52 - Math.abs(x);
+            }
+            xArray.push(x);
+            yArray.push(groupedDates[x] ? groupedDates[x].length : 0);
+        }
+
+        // We have to reverse the arrays since we want the graph to have 5 weeks ago on the lhs and current week on the 
+        xArray = xArray.reverse();
+        yArray = yArray.reverse();
+
+        setTrendData([{
+            title: '5 Week Trend',
+            x: xArray,
+            y: yArray
+        }]);
+        setTrendCountLoading(false);
+    }
+
+    const load = async () => {
+        // get weekly and lifetime count
+        try {
+
+            setWeeklyCountLoading(true);
+            setTrendCountLoading(true);
+
+            const storedUser = await getStordUserData();
+            setUser(user);
+
+            const counts = await getWorkoutsCount(storedUser);
+            createWeekylData(counts);
+            createTrendData(counts.lifetime);
+
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    useEffect(() => {
+        load();
+    }, []);
+
+    useEffect(() => {
+        const listener = (data: any) => {
+            load();
+        };
+        emitter.on('profileEvent', listener);
+
+        return () => {
+            emitter.off('profileEvent', listener);
+        }
+
+    }, []);
+
+    return (
+        <View style={{
+            flex: 1,
+            backgroundColor: '#121111',
+        }}>
+            <ScrollView style={{
+                flex: 1,
+            }}>
+                <ProfileDetailsHeader numberOfTimes={weeklyData} />
+
+                {weeklyCountLoading ? (<LoadingSlider />) : (<StatsSlider stats={weeklyData!} sliderComponent={'CounterComponent'} />)}
+
+                {trendCountLoading ? (<LoadingSlider />) : (<StatsSlider stats={trendData!} sliderComponent={'BarGraph'} />)}
+
+            </ScrollView>
+        </View>
+    )
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+    cardContainer: {
+        backgroundColor: '#121111',
+        //borderRadius: 30,
+        height: 250,
+        marginLeft: 5,
+        marginRight: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        marginBottom: 20
+    },
+    title: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: '#333',
+    },
+    count: {
+        fontSize: 30,
+        fontWeight: 'bold',
+        color: '#3498db',
+    },
 });
