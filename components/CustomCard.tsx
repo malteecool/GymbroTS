@@ -1,7 +1,7 @@
 import React, { Component, useEffect, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card, Divider } from '@rneui/themed';
-import Styles from '@/Styles';
+import Styles from '@/styles';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export function Card2(props: { historyId: string, parentCallback: (sets:any) => void }) {

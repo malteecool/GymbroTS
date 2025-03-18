@@ -1,11 +1,11 @@
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import emitter from "@/hooks/CustomEventEmitter";
-import { Exercise } from "@/Interfaces/Exercise.Interface";
-import { User } from "@/Interfaces/User.Interface";
-import { addExercise, getDefaultExercises, getExercises } from "@/Services/ExerciseService.Service";
-import { getStordUserData } from "@/Services/UserService.Service";
-import { attachToWorkout } from "@/Services/WorkoutService.Service";
-import Styles from "@/Styles";
+import { Exercise } from "@/interfaces/Exercise.Interface";
+import { User } from "@/interfaces/User.Interface";
+import { addExercise, getDefaultExercises, getExercises } from "@/services/ExerciseService.Service";
+import { getStordUserData } from "@/services/UserService.Service";
+import { attachToWorkout } from "@/services/WorkoutService.Service";
+import Styles from "@/styles";
 import { Card } from "@rneui/themed";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";

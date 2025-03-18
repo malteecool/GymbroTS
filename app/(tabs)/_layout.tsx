@@ -7,7 +7,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import emitter from "@/hooks/CustomEventEmitter";
-import Styles from '@/Styles';
+import Styles from '@/styles';
 
 export default function TabLayout() {
 

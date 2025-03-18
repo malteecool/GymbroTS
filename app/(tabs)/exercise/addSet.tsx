@@ -1,10 +1,10 @@
 import { Card2 } from "@/components/CustomCard";
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import emitter from "@/hooks/CustomEventEmitter";
-import { Exercise } from "@/Interfaces/Exercise.Interface";
-import { Set } from "@/Interfaces/Set.Interface";
-import { addExerciseHistory, getExerciseById } from "@/Services/ExerciseService.Service";
-import Styles from "@/Styles";
+import { Exercise } from "@/interfaces/Exercise.Interface";
+import { Set } from "@/interfaces/Set.Interface";
+import { addExerciseHistory, getExerciseById } from "@/services/ExerciseService.Service";
+import Styles from "@/styles";
 import { Button } from "@rneui/themed";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";

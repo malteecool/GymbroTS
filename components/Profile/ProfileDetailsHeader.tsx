@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { View, TouchableOpacity, StyleSheet, Text, ActivityIndicator } from "react-native";
-import { getWorkoutsCount } from "@/Services/StatsService.Service";
-import Styles from "../../Styles";
-import { User } from "@/Interfaces/User.Interface";
-import { getStordUserData } from "@/Services/UserService.Service";
+import { getWorkoutsCount } from "@/services/StatsService.Service";
+import Styles from "../../styles";
+import { User } from "@/interfaces/User.Interface";
+import { getStordUserData } from "@/services/UserService.Service";
 
 export function ProfileDetailsHeader(props: { numberOfTimes: { title: string, count: number }[] | undefined }) {
 

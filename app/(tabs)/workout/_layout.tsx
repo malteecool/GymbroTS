@@ -1,4 +1,4 @@
-import Styles from "@/Styles";
+import Styles from "@/styles";
 import { HeaderBackButton } from "@react-navigation/elements";
 import { router, Stack } from "expo-router";
 import { View, Text } from "react-native";

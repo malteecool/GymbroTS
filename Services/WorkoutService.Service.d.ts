@@ -1,4 +1,4 @@
-import { WorkoutExercise } from "@/Interfaces/WorkoutExercise.Interface";
+import { WorkoutExercise } from "@/interfaces/WorkoutExercise.Interface";
 import { Workout } from "../../Interfaces/Workout.Interface";
 
 export async function getWorkouts(usr_id: string): any;

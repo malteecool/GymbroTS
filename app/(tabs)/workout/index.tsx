@@ -3,12 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { Card, Button } from '@rneui/themed';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import emitter from '@/hooks/CustomEventEmitter';
-import { removeWorkout as removeWorkoutService, getWorkouts, getFirebaseTimeStamp } from '@/Services/WorkoutService.Service';
-import Styles from '@/Styles';
+import { removeWorkout as removeWorkoutService, getWorkouts, getFirebaseTimeStamp } from '@/services/WorkoutService.Service';
+import Styles from '@/styles';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
-import { getStordUserData } from '@/Services/UserService.Service';
-import { User } from '@/Interfaces/User.Interface';
-import { Workout } from '@/Interfaces/Workout.Interface';
+import { getStordUserData } from '@/services/UserService.Service';
+import { User } from '@/interfaces/User.Interface';
+import { Workout } from '@/interfaces/Workout.Interface';
 import { router } from 'expo-router';
 
 

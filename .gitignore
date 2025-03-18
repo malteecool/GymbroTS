@@ -40,3 +40,5 @@ app-example
 .codegpt
 
 .env
+
+my-release-key.keystore

@@ -1,13 +1,13 @@
 import { Text, View, TouchableOpacity, ScrollView, TextInput, StyleSheet, RefreshControl, Pressable } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getExercises, removeExercise as removeExerciseService, getFirebaseTimeStamp } from '@/Services/ExerciseService.Service';
-import Styles from '../../../Styles';
+import { getExercises, removeExercise as removeExerciseService, getFirebaseTimeStamp } from '@/services/ExerciseService.Service';
+import Styles from '../../../styles';
 import { Card, Button } from '@rneui/themed';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
-import { Exercise } from '@/Interfaces/Exercise.Interface';
-import { User } from '@/Interfaces/User.Interface';
-import { getStordUserData } from '@/Services/UserService.Service';
+import { Exercise } from '@/interfaces/Exercise.Interface';
+import { User } from '@/interfaces/User.Interface';
+import { getStordUserData } from '@/services/UserService.Service';
 import { Link, router } from 'expo-router';
 import emitter from '@/hooks/CustomEventEmitter';
 

@@ -1,12 +1,12 @@
 import CustomExerciseView from "@/components/CustomExerciseView";
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import emitter from "@/hooks/CustomEventEmitter";
-import { Exercise } from "@/Interfaces/Exercise.Interface";
-import { User } from "@/Interfaces/User.Interface";
-import { WorkoutExercise } from "@/Interfaces/WorkoutExercise.Interface";
-import { getStordUserData } from "@/Services/UserService.Service";
-import { addWorkout, addWorkoutWithExercises, getDefaultWorkouts } from "@/Services/WorkoutService.Service";
-import Styles from "@/Styles";
+import { Exercise } from "@/interfaces/Exercise.Interface";
+import { User } from "@/interfaces/User.Interface";
+import { WorkoutExercise } from "@/interfaces/WorkoutExercise.Interface";
+import { getStordUserData } from "@/services/UserService.Service";
+import { addWorkout, addWorkoutWithExercises, getDefaultWorkouts } from "@/services/WorkoutService.Service";
+import Styles from "@/styles";
 import { Button, Card } from "@rneui/themed";
 import { router, Stack } from "expo-router";
 import { useEffect, useState } from "react";

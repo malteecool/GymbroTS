@@ -1,9 +1,9 @@
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import emitter from "@/hooks/CustomEventEmitter";
-import { Exercise } from "@/Interfaces/Exercise.Interface";
-import { ExerciseHistory } from "@/Interfaces/ExerciseHistory.Interface";
-import { getExerciseById, getFirebaseTimeStamp, getHistory } from "@/Services/ExerciseService.Service";
-import Styles from "@/Styles";
+import { Exercise } from "@/interfaces/Exercise.Interface";
+import { ExerciseHistory } from "@/interfaces/ExerciseHistory.Interface";
+import { getExerciseById, getFirebaseTimeStamp, getHistory } from "@/services/ExerciseService.Service";
+import Styles from "@/styles";
 import { Button, Card } from "@rneui/themed";
 import { Divider } from "@rneui/themed";
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";

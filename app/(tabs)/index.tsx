@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, StyleSheet, Text } from "react-native";
 import StatsSlider from '@/components/Profile/StatsSlider';
 import ProfileDetailsHeader from '@/components/Profile/ProfileDetailsHeader';
-import { getWorkoutsCount, getWeekNumber } from '@/Services/StatsService.Service';
+import { getWorkoutsCount, getWeekNumber } from '@/services/StatsService.Service';
 import emitter from '@/hooks/CustomEventEmitter';
-import { User } from '@/Interfaces/User.Interface';
-import { getStordUserData } from '@/Services/UserService.Service';
+import { User } from '@/interfaces/User.Interface';
+import { getStordUserData } from '@/services/UserService.Service';
 
 const LoadingSlider = () => {
     return (
