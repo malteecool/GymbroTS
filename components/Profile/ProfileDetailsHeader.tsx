@@ -5,11 +5,9 @@ import Styles from "../../styles";
 import { User } from "@/interfaces/User.Interface";
 import { getStordUserData } from "@/services/UserService.Service";
 
-export function ProfileDetailsHeader(props: { numberOfTimes: { title: string, count: number }[] | undefined }) {
+export function ProfileDetailsHeader() {
 
-    const { numberOfTimes } = props;
-
-    const [data, setData] = useState([]);
+    const [workoutCounts, setWorkoutCount] = useState<any>([]);
     const [isLoading, setLoading] = useState(true);
     const [user, setUser] = useState<User>();
 
@@ -18,13 +16,12 @@ export function ProfileDetailsHeader(props: { numberOfTimes: { title: string, co
             setLoading(true);
             const storedUser = await getStordUserData();
             setUser(storedUser);
-            const workoutCounts = await getWorkoutsCount(storedUser);
-            setData(workoutCounts);
-        }
-        catch (error) {
+            const data = await getWorkoutsCount(storedUser);
+            //console.log(data);
+            setWorkoutCount(data);
+        } catch (error) {
             console.error(error)
-        }
-        finally {
+        } finally {
             setLoading(false);
         }
     };
@@ -33,10 +30,11 @@ export function ProfileDetailsHeader(props: { numberOfTimes: { title: string, co
     }, []);
 
 
-
-    /*useEffect(() => {
-        console.log(numberOfTimes);
-    }, [numberOfTimes]);*/
+    if (isLoading) {
+        return (
+            <ActivityIndicator style={Styles.activityIndicator} />
+        )
+    }
 
     return (
         <View style={Styles.container}>
@@ -48,12 +46,12 @@ export function ProfileDetailsHeader(props: { numberOfTimes: { title: string, co
                 marginTop: 10,
             }}
                 disabled={true}>
-                <Text style={{ ...Styles.oswaldBold }}>
+                {<Text style={{ ...Styles.oswaldBold }}>
                     YOU'VE BEEN TO THE GYM
-                    {!numberOfTimes ? (<ActivityIndicator size="large" />) : (<Text style={{ ...Styles.oswaldBold, color: '#0C7C59' }}> {numberOfTimes[0].count} </Text>)}
-                    {numberOfTimes && (numberOfTimes[0].count > 1 || numberOfTimes[0].count == 0) ? (<Text style={{ ...Styles.oswaldBold, color: '#0C7C59' }}>TIMES </Text>) : <Text style={{ ...Styles.oswaldBold, color: '#0C7C59' }}>TIME </Text>}
+                    {!workoutCounts ? (<ActivityIndicator size="large" />) : (<Text style={{ ...Styles.oswaldBold, color: '#0C7C59' }}> {workoutCounts.weekly.length} </Text>)}
+                    {workoutCounts && (workoutCounts.weekly.length > 1 || workoutCounts.weekly.length == 0) ? (<Text style={{ ...Styles.oswaldBold, color: '#0C7C59' }}>TIMES </Text>) : <Text style={{ ...Styles.oswaldBold, color: '#0C7C59' }}>TIME </Text>}
                     THIS WEEK, KEEP GOING!
-                </Text>
+                </Text>}
             </TouchableOpacity>
 
         </View>

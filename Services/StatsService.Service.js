@@ -1,4 +1,4 @@
-import {  getFirebaseTimeStamp, getHistoryByUser } from './ExerciseService.Service';
+import { getFirebaseTimeStamp, getHistoryByUser } from './ExerciseService.Service';
 
 
 export function startOfWeek(date) {
@@ -10,12 +10,23 @@ function onlyUnique(value, index, array) {
     return array.indexOf(value) === index;
 }
 
+function roundToDate(date) {
+    // TODO:
+    // This shit does not take into account for timezones but is needed to display the current week correctly.
+    date.setHours(0);
+    date.setMinutes(0);
+    date.setSeconds(0);
+    date.setMilliseconds(0);
+    return date;
+}
+
 export async function getWorkoutsCount(user) {
     var history = await getHistoryByUser(user.id);
     let dates = history.map(his => getFirebaseTimeStamp(his.exh_date.seconds, his.exh_date.nanoseconds))
-    .map(date => date.toISOString().split('T')[0]);
+        .map(date => date.toISOString().split('T')[0]);
     const uniqueDates = dates.filter(onlyUnique);
-    const weeklyDates = uniqueDates.filter(d => new Date(d) >= startOfWeek(new Date()));
+    const startOfWeekVariable = roundToDate(startOfWeek(new Date()));
+    const weeklyDates = uniqueDates.filter(d => new Date(d) >= startOfWeekVariable);
     return { lifetime: uniqueDates, weekly: weeklyDates };
 }
 

@@ -2,38 +2,44 @@ import React, { useEffect, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, StyleSheet, Text } from "react-native";
 import StatsSlider from '@/components/Profile/StatsSlider';
 import ProfileDetailsHeader from '@/components/Profile/ProfileDetailsHeader';
-import { getWorkoutsCount, getWeekNumber } from '@/services/StatsService.Service';
+import { getWorkoutsCount, getWeekNumber } from '../../services/StatsService.Service';
 import emitter from '@/hooks/CustomEventEmitter';
-import { User } from '@/interfaces/User.Interface';
 import { getStordUserData } from '@/services/UserService.Service';
+import { User } from '@/interfaces/User.Interface';
+
+
+export interface WeeklyData {
+    title: string;
+    count: number;
+};
 
 const LoadingSlider = () => {
-    return (
-        <View style={styles.cardContainer}>
+    return (<View style={styles.cardContainer}>
+        <View style={{
+            flex: 1,
+            margin: 10,
+        }}>
             <View style={{
                 flex: 1,
-                margin: 10,
+                justifyContent: 'center',
+                alignContent: 'center',
+                marginTop: -20
             }}>
-                <View style={{
-                    flex: 1,
-                    justifyContent: 'center',
-                    alignContent: 'center',
-                    marginTop: -20
-                }}>
-                    <ActivityIndicator />
-                </View>
+                <ActivityIndicator />
             </View>
         </View>
-    )
+    </View>)
 }
+
 
 export default function ProfileScreen() {
 
     const [weeklyCountLoading, setWeeklyCountLoading] = useState(true);
-    const [weeklyData, setWeeklyData] = useState<{ title: string, count: number }[]>();
+    const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
     const [trendCountLoading, setTrendCountLoading] = useState(true);
-    const [trendData, setTrendData] = useState<{ title: string, x: number[], y: number[] }[]>();
+    const [trendData, setTrendData] = useState<{ title: string; x: number[]; y: any[]; }[]>([]);
     const [user, setUser] = useState<User>();
+
 
     const createWeekylData = (data: any) => {
         setWeeklyData([
@@ -88,15 +94,17 @@ export default function ProfileScreen() {
         // get weekly and lifetime count
         try {
 
+            const storedUser = await getStordUserData();
+            setUser(storedUser);
             setWeeklyCountLoading(true);
             setTrendCountLoading(true);
-
-            const storedUser = await getStordUserData();
-            setUser(user);
-
+            // Use storedUser incase the user state yet has to be updated.
             const counts = await getWorkoutsCount(storedUser);
-            createWeekylData(counts);
-            createTrendData(counts.lifetime);
+            console.log(counts.lifetime)
+            if (counts) {
+                createWeekylData(counts);
+                createTrendData(counts.lifetime);
+            }
 
         } catch (error) {
             console.log(error);
@@ -127,11 +135,11 @@ export default function ProfileScreen() {
             <ScrollView style={{
                 flex: 1,
             }}>
-                <ProfileDetailsHeader numberOfTimes={weeklyData} />
+                <ProfileDetailsHeader />
 
-                {weeklyCountLoading ? (<LoadingSlider />) : (<StatsSlider stats={weeklyData!} sliderComponent={'CounterComponent'} />)}
+                {weeklyCountLoading ? (<LoadingSlider />) : (<StatsSlider stats={weeklyData} sliderComponent={'CounterComponent'} />)}
 
-                {trendCountLoading ? (<LoadingSlider />) : (<StatsSlider stats={trendData!} sliderComponent={'BarGraph'} />)}
+                {trendCountLoading ? (<LoadingSlider />) : (<StatsSlider stats={trendData} sliderComponent={'BarGraph'} />)}
 
             </ScrollView>
         </View>

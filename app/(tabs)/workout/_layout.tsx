@@ -3,7 +3,7 @@ import { HeaderBackButton } from "@react-navigation/elements";
 import { router, Stack } from "expo-router";
 import { View, Text } from "react-native";
 
-export default function exerciseLayout() {
+export default function workoutLayout() {
     return (
         <Stack screenOptions={{
             header: ({ options }) => (

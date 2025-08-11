@@ -4,9 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function getClientId() {
     if (Platform.OS === 'ios') {
-        return process.env.REACT_APP_TOKEN;
+        return process.env.EXPO_PUBLIC_REACT_APP_TOKEN;
     } else if (Platform.OS === 'android') {
-        return process.env.REACT_APP_TOKEN;
+        return process.env.EXPO_PUBLIC_REACT_APP_TOKEN;
     } else {
         console.log('Invalid platform - not handled');
     }

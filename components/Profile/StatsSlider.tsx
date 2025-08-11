@@ -24,6 +24,10 @@ const StatsSlider = (props: { sliderComponent: string, stats: { title: string, c
 
     const { sliderComponent, stats } = props;
 
+    if (sliderComponent == "BarGraph") {
+        console.log(stats);
+    }
+
     const [activeIndex, setActiveIndex] = useState(0);
     const sliderWidth = Dimensions.get('window').width;
 

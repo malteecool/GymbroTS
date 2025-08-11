@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
@@ -10,10 +10,9 @@ import { getUserData, setStordUserData } from '@/services/UserService.Service';
 import { Button, StyleSheet, Text, View, StatusBar } from 'react-native';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import * as Font from 'expo-font';
-import { Header, HeaderBackButton, HeaderButton } from "@react-navigation/elements";
-import { ButtonGroup } from '@rneui/themed';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { HeaderBackButton, HeaderButton } from "@react-navigation/elements";
 
+import 'expo-router/entry';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -25,7 +24,7 @@ export default function RootLayout() {
     const [requireRefresh, setRequireRefresh] = useState(false);
     const [isLoading, setLoading] = useState(true);
     const [request, response, promptAsync] = Google.useAuthRequest({
-        androidClientId: process.env.REACT_APP_TOKEN,
+        androidClientId: process.env.EXPO_PUBLIC_REACT_APP_TOKEN,
         redirectUri: AuthSession.makeRedirectUri({
             scheme: 'com.malteiscool.gymbrots',
             path: '/oathredirect', // To match the redirect of google auth we need to add an additional "/"
@@ -79,7 +78,7 @@ export default function RootLayout() {
                     await setStordUserData(JSON.stringify(userData));
                 } else if (userData.error?.code == 401) {
                     console.log("refreshing token");
-                    const clientId = process.env.REACT_APP_TOKEN;
+                    const clientId = process.env.EXPO_PUBLIC_REACT_APP_TOKEN;
                     const tokenResult = await AuthSession.refreshAsync({
                         clientId: clientId!,
                         refreshToken: authFromJson.refreshToken
@@ -120,7 +119,6 @@ export default function RootLayout() {
             </View>
         )
     }
-
 
     return (
         <View style={{

@@ -1,71 +1,59 @@
-import { Tabs } from 'expo-router';
 import React from 'react';
-
-import { HapticTab } from '@/components/HapticTab';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Link, Tabs } from 'expo-router';
+import { Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import emitter from "@/hooks/CustomEventEmitter";
-import Styles from '@/styles';
+
+
+// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
+function TabBarIcon(props: {
+  name: React.ComponentProps<typeof FontAwesome>['name'];
+  color: string;
+}) {
+  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
+}
 
 export default function TabLayout() {
 
-    const updateExercisesEmitter = () => {
-        emitter.emit('exerciseEvent', 0);
-    }
-
-    const updateWorkoutEmitter = () => {
-        emitter.emit('workoutEvent', 0);
-    }
-
-    const updateProfileEmitter = () => {
-        emitter.emit('profileEvent', 0);
-    }
-
-    return (
-        <Tabs
-            screenOptions={{
-                tabBarActiveTintColor: Colors['light'].tint,
-                headerShown: false,
-                tabBarButton: HapticTab,
-                tabBarBackground: TabBarBackground,
-                tabBarStyle: {
-                    backgroundColor: Styles.dark.backgroundColor
-                }
-                
-            }}>
-            <Tabs.Screen
-                name="index"
-                options={{
-                    title: 'Profile',
-                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name='account' color={color} size={26} />,
-                }}
-                listeners={{ tabPress: () => updateProfileEmitter() }}
-            />
-            <Tabs.Screen
-                name="exercise"
-                options={{
-                    title: 'Exercise',
-                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name='dumbbell' color={color} size={26} />,
-                }}
-                listeners={{ tabPress: () => updateExercisesEmitter() }}
-            />
-            <Tabs.Screen
-                name="workout"
-                options={{
-                    title: 'Workout',
-                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name='weight-lifter' color={color} size={26} />,
-                }}
-                listeners={{ tabPress: () => updateWorkoutEmitter() }}
-            />
-            <Tabs.Screen
-                name="split"
-                options={{
-                    title: 'Split',
-                    tabBarIcon: ({ color }) => <MaterialCommunityIcons name='calendar' color={color} size={26} />,
-                }}
-            />
-        </Tabs>
-    );
+  return (
+    <Tabs
+    screenOptions={{
+        tabBarActiveBackgroundColor: '#121111',
+        tabBarInactiveBackgroundColor: '#1c1a1a'
+    }}
+     >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Profile',
+          headerShown: false,
+          tabBarIcon: ({ color }) => (<MaterialCommunityIcons name='account' color={color} size={26} />)
+        }}
+      />
+      <Tabs.Screen
+        name="exercise"
+        options={{
+          title: 'Exercise',
+          headerShown: false,
+          tabBarIcon: ({ color }) => (<MaterialCommunityIcons name='dumbbell' color={color} size={26} />),
+        }}
+      />
+       <Tabs.Screen
+        name="workout"
+        options={{
+          title: 'Workout',
+          headerShown: false,
+          tabBarIcon: ({ color }) => (<MaterialCommunityIcons name='weight-lifter' color={color} size={26} />)
+        }}
+      />
+       <Tabs.Screen
+        name="split"
+        options={{
+          title: 'Split',
+          headerShown: false,
+          tabBarIcon: ({ color }) => (<MaterialCommunityIcons name='calendar' color={color} size={26} />)
+        }}
+      />
+    </Tabs>
+  );
 }
