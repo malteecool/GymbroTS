@@ -43,11 +43,18 @@ export default function addExerciseScreen() {
     const onAddExercise = async (name: string, exerciseId?: string) => {
         try {
             setLoading(true);
+            /**
+             * We first handle the case someone adds an existing exercise from the workout tab,
+             * then adding a new exercise from the workout tab,
+             * then adding a new exercise from the exercise tab.
+             */
             if (workoutId && exerciseId) {
+                console.log("attaching existing exercise to workout")
                 await attachToWorkout(exerciseId, workoutId as string, masterDataSource.length);
             } else if (workoutId) {
-                const newExerciseId = await addExercise(name, user!.id);
-                await attachToWorkout(newExerciseId, workoutId as string, masterDataSource.length);
+                console.log("adding new exercise and attaching to workout");
+                const newExercise = await addExercise(name, user!.id);
+                await attachToWorkout(newExercise, workoutId as string, masterDataSource.length);
             } else {
                 await addExercise(name, user!.id);
             }

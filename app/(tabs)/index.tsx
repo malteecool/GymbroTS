@@ -100,7 +100,7 @@ export default function ProfileScreen() {
             setTrendCountLoading(true);
             // Use storedUser incase the user state yet has to be updated.
             const counts = await getWorkoutsCount(storedUser);
-            console.log(counts.lifetime)
+            
             if (counts) {
                 createWeekylData(counts);
                 createTrendData(counts.lifetime);

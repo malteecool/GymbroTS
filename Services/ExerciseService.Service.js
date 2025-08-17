@@ -137,7 +137,7 @@ export async function addExercise(name, usr_id) {
         exe_usr_id: usr_id
     };
     const docRef = await addDoc(collection(db, "Exercise"), documentData);
-    return (await getDoc(doc(db, 'Exercise', docRef.id))).data();
+    return docRef.id;//(await getDoc(doc(db, 'Exercise', docRef.id))).data(); TODO: possibly not needed.
 }
 
 export async function addExerciseHistory(exercise, sets) {

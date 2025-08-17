@@ -17,7 +17,6 @@ export function ProfileDetailsHeader() {
             const storedUser = await getStordUserData();
             setUser(storedUser);
             const data = await getWorkoutsCount(storedUser);
-            //console.log(data);
             setWorkoutCount(data);
         } catch (error) {
             console.error(error)

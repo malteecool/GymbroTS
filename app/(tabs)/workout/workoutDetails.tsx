@@ -41,15 +41,11 @@ export default function WorkoutDetails() {
     const load = async () => {
         await withLoading(async () => {
             const tempWorkout = await getWorkoutById(workoutId as string);
-            setWorkout(tempWorkout)
-            const documentData = await getWorkoutExercises(workoutId as string);
-            setData(documentData);
+            setWorkout(tempWorkout);
+            const workoutExercises = await getWorkoutExercises(workoutId as string);
+            setData(workoutExercises);
             updateHeader(tempWorkout.wor_name);
         });
-
-        if (!workout) {
-            router.back();
-        }
     };
 
     useEffect(() => {

@@ -11,8 +11,7 @@ export async function getWorkouts(usr_id) {
     // iterate each workout
     for (const doc of docSnap.docs) {
         var tempDoc = doc.data();
-        var exerciseList = await getExerciseDocument(doc.id);
-        tempDoc = { id: doc.id, wor_workout_exercises: exerciseList, ...tempDoc };
+        tempDoc = { id: doc.id, ...tempDoc };
         workoutData.push(tempDoc);
     }
 
