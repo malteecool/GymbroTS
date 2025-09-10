@@ -5,7 +5,7 @@ export default StyleSheet.create({
         backgroundColor: '#121111'
     },
     lessDark: {
-        backgroundColor: '#1c1a1a'
+        backgroundColor: '#1c1a1aff'
     },
     yellow: {
         backgroundColor: '#CDCD55'

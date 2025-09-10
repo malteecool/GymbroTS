@@ -18,6 +18,10 @@ export default function exerciseLayout() {
             <Stack.Screen name="index" options={{
                 headerShown: false,
             }} />
+            <Stack.Screen name="exerciseDetails" options={{
+                headerShown: true
+            }}>
+            </Stack.Screen>
             <Stack.Screen name="addSet" options={{
                 headerShown: true,
             }} />

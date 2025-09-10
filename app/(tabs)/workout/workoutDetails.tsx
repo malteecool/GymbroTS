@@ -213,7 +213,7 @@ export default function WorkoutDetails() {
                         data.map((workoutExercise, i) => {
                             var exerciseDate = getFirebaseTimeStamp(workoutExercise.exe_date.seconds, workoutExercise.exe_date.nanoseconds);
                             return (
-                                <TouchableOpacity key={workoutExercise.exe_name} onPress={() => { router.push({ pathname: '/shared/exerciseDetails', params: { 'exerciseId': workoutExercise.id } }) }}>
+                                <TouchableOpacity key={workoutExercise.exe_name} onPress={() => { router.push({ pathname: '/exercise/exerciseDetails', params: { 'exerciseId': workoutExercise.id } }) }}>
                                     <Card key={i} containerStyle={Styles.card}>
 
                                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -227,14 +227,14 @@ export default function WorkoutDetails() {
                                                 </Text>
                                             </View>
                                             <View style={{ flex: 1, alignItems: 'flex-end', marginRight: 15 }}>
-                                                <View style={{ flexDirection: 'row' }}>
+                                                <View style={{ flexDirection: 'row', backgroundColor: 'rgba(28, 26, 26, 0.7)', height: 50, alignItems: 'center'}}>
                                                     <Animated.View style={{
                                                         opacity,
                                                         width: size,
                                                         flexDirection: 'row'
                                                     }}>
-                                                        <TouchableOpacity style={{ paddingRight: 10 }} onPress={() => { moveExerciseBackwards(i) }}><MaterialCommunityIcons name='arrow-up' size={24} style={Styles.icon} /></TouchableOpacity>
-                                                        <TouchableOpacity style={{ paddingRight: 0 }} onPress={() => { moveExerciseForward(i) }}><MaterialCommunityIcons name='arrow-down' size={24} style={Styles.icon} /></TouchableOpacity>
+                                                        <TouchableOpacity style={{ paddingRight: 10}} onPress={() => { moveExerciseBackwards(i) }}><MaterialCommunityIcons name='arrow-up' size={24} style={Styles.icon} /></TouchableOpacity>
+                                                        <TouchableOpacity style={{ paddingRight: 0}} onPress={() => { moveExerciseForward(i) }}><MaterialCommunityIcons name='arrow-down' size={24} style={Styles.icon} /></TouchableOpacity>
                                                     </Animated.View>
                                                     <TouchableOpacity style={{ paddingLeft: 0 }} onPress={() => { warnUser(workoutExercise) }}><MaterialCommunityIcons name='trash-can-outline' size={24} style={Styles.icon} /></TouchableOpacity>
                                                 </View>
@@ -256,7 +256,7 @@ export default function WorkoutDetails() {
                 }}>
                     <View style={{ flex: 1, margin: 10, marginRight: 2 }}>{
                         !edit ? <Button buttonStyle={Styles.green} title={running ? 'Stop' : 'Start'} onPress={() => { startAndStop() }} /> :
-                            <Button buttonStyle={Styles.green} title='Add exercise' onPress={() => { router.push({ pathname: '/shared/addExercise', params: { workoutId: workout!.id } }) }} />
+                            <Button buttonStyle={Styles.green} title='Add exercise' onPress={() => { router.push({ pathname: '/exercise/addExercise', params: { workoutId: workout!.id } }) }} />
                     }
                     </View>
                     <View style={{ flex: 1, margin: 10, marginLeft: 2 }}>

@@ -131,7 +131,7 @@ export default function RootLayout() {
                 barStyle="light-content"
                 translucent={true}
             />
-            <Stack screenOptions={{
+            {<Stack screenOptions={{
                 header: ({ options }) => (
                     <View style={Styles.headerContainer}>
                         <HeaderBackButton tintColor={Styles.fontColor.color}
@@ -143,7 +143,7 @@ export default function RootLayout() {
             }}>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="+not-found" />
-            </Stack>
+            </Stack>}
 
         </View>
     );

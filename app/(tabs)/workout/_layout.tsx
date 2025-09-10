@@ -24,6 +24,15 @@ export default function workoutLayout() {
              <Stack.Screen name="addWorkout" options={{
                 headerShown: true,
             }} />
+            <Stack.Screen name="exercise/exerciseDetails" options={{
+                headerShown: true,
+            }} />
+            <Stack.Screen name="exercise/addSet" options={{
+                headerShown: true,
+            }} />
+            <Stack.Screen name="exercise/addExercise" options={{
+                headerShown: true,
+            }} />
         </Stack>
     )
 }

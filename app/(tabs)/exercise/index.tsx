@@ -124,7 +124,7 @@ export default function ExcerciseScreen() {
                         var exerciseDate = getFirebaseTimeStamp(item.exe_date.seconds, item.exe_date.nanoseconds);
 
                         return (
-                            <TouchableOpacity key={i} onPress={() => router.push({ pathname: '/shared/exerciseDetails', params: { exerciseId: item.id, title: item.exe_name } })}>
+                            <TouchableOpacity key={i} onPress={() => router.push({ pathname: '/exercise/exerciseDetails', params: { exerciseId: item.id, workoutId: undefined } })}>
                                 <Card containerStyle={Styles.card}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <View>
@@ -154,7 +154,7 @@ export default function ExcerciseScreen() {
                 bottom: 10,
                 right: 10,
             }}>
-                <Button onPress={() => router.push('/shared/addExercise')}
+                <Button onPress={() => router.push('/exercise/addExercise')}
                     title='+' titleStyle={{ fontSize: 24 }} buttonStyle={{ width: 60, height: 60, borderRadius: 30, borderColor: '#1c7bc7', backgroundColor: Styles.green.backgroundColor }} />
             </TouchableOpacity>
 
