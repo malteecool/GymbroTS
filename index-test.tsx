@@ -1,26 +1,24 @@
-import { Stack, useRouter } from 'expo-router';
-import * as Google from 'expo-auth-session/providers/google';
+import { useEffect, useState } from "react";
+import { Button, Image, Text, TouchableOpacity, useColorScheme, View } from "react-native";
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
-import 'react-native-reanimated';
-import Styles from '@/styles';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
-import { getUserData, setStordUserData } from '@/services/UserService.Service';
-import { Button, StyleSheet, Text, View, StatusBar } from 'react-native';
-import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
-import * as Font from 'expo-font';
-import { HeaderBackButton, HeaderButton } from "@react-navigation/elements";
+import { TokenResponse } from "expo-auth-session";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getUserData } from "./services/UserService.Service"
+import Styles from './styles';
+import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 
 import 'expo-router/entry';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export default function RootLayout() {
+export default function Index() {
 
-    const [fontsLoading, setFontsLoading] = useState(true);
     const [userInfo, setUserInfo] = useState();
-    const [auth, setAuth] = useState<AuthSession.TokenResponse | null>();
+    const [auth, setAuth] = useState<TokenResponse | null>();
     const [requireRefresh, setRequireRefresh] = useState(false);
     const [isLoading, setLoading] = useState(true);
     const [request, response, promptAsync] = Google.useAuthRequest({
@@ -30,7 +28,11 @@ export default function RootLayout() {
             path: '/oathredirect', // To match the redirect of google auth we need to add an additional "/"
         }),
     });
-    const router = useRouter();
+
+    const colorScheme = useColorScheme();
+
+    console.log("index-test.tsx")
+
 
     // first time sign in
     useEffect(() => {
@@ -47,16 +49,7 @@ export default function RootLayout() {
     }, [response]);
 
     useEffect(() => {
-        const loadFonts = async () => {
-            await Font.loadAsync({
-                'Oswald-Bold': require('../assets/fonts/Oswald-Bold.ttf'),
-            });
-            setFontsLoading(false);
-        };
-
         // check if user data exists;
-        loadFonts();
-
         getPersistedAuth();
     }, []);
 
@@ -71,11 +64,13 @@ export default function RootLayout() {
                     issuedAt: authFromJson.issuedAt
                 });
                 setRequireRefresh(!isTokenFresh);
-                console.log("getting user data");
-                const userData = await getUserData(authFromJson);
+                //const userData = await getUserData(authFromJson);
+                let userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
+                    headers: { Authorization: `Bearer ${authFromJson.accessToken}` }
+                });
+                const userData = await userInfoResponse.json();
                 if (userData.id) {
                     setUserInfo(userData);
-                    await setStordUserData(JSON.stringify(userData));
                 } else if (userData.error?.code == 401) {
                     console.log("refreshing token");
                     const clientId = process.env.EXPO_PUBLIC_REACT_APP_TOKEN;
@@ -92,7 +87,6 @@ export default function RootLayout() {
                     const userData = await getUserData(tokenResult);
                     if (userData) {
                         setUserInfo(userData);
-                        await setStordUserData(JSON.stringify(userData));
                     }
                 }
             } else {
@@ -105,12 +99,6 @@ export default function RootLayout() {
         }
     };
 
-    if (isLoading || fontsLoading) {
-        return (
-            <LoadingIndicator text={'Logging in...'} />
-        )
-    }
-
     if (!auth || !userInfo) {
         return (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
@@ -121,58 +109,12 @@ export default function RootLayout() {
     }
 
     return (
-        <View style={{
-            flex: 1,
-            paddingTop: StatusBar.currentHeight || 0,
-            backgroundColor: Styles.lessDark.backgroundColor
-        }}>
-            <StatusBar
-                backgroundColor="transparent"
-                barStyle="light-content"
-                translucent={true}
-            />
-            {<Stack screenOptions={{
-                header: ({ options }) => (
-                    <View style={Styles.headerContainer}>
-                        <HeaderBackButton tintColor={Styles.fontColor.color}
-                            style={Styles.backButton}
-                            onPress={() => router.back()} />
-                        <Text style={Styles.headerTitle}>{options.title}</Text>
-                    </View>
-                )
-            }}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="exercise/exerciseDetails" options={{ headerShown: true }} />
-                <Stack.Screen name="exercise/addExercise" options={{ headerShown: true }} />
-                <Stack.Screen name="exercise/addSet" options={{ headerShown: true }} />
-                <Stack.Screen name="workout/workoutDetails" options={{ headerShown: true }} />
-                <Stack.Screen name="workout/addWorkout" options={{ headerShown: true }} />
                 <Stack.Screen name="+not-found" />
-            </Stack>}
-
-        </View>
+            </Stack>
+            <StatusBar style="auto" />
+        </ThemeProvider>
     );
 }
-
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 16,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 24,
-    },
-    userInfo: {
-        alignItems: 'center',
-        marginTop: 16,
-    },
-    welcome: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-});

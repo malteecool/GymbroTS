@@ -100,7 +100,7 @@ export default function WorkoutScreen() {
             >{
                     data.map((item: Workout, i) => {
                         return (
-                            <TouchableOpacity key={item.id} onPress={() => { router.push({ pathname: '/(tabs)/workout/workoutDetails', params: { 'workoutId': item.id } },) }}>
+                            <TouchableOpacity key={item.id} onPress={() => { router.push({ pathname: '/workout/workoutDetails', params: { 'workoutId': item.id } },) }}>
                                 <Card containerStyle={Styles.card}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <View>
@@ -128,7 +128,7 @@ export default function WorkoutScreen() {
                 bottom: 10,
                 right: 10,
             }}>
-                <Button onPress={() => { router.push('/(tabs)/workout/addWorkout') }} title='+' titleStyle={{ fontSize: 24 }} buttonStyle={styles.buttonStyle} />
+                <Button onPress={() => { router.push('/workout/addWorkout') }} title='+' titleStyle={{ fontSize: 24 }} buttonStyle={styles.buttonStyle} />
             </TouchableOpacity>
         </View>
     )

@@ -6,12 +6,11 @@ import Styles from "@/styles";
 import { LoadingIndicator } from "./ui/LoadingIndicator";
 import { Exercise } from "@/interfaces/Exercise.Interface";
 import { WorkoutExercise } from "@/interfaces/WorkoutExercise.Interface";
-import { Workout } from "@/interfaces/Workout.Interface";
 
 
 export function CustomExerciseView(props: { userId: string, childToParent: (selectedExercises: WorkoutExercise[]) => void }) {
 
-    const {userId, childToParent } = props;
+    const { userId, childToParent } = props;
 
     const [data, setData] = useState([]);
     const [isLoading, setLoading] = useState(false);
@@ -27,20 +26,22 @@ export function CustomExerciseView(props: { userId: string, childToParent: (sele
         getAvailableExericses();
     }, []);
 
-    // introduces alot of rerenders on the view but fixes the problem with not all elements in the array gets passed to the parent.
-    useEffect(() => {
-        childToParent(selectedExercises);
-    }, [selectedExercises]);
-
     let start = 0;
 
     const addSelectedExercise = (exercise: Exercise) => {
-        if (!selectedExercises.map((x: WorkoutExercise) => x.id).includes(exercise.id)) {
-            setSelectedExercises((selectedExercises: WorkoutExercise[])  => [...selectedExercises, { woe_id: exercise.id, ordinal: selectedExercises.length, ...exercise }]);
-            start = start + 1;
-        } else {
-            setSelectedExercises(selectedExercises.filter((item: any) => item["id"] !== exercise.id));
-        }
+
+        setSelectedExercises((prev) => {
+            let updated: WorkoutExercise[];
+            if (!selectedExercises.map((x: WorkoutExercise) => x.id).includes(exercise.id)) {
+                updated = [...prev, { woe_id: exercise.id, ordinal: selectedExercises.length, ...exercise }];
+                start = start + 1;
+            } else {
+                updated = selectedExercises.filter((item: any) => item["id"] !== exercise.id);
+            }
+            childToParent(updated);
+            return updated;
+        });
+
     }
 
     const selectedStyle = StyleSheet.create({

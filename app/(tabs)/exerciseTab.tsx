@@ -2,7 +2,7 @@ import { Text, View, TouchableOpacity, ScrollView, TextInput, StyleSheet, Refres
 import React, { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getExercises, removeExercise as removeExerciseService, getFirebaseTimeStamp } from '@/services/ExerciseService.Service';
-import Styles from '../../../styles';
+import Styles from '../../styles';
 import { Card, Button } from '@rneui/themed';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { Exercise } from '@/interfaces/Exercise.Interface';

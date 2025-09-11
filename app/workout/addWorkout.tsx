@@ -9,7 +9,7 @@ import { addWorkout, addWorkoutWithExercises, getDefaultWorkouts } from "@/servi
 import Styles from "@/styles";
 import { Button, Card } from "@rneui/themed";
 import { router, Stack } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { TabView, TabBar, SceneRendererProps } from "react-native-tab-view";
 
@@ -25,9 +25,9 @@ export default function AddWorkout() {
     const [selectedExercises, setSelectedExercises] = useState<WorkoutExercise[]>([]);
     const [user, setUser] = useState<User>();
 
-    const childToParent = (childData: WorkoutExercise[]) => {
+    const childToParent = useCallback((childData: WorkoutExercise[]) => {
         setSelectedExercises(childData);
-    }
+    }, [])
 
     const load = async () => {
         setLoading(true);
@@ -156,7 +156,7 @@ export default function AddWorkout() {
 
                 <View style={{ flex: 1 }}>
                     <View style={{ flex: 1 }}>
-                        <CustomExerciseView userId={user.id} childToParent={childToParent} />
+                        <CustomExerciseView userId={user.id} childToParent={() => childToParent} />
                     </View>
                 </View>
                 <View style={{ position: 'absolute', width: '100%', bottom: 10 }}>

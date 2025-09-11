@@ -31,7 +31,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="exercise"
+        name="exerciseTab"
         options={{
           title: 'Exercise',
           headerShown: false,
@@ -39,7 +39,7 @@ export default function TabLayout() {
         }}
       />
        <Tabs.Screen
-        name="workout"
+        name="workoutTab"
         options={{
           title: 'Workout',
           headerShown: false,
@@ -47,7 +47,7 @@ export default function TabLayout() {
         }}
       />
        <Tabs.Screen
-        name="split"
+        name="splitTab"
         options={{
           title: 'Split',
           headerShown: false,
