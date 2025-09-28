@@ -114,8 +114,14 @@ export default function RootLayout() {
     if (!auth || !userInfo) {
         return (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
-                <Text style={{ padding: 6 }}>Please sign in to store your workouts!</Text>
-                <Button title='Login' onPress={() => promptAsync({ showInRecents: true })} />
+                <StatusBar
+                    backgroundColor="transparent"
+                    barStyle="light-content"
+                    translucent={true}
+                />
+
+                <Text style={{ padding: 6, color: Styles.fontColor.color }}>Please sign in to store your workouts</Text>
+                <Button title='Login with Google' onPress={() => promptAsync({ showInRecents: true })} />
             </View>
         )
     }

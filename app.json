@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "GymbroTS",
+    "name": "Gymbro",
     "slug": "GymbroTS",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -29,7 +29,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 512,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
