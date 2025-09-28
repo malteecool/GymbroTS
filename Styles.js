@@ -89,6 +89,9 @@ export default StyleSheet.create({
     icon: {
         color: '#E5E3D4',
     },
+    iconDark: {
+        color: '#1c1a1aff',
+    },
     headerTitle: {
         //fontFamily: 'Oswald-Bold',
         fontSize: 30,

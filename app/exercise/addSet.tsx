@@ -69,12 +69,12 @@ export default function addSetScreen() {
         )
     }
 
-    //<Card2 historyId={exercise.id} parentCallback={parentCallback} />
+    
     return (
         <View style={{ flex: 1, ...Styles.dark }}>
             <View style={{ flex: 1, }}>
                 <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-                    <Card2 historyId={exercise.id} parentCallback={parentCallback} />
+                    <Card2 historyId={exercise.id} exercise={exercise} parentCallback={parentCallback} />
                 </ScrollView>
                 <View style={{ position: 'absolute', width: '100%', bottom: 0 }}>
                     <Button title='Complete' onPress={onAddHistory} buttonStyle={{ margin: 10, height: 40 }} />

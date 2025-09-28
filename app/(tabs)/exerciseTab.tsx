@@ -10,6 +10,7 @@ import { User } from '@/interfaces/User.Interface';
 import { getStordUserData } from '@/services/UserService.Service';
 import { Link, router } from 'expo-router';
 import emitter from '@/hooks/CustomEventEmitter';
+import { Divider } from '@rneui/base';
 
 
 export default function ExcerciseScreen() {
@@ -115,7 +116,9 @@ export default function ExcerciseScreen() {
                     placeholder='Search'
                     placeholderTextColor={Styles.fontColor.color} // Lighter placeholder text color
                 />
+
             </View>
+            <Divider width={1} color={Styles.dark.backgroundColor} />
             <ScrollView style={{ width: '100%' }} contentContainerStyle={{ paddingBottom: 20 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={_onRefresh} />}
             >{
@@ -147,7 +150,6 @@ export default function ExcerciseScreen() {
                         )
                     })
                 }</ScrollView>
-
 
             <TouchableOpacity style={{
                 position: 'absolute',

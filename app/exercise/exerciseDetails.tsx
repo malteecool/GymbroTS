@@ -6,9 +6,9 @@ import { getExerciseById, getFirebaseTimeStamp, getHistory } from "@/services/Ex
 import Styles from "@/styles";
 import { Button, Card } from "@rneui/themed";
 import { Divider } from "@rneui/themed";
-import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 const LABEL_WEIGHT = "WEIGHT";
 const LABEL_REPS = "REPS"
@@ -56,11 +56,9 @@ export default function exerciseDetails() {
 
     }, []);
 
-
     const _onRefresh = React.useCallback(() => {
         load();
     }, []);
-
 
     if (isLoading) {
         return (

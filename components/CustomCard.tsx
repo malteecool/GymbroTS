@@ -1,12 +1,14 @@
-import React, { Component, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card, Divider } from '@rneui/themed';
 import Styles from '@/styles';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { Stack } from 'expo-router';
+import { Exercise } from '@/interfaces/Exercise.Interface';
 
-export function Card2(props: { historyId: string, parentCallback: (sets:any) => void }) {
+export function Card2(props: { historyId: string, exercise: Exercise, parentCallback: (sets: any) => void }) {
 
-    const { historyId, parentCallback } = props;
+    const { historyId, exercise, parentCallback } = props;
 
     const [sets, setSets] = useState([{ set_weight: 0, set_reps: 0 }]);
 
@@ -27,39 +29,66 @@ export function Card2(props: { historyId: string, parentCallback: (sets:any) => 
 
     return (
         <View style={Styles.dark}>
-            <Card containerStyle={Styles.card}>
+            <Stack.Screen
+                options={{
+                    title: exercise?.exe_name,
+                }}
+            />
+            <Card containerStyle={{
+                ...Styles.card,
+                paddingHorizontal: 0,
+                paddingBottom: 0,
+                borderWidth: 1,
+                backgroundColor: Styles.green.backgroundColor,
+                borderColor: Styles.lessDark.backgroundColor
+            }}>
+                <Card.Title style={{
+                    ...Styles.cardTitle,
+                    color: '#E5E3D4',
+                    alignSelf: 'flex-start',
+                    paddingHorizontal: 16,
+                    fontSize: 25,
+                    backgroundColor: Styles.green.backgroundColor,
+                    marginLeft: 0
+                }}>
+                    <Text style={{ fontSize: 30 }}>{new Date().toDateString()}</Text>
+                </Card.Title>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', paddingBottom: 5, }}>
+                    <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{"WEIGHT"}</Text>
+                    <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{"REPS"}</Text>
+                </View>
                 {
                     sets.map((set, i) => {
                         return (
-                            <View key={i}>
+                            <View key={i} style={{ backgroundColor: Styles.fontColor.color }}>
+                                <Divider width={1} color={Styles.lessDark.backgroundColor} />
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', width: '100%' }}>
-                                    <Text style={{ marginStart: 0, padding: 10, ...Styles.fontColor, fontSize: 18 }}>{i + 1}</Text>
 
                                     <TextInput keyboardType='numeric' onChangeText={value => set.set_weight = parseInt(value)}
-                                        style={{ padding: 5, marginStart: 20, textAlign: 'right', width: '20%', ...Styles.fontColor, fontSize: 18 }}
+                                        style={{ ...Styles.detailText, color: Styles.dark.backgroundColor, width: '50%', borderRightWidth: 1, borderColor: Styles.lessDark.backgroundColor, textAlign: 'center' }}
                                         placeholder={String(set.set_weight)}
-                                        placeholderTextColor={Styles.fontColor.color}
+                                        placeholderTextColor={Styles.dark.backgroundColor}
                                     />
 
-                                    <Text style={{ paddingHorizontal: 0, ...Styles.fontColor, fontWeight: 'bold', fontSize: 18 }}>KG</Text>
+
 
                                     <TextInput keyboardType='numeric' onChangeText={value => set.set_reps = parseInt(value)}
-                                        style={{ padding: 5, marginStart: 20, width: '20%', textAlign: 'right', ...Styles.fontColor, fontSize: 18 }}
+                                        style={{ ...Styles.detailText, color: Styles.dark.backgroundColor, width: '50%', borderRightWidth: 1, borderColor: Styles.lessDark.backgroundColor, textAlign: 'center' }}
                                         placeholder={String(set.set_reps)}
-                                        placeholderTextColor={Styles.fontColor.color}
+                                        placeholderTextColor={Styles.dark.backgroundColor}
                                     />
 
-                                    <Text style={{ paddingHorizontal: 0, ...Styles.fontColor, fontWeight: 'bold', fontSize: 18 }}>Reps</Text>
                                     <TouchableOpacity onPress={() => onRemoveSet(i)} style={Styles.trashIcon}>
-                                        <MaterialCommunityIcons name="trash-can-outline" size={20} style={Styles.icon} />
+                                        <MaterialCommunityIcons name="trash-can-outline" size={20} style={Styles.iconDark} />
                                     </TouchableOpacity>
                                 </View>
-                                <Divider color={Styles.yellow.backgroundColor} />
+
                             </View>
                         )
                     })
                 }
-                <TouchableOpacity style={{ backgroundColor: Styles.green.backgroundColor, padding: 0, borderRadius: 10, marginTop: 15 }}
+
+                <TouchableOpacity style={{ backgroundColor: Styles.green.backgroundColor, padding: 0, borderRadius: 10, margin: 5 }}
                     onPress={onAddSet}><Text style={{ ...Styles.detailText, paddingVertical: 6, marginBottom: 0, textAlign: 'center' }}>Add set</Text></TouchableOpacity>
 
             </Card>
