@@ -42,3 +42,5 @@ app-example
 .env
 
 my-release-key.keystore
+
+firebaseConfig.js
