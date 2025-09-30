@@ -1,6 +1,6 @@
 import React from "react";
 import { View, ActivityIndicator, Text } from "react-native";
-import Styles from "../../styles";
+import Styles from "../../Styles";
 
 export function LoadingIndicator(props: { text?: string }) {
     const { text } = props;

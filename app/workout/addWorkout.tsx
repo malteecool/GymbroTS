@@ -6,7 +6,7 @@ import { User } from "@/interfaces/User.Interface";
 import { WorkoutExercise } from "@/interfaces/WorkoutExercise.Interface";
 import { getStordUserData } from "@/services/UserService.Service";
 import { addWorkout, addWorkoutWithExercises, getDefaultWorkouts } from "@/services/WorkoutService.Service";
-import Styles from "@/styles";
+import Styles from "@/Styles";
 import { Button, Card } from "@rneui/themed";
 import { router, Stack } from "expo-router";
 import { useCallback, useEffect, useState } from "react";

@@ -1,30 +1,23 @@
 import { db } from "../firebaseConfig"
-import { collection, query, getDocs, where, Timestamp, deleteDoc, doc, updateDoc, getDoc, addDoc } from "firebase/firestore";
-
+import { collection, query, getDocs, where, Timestamp, deleteDoc, doc, updateDoc, getDoc, addDoc, orderBy } from "firebase/firestore";
 
 export async function getExercises(usr_id) {
     var documentData = [];
     try {
         const collectionRef = collection(db, 'Exercise');
-        const q = query(collectionRef, where("exe_usr_id", "==", usr_id));
+        const q = query(collectionRef, where("exe_usr_id", "==", usr_id), orderBy("exe_date", "desc"));
         const docSnap = await getDocs(q);
         // would need a remap to create database like objects with id received from doc.id
         for (const doc of docSnap.docs) {
             var exerciseDoc = { "id": doc.id, ...doc.data() };
             documentData.push(exerciseDoc);
         }
-        documentData.sort((a, b) => {
-            const dateA = a.exe_date.seconds * 1000 + a.exe_date.nanoseconds / 1e6; // Convert to milliseconds
-            const dateB = b.exe_date.seconds * 1000 + b.exe_date.nanoseconds / 1e6; // Convert to milliseconds
-            return dateB - dateA;
-        });
     }
     catch (error) {
         console.error(error)
     }
     return documentData;
 };
-
 
 export async function getExerciseById(exe_id) {
     try {
@@ -50,14 +43,12 @@ export async function getDefaultExercises() {
 }
 
 export async function getSetDocument(docId) {
-    const sets = query(collection(db, 'Exercise_history', docId, 'sets'));
+    const sets = query(collection(db, 'Exercise_history', docId, 'sets'), orderBy("set_order", "asc"));
     const docSnap = await getDocs(sets);
     var documentData = [];
     docSnap.forEach(async (doc) => {
         documentData.push(doc.data());
     });
-
-    documentData.sort((a, b) => a.set_order >= b.set_order);
     return { "exh_sets": documentData };
 };
 
@@ -65,7 +56,7 @@ export async function getHistory(exerciseId, date) {
     var documentData = [];
     try {
         const collectionRef = collection(db, 'Exercise_history');
-        const q = query(collectionRef, where("exh_exe_id", "==", exerciseId));
+        const q = query(collectionRef, where("exh_exe_id", "==", exerciseId), orderBy("exh_date", "desc"));
         const docSnap = await getDocs(q);
         if (docSnap.size > 0) {
             for (const doc of docSnap.docs) {
@@ -74,9 +65,7 @@ export async function getHistory(exerciseId, date) {
                 if (!date || (date && getFirebaseTimeStamp(tempDoc.exh_date.seconds, tempDoc.exh_date.nanoseconds) > date)) {
                     documentData.push(tempDoc);
                 }
-
             }
-            documentData.sort((a, b) => a.exh_date <= b.exh_date);
         }
     }
     catch (error) {
@@ -84,7 +73,6 @@ export async function getHistory(exerciseId, date) {
     }
     return documentData;
 };
-
 
 export async function getHistoryByUser(userId) {
     var documentData = [];
@@ -103,7 +91,6 @@ export async function getHistoryByUser(userId) {
     }
     return documentData;
 }
-
 
 export function getFirebaseTimeStamp(seconds, nanoseconds) {
     return new Timestamp(seconds, nanoseconds).toDate();

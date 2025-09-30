@@ -5,7 +5,7 @@ import Carousel from "react-native-snap-carousel";
 import { getReferenceWeek, markDayAsCompleted } from '@/services/SplitService.Service';
 import { getWeekNumber } from "@/services/StatsService.Service";
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Styles from "../../styles";
+import Styles from "../../Styles";
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import emitter from "@/hooks/CustomEventEmitter";
 import { getStordUserData } from "@/services/UserService.Service";

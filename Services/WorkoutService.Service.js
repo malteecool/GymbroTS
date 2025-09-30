@@ -1,11 +1,11 @@
 import { db } from "../firebaseConfig"
 //import emitter from "../components/Custom/CustomEventEmitter.Custom";
-import { collection, query, getDocs, where, Timestamp, getDoc, doc, updateDoc, addDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, getDocs, where, Timestamp, getDoc, doc, updateDoc, addDoc, deleteDoc, orderBy } from "firebase/firestore";
 
 
 export async function getWorkouts(usr_id) {
     const collectionRef = collection(db, 'Workout');
-    const q = query(collectionRef, where("wor_usr_id", "==", usr_id));
+    const q = query(collectionRef, where("wor_usr_id", "==", usr_id), orderBy("wor_last_done", "desc"));
     const docSnap = await getDocs(q);
     var workoutData = []
     // iterate each workout
@@ -14,8 +14,6 @@ export async function getWorkouts(usr_id) {
         tempDoc = { id: doc.id, ...tempDoc };
         workoutData.push(tempDoc);
     }
-
-    workoutData.sort((a, b) => a.wor_last_done <= b.wor_last_done);
     return workoutData;
 }
 

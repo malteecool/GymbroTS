@@ -6,7 +6,7 @@ import { removeWorkoutExercise as removeWorkoutExerciseService, getFirebaseTimeS
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Animated, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import Styles from "@/styles";
+import Styles from "@/Styles";
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import { Button, Card } from "@rneui/themed";
 import { MaterialCommunityIcons } from "@expo/vector-icons";

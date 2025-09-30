@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getExercises } from "@/services/ExerciseService.Service";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableHighlight, TouchableOpacity, View } from "react-native";
 import { Card } from '@rneui/themed';
-import Styles from "@/styles";
+import Styles from "@/Styles";
 import { LoadingIndicator } from "./ui/LoadingIndicator";
 import { Exercise } from "@/interfaces/Exercise.Interface";
 import { WorkoutExercise } from "@/interfaces/WorkoutExercise.Interface";

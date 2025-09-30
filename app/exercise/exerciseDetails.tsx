@@ -1,9 +1,10 @@
+import { AddButton } from "@/components/ui/AddButton";
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import emitter from "@/hooks/CustomEventEmitter";
 import { Exercise } from "@/interfaces/Exercise.Interface";
 import { ExerciseHistory } from "@/interfaces/ExerciseHistory.Interface";
 import { getExerciseById, getFirebaseTimeStamp, getHistory } from "@/services/ExerciseService.Service";
-import Styles from "@/styles";
+import Styles from "@/Styles";
 import { Button, Card } from "@rneui/themed";
 import { Divider } from "@rneui/themed";
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -135,14 +136,12 @@ export default function exerciseDetails() {
                         </ScrollView>)
                 }
             </View>
-            <TouchableOpacity style={{
-                position: 'absolute',
-                bottom: 10,
-                right: 10,
-            }}>
-                <Button onPress={() => router.push({ pathname: '/exercise/addSet', params: { exerciseId: exerciseId } })}
-                    title='+' titleStyle={{ fontSize: 24 }} buttonStyle={{ width: 60, height: 60, borderRadius: 30, borderColor: '#1c7bc7', backgroundColor: Styles.green.backgroundColor }} />
-            </TouchableOpacity>
+            <AddButton 
+                navigation={{
+                    pathname: '/exercise/addSet',
+                    params: { exerciseId: exerciseId }
+                }}
+            />
         </View>
     );
 

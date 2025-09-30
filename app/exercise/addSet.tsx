@@ -4,7 +4,7 @@ import emitter from "@/hooks/CustomEventEmitter";
 import { Exercise } from "@/interfaces/Exercise.Interface";
 import { Set } from "@/interfaces/Set.Interface";
 import { addExerciseHistory, getExerciseById } from "@/services/ExerciseService.Service";
-import Styles from "@/styles";
+import Styles from "@/Styles";
 import { Button } from "@rneui/themed";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -69,7 +69,6 @@ export default function addSetScreen() {
         )
     }
 
-    
     return (
         <View style={{ flex: 1, ...Styles.dark }}>
             <View style={{ flex: 1, }}>

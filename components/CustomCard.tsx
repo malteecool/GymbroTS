@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card, Divider } from '@rneui/themed';
-import Styles from '@/styles';
+import Styles from '@/Styles';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Stack } from 'expo-router';
 import { Exercise } from '@/interfaces/Exercise.Interface';

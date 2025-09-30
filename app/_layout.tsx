@@ -3,7 +3,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
-import Styles from '@/styles';
+import Styles from '@/Styles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AuthSession from 'expo-auth-session';
 import { getUserData, setStordUserData } from '@/services/UserService.Service';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, TouchableOpacity, StyleSheet, Text, ActivityIndicator } from "react-native";
 import { getWorkoutsCount } from "@/services/StatsService.Service";
-import Styles from "../../styles";
+import Styles from "../../Styles";
 import { User } from "@/interfaces/User.Interface";
 import { getStordUserData } from "@/services/UserService.Service";
 

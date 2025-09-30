@@ -2,15 +2,16 @@ import { Text, View, TouchableOpacity, ScrollView, TextInput, StyleSheet, Refres
 import React, { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getExercises, removeExercise as removeExerciseService, getFirebaseTimeStamp } from '@/services/ExerciseService.Service';
-import Styles from '../../styles';
-import { Card, Button } from '@rneui/themed';
+import Styles from '../../Styles';
+import { Card, } from '@rneui/themed';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { Exercise } from '@/interfaces/Exercise.Interface';
 import { User } from '@/interfaces/User.Interface';
 import { getStordUserData } from '@/services/UserService.Service';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import emitter from '@/hooks/CustomEventEmitter';
 import { Divider } from '@rneui/base';
+import { AddButton } from '@/components/ui/AddButton';
 
 
 export default function ExcerciseScreen() {
@@ -151,14 +152,7 @@ export default function ExcerciseScreen() {
                     })
                 }</ScrollView>
 
-            <TouchableOpacity style={{
-                position: 'absolute',
-                bottom: 10,
-                right: 10,
-            }}>
-                <Button onPress={() => router.push('/exercise/addExercise')}
-                    title='+' titleStyle={{ fontSize: 24 }} buttonStyle={{ width: 60, height: 60, borderRadius: 30, borderColor: '#1c7bc7', backgroundColor: Styles.green.backgroundColor }} />
-            </TouchableOpacity>
+            <AddButton navigation='/exercise/addExercise'/>
 
         </View>
     )

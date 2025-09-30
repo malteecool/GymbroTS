@@ -1,15 +1,16 @@
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import { Card, Button } from '@rneui/themed';
+import { Card } from '@rneui/themed';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import emitter from '@/hooks/CustomEventEmitter';
 import { removeWorkout as removeWorkoutService, getWorkouts, getFirebaseTimeStamp } from '@/services/WorkoutService.Service';
-import Styles from '@/styles';
+import Styles from '@/Styles';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { getStordUserData } from '@/services/UserService.Service';
 import { User } from '@/interfaces/User.Interface';
 import { Workout } from '@/interfaces/Workout.Interface';
 import { router } from 'expo-router';
+import { AddButton } from '@/components/ui/AddButton';
 
 
 export default function WorkoutScreen() {
@@ -123,13 +124,7 @@ export default function WorkoutScreen() {
                     })
                 }</ScrollView>
 
-            <TouchableOpacity style={{
-                position: 'absolute',
-                bottom: 10,
-                right: 10,
-            }}>
-                <Button onPress={() => { router.push('/workout/addWorkout') }} title='+' titleStyle={{ fontSize: 24 }} buttonStyle={styles.buttonStyle} />
-            </TouchableOpacity>
+            <AddButton navigation='/workout/addWorkout'/>
         </View>
     )
 }

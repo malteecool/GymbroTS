@@ -5,7 +5,7 @@ import { User } from "@/interfaces/User.Interface";
 import { addExercise, getDefaultExercises, getExercises } from "@/services/ExerciseService.Service";
 import { getStordUserData } from "@/services/UserService.Service";
 import { attachToWorkout } from "@/services/WorkoutService.Service";
-import Styles from "@/styles";
+import Styles from "@/Styles";
 import { Card } from "@rneui/themed";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
