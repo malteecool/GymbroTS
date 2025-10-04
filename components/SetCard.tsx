@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card, Divider } from '@rneui/themed';
 import Styles from '@/Styles';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Stack } from 'expo-router';
 import { Exercise } from '@/interfaces/Exercise.Interface';
 
-export function Card2(props: { historyId: string, exercise: Exercise, parentCallback: (sets: any) => void }) {
+export function SetCard(props: { historyId: string, exercise: Exercise, setCallback: (sets: any) => void, commentCallback: (comment: string) => void }) {
 
-    const { historyId, exercise, parentCallback } = props;
+    const { historyId, exercise, setCallback, commentCallback } = props;
 
     const [sets, setSets] = useState([{ set_weight: 0, set_reps: 0 }]);
 
     useEffect(() => {
-        parentCallback(sets);
+        setCallback(sets);
     }, [sets]);
 
     const onAddSet = () => {
@@ -70,8 +70,6 @@ export function Card2(props: { historyId: string, exercise: Exercise, parentCall
                                         placeholderTextColor={Styles.dark.backgroundColor}
                                     />
 
-
-
                                     <TextInput keyboardType='numeric' onChangeText={value => set.set_reps = parseInt(value)}
                                         style={{ ...Styles.detailText, color: Styles.dark.backgroundColor, width: '50%', borderRightWidth: 1, borderColor: Styles.lessDark.backgroundColor, textAlign: 'center' }}
                                         placeholder={String(set.set_reps)}
@@ -92,6 +90,36 @@ export function Card2(props: { historyId: string, exercise: Exercise, parentCall
                     onPress={onAddSet}><Text style={{ ...Styles.detailText, paddingVertical: 6, marginBottom: 0, textAlign: 'center' }}>Add set</Text></TouchableOpacity>
 
             </Card>
+            <View
+                style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#1c1a1a',
+                    borderRadius: 10,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    marginHorizontal: 5,
+                    marginTop: 5
+                }}
+            >
+                <MaterialCommunityIcons
+                    size={22}
+                    color={Styles.fontColor.color}
+                    name="comment"
+                />
+                <TextInput
+                    style={{
+                        flex: 1,
+                        marginLeft: 10,
+                        color: Styles.fontColor.color,
+                        fontSize: 18,
+                        paddingVertical: 5,
+                    }}
+                    onChangeText={commentCallback}
+                    placeholder="Comment"
+                    placeholderTextColor={Styles.fontColor.color}
+                />
+            </View>
         </View>
     )
 }

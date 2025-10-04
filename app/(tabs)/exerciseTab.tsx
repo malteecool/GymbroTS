@@ -1,4 +1,4 @@
-import { Text, View, TouchableOpacity, ScrollView, TextInput, StyleSheet, RefreshControl, Pressable } from 'react-native';
+import { Text, View, TouchableOpacity, ScrollView, TextInput, StyleSheet, RefreshControl, Pressable, Alert } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getExercises, removeExercise as removeExerciseService, getFirebaseTimeStamp } from '@/services/ExerciseService.Service';
@@ -61,6 +61,17 @@ export default function ExcerciseScreen() {
             load();
         }
     };
+
+    const warnUser = (exercise: Exercise) => {
+        Alert.alert('Remove exercise', 'Are you sure you want to delete exercise ' + exercise.exe_name + '?', [
+            {
+                text: 'Cancel',
+                onPress: () => { return; },
+                style: 'cancel',
+            },
+            { text: 'OK', onPress: () => removeExercise(exercise.id) },
+        ]);
+    }
 
     const searchFilterFunction = (text: string) => {
         // Check if searched text is not blank
@@ -142,7 +153,7 @@ export default function ExcerciseScreen() {
                                                 {' ' + (item.exe_date !== null ? exerciseDate.toDateString() : "Never")}
                                             </Text>
                                         </View>
-                                        <TouchableOpacity onPress={() => removeExercise(item.id)} style={Styles.trashIcon}>
+                                        <TouchableOpacity onPress={() => warnUser(item)} style={Styles.trashIcon}>
                                             <MaterialCommunityIcons name="trash-can-outline" size={20} style={Styles.icon} />
                                         </TouchableOpacity>
                                     </View>
@@ -152,7 +163,7 @@ export default function ExcerciseScreen() {
                     })
                 }</ScrollView>
 
-            <AddButton navigation='/exercise/addExercise'/>
+            <AddButton navigation='/exercise/addExercise' />
 
         </View>
     )

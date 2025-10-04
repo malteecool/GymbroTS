@@ -12,7 +12,6 @@ import { Workout } from '@/interfaces/Workout.Interface';
 import { router } from 'expo-router';
 import { AddButton } from '@/components/ui/AddButton';
 
-
 export default function WorkoutScreen() {
     const [data, setData] = useState<Workout[]>([]);
     const [refreshing, setRefreshing] = useState<boolean>(false);

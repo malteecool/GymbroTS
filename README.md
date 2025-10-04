@@ -17,7 +17,9 @@ npx expo run:android (needed for native build)
 
 # how to build: 
 ## 1. in /gymbro:
-npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle
+We use expo router as navigation, hence we need to provide a different entry file. 
+
+npx react-native bundle --platform android --dev false --entry-file node_modules/expo-router/entry.js --bundle-output android/app/src/main/assets/index.android.bundle
 
 ## 2. in /gymbro/android 
 gradlew clean (?)

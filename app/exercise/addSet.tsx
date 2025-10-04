@@ -1,4 +1,4 @@
-import { Card2 } from "@/components/CustomCard";
+import { SetCard } from "@/components/SetCard";
 import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
 import emitter from "@/hooks/CustomEventEmitter";
 import { Exercise } from "@/interfaces/Exercise.Interface";
@@ -8,17 +8,18 @@ import Styles from "@/Styles";
 import { Button } from "@rneui/themed";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
 
 export default function addSetScreen() {
 
     const { exerciseId } = useLocalSearchParams();
     const [isLoading, setLoading] = useState(false);
-    const [data, setData] = useState<Set[]>([]);
+    const [setData, setSetData] = useState<Set[]>([]); // setData might not be the best variable naming.
+    const [comment, setComment] = useState<string>("");
     const [exercise, setExercise] = useState<Exercise>();
 
-    const parentCallback = (childData: Set[]) => {
-        setData(childData);
+    const setCallback = (setData: Set[]) => {
+        setSetData(setData);
     }
 
     const load = async () => {
@@ -41,7 +42,7 @@ export default function addSetScreen() {
     const onAddHistory = async () => {
         try {
             setLoading(true);
-            await addExerciseHistory(exercise, data)
+            await addExerciseHistory(exercise, setData, comment)
         }
 
         catch (error) {
@@ -73,7 +74,7 @@ export default function addSetScreen() {
         <View style={{ flex: 1, ...Styles.dark }}>
             <View style={{ flex: 1, }}>
                 <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-                    <Card2 historyId={exercise.id} exercise={exercise} parentCallback={parentCallback} />
+                    <SetCard historyId={exercise.id} exercise={exercise} setCallback={setCallback} commentCallback={setComment} />
                 </ScrollView>
                 <View style={{ position: 'absolute', width: '100%', bottom: 0 }}>
                     <Button title='Complete' onPress={onAddHistory} buttonStyle={{ margin: 10, height: 40 }} />

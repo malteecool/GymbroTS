@@ -61,7 +61,7 @@ export async function getHistory(exerciseId, date) {
         if (docSnap.size > 0) {
             for (const doc of docSnap.docs) {
                 var tempDoc = await getSetDocument(doc.id);
-                tempDoc = { exh_date: doc.data().exh_date, ...tempDoc };
+                tempDoc = { exh_date: doc.data().exh_date, exh_comment: doc.data().exh_comment, ...tempDoc };
                 if (!date || (date && getFirebaseTimeStamp(tempDoc.exh_date.seconds, tempDoc.exh_date.nanoseconds) > date)) {
                     documentData.push(tempDoc);
                 }
@@ -127,12 +127,14 @@ export async function addExercise(name, usr_id) {
     return docRef.id;//(await getDoc(doc(db, 'Exercise', docRef.id))).data(); TODO: possibly not needed.
 }
 
-export async function addExerciseHistory(exercise, sets) {
+export async function addExerciseHistory(exercise, sets, comment) {
+
     try {
         const documentData = {
             exh_date: Timestamp.fromDate(new Date()),
             exh_exe_id: exercise.id,
-            exh_usr_id: exercise.exe_usr_id
+            exh_usr_id: exercise.exe_usr_id,
+            exh_comment: comment
         };
         const docRef = await addDoc(collection(db, 'Exercise_history'), documentData);
         if (sets.length > 0) {

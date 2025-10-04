@@ -5,6 +5,7 @@ import { Exercise } from "@/interfaces/Exercise.Interface";
 import { ExerciseHistory } from "@/interfaces/ExerciseHistory.Interface";
 import { getExerciseById, getFirebaseTimeStamp, getHistory } from "@/services/ExerciseService.Service";
 import Styles from "@/Styles";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button, Card } from "@rneui/themed";
 import { Divider } from "@rneui/themed";
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -30,7 +31,7 @@ export default function exerciseDetails() {
             const exercise = await getExerciseById(exerciseId as string);
             setExercise(exercise);
 
-            const history = await getHistory(exerciseId as string);
+            const history: ExerciseHistory[] = await getHistory(exerciseId as string);
             setData(history);
 
             setLoading(false);
@@ -88,55 +89,89 @@ export default function exerciseDetails() {
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={_onRefresh} />}
                         >{
                                 data.map((exercise: ExerciseHistory, i: number) => (
-                                    <Card key={i} containerStyle={{
-                                        ...Styles.card,
-                                        paddingHorizontal: 0,
-                                        paddingBottom: 0,
-                                        borderWidth: 1,
-                                        backgroundColor: Styles.green.backgroundColor,
-                                        borderColor: Styles.lessDark.backgroundColor
-                                    }}>
-                                        <Card.Title style={{
-                                            ...Styles.cardTitle,
-                                            color: '#E5E3D4',
-                                            alignSelf: 'flex-start',
-                                            paddingHorizontal: 16,
-                                            fontSize: 25,
+                                    <View>
+                                        <Card key={i} containerStyle={{
+                                            ...Styles.card,
+                                            paddingHorizontal: 0,
+                                            paddingBottom: 0,
+                                            borderWidth: 1,
                                             backgroundColor: Styles.green.backgroundColor,
-                                            marginLeft: 0
+                                            borderColor: Styles.lessDark.backgroundColor
                                         }}>
-                                            <Text style={{ fontSize: 30 }}>{getFirebaseTimeStamp(exercise.exh_date.seconds, exercise.exh_date.nanoseconds).toDateString()}</Text>
-                                        </Card.Title>
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', paddingBottom: 5, }}>
-                                            <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{LABEL_WEIGHT}</Text>
-                                            <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{LABEL_REPS}</Text>
-                                        </View>
-                                        {
-                                            (exercise.exh_sets !== null && exercise.exh_sets !== undefined) &&
-                                            exercise.exh_sets.map((set, i) => {
-                                                return (
-                                                    <View key={i} style={{ backgroundColor: Styles.fontColor.color }}>
-                                                        <Divider width={1} color={Styles.lessDark.backgroundColor} />
-                                                        <View style={{
-                                                            flexDirection: 'row',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-evenly',
+                                            <Card.Title style={{
+                                                ...Styles.cardTitle,
+                                                color: '#E5E3D4',
+                                                alignSelf: 'flex-start',
+                                                paddingHorizontal: 16,
+                                                fontSize: 25,
+                                                backgroundColor: Styles.green.backgroundColor,
+                                                marginLeft: 0
+                                            }}>
+                                                <Text style={{ fontSize: 30 }}>{getFirebaseTimeStamp(exercise.exh_date.seconds, exercise.exh_date.nanoseconds).toDateString()}</Text>
+                                            </Card.Title>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', paddingBottom: 5, }}>
+                                                <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{LABEL_WEIGHT}</Text>
+                                                <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{LABEL_REPS}</Text>
+                                            </View>
+                                            {
+                                                (exercise.exh_sets !== null && exercise.exh_sets !== undefined) &&
+                                                exercise.exh_sets.map((set, i) => {
+                                                    return (
+                                                        <View key={i} style={{ backgroundColor: Styles.fontColor.color }}>
+                                                            <Divider width={1} color={Styles.lessDark.backgroundColor} />
+                                                            <View style={{
+                                                                flexDirection: 'row',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-evenly',
 
-                                                        }}>
-                                                            <Text style={{ ...Styles.detailText, color: Styles.dark.backgroundColor, width: '50%', borderRightWidth: 1, borderColor: Styles.lessDark.backgroundColor, textAlign: 'center' }}>{set.set_weight}</Text>
-                                                            <Text style={{ ...Styles.detailText, color: Styles.dark.backgroundColor, width: '50%', textAlign: 'center' }}>{set.set_reps}</Text>
+                                                            }}>
+                                                                <Text style={{ ...Styles.detailText, color: Styles.dark.backgroundColor, width: '50%', borderRightWidth: 1, borderColor: Styles.lessDark.backgroundColor, textAlign: 'center' }}>{set.set_weight}</Text>
+                                                                <Text style={{ ...Styles.detailText, color: Styles.dark.backgroundColor, width: '50%', textAlign: 'center' }}>{set.set_reps}</Text>
+                                                            </View>
                                                         </View>
-                                                    </View>
-                                                )
-                                            })
+                                                    )
+                                                })
+                                            }
+                                        </Card>
+                                        {exercise.exh_comment &&
+                                            <View
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    backgroundColor: '#1c1a1a',
+                                                    borderRadius: 10,
+                                                    paddingHorizontal: 10,
+                                                    paddingVertical: 5,
+                                                    marginHorizontal: 5,
+                                                    marginTop: 5
+                                                }}
+                                            >
+                                                <MaterialCommunityIcons
+                                                    size={22}
+                                                    color={Styles.fontColor.color}
+                                                    name="comment"
+                                                />
+                                                <Text
+                                                    style={{
+                                                        flex: 1,
+                                                        marginLeft: 10,
+                                                        color: Styles.fontColor.color,
+                                                        fontSize: 18,
+                                                        paddingVertical: 5,
+                                                    }}
+                                                >
+                                                    {exercise.exh_comment}
+                                                </Text>
+                                            </View>
                                         }
-                                    </Card>
+                                    </View>
+
                                 ))
                             }
                         </ScrollView>)
                 }
             </View>
-            <AddButton 
+            <AddButton
                 navigation={{
                     pathname: '/exercise/addSet',
                     params: { exerciseId: exerciseId }

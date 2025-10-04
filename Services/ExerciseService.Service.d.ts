@@ -9,7 +9,7 @@ export async function getHistory(exerciseId: string, date?: Date): any;
 
 export async function addExercise(name: string, usr_id: string): any;
 
-export async function addExerciseHistory(exercise: Exercise, sets: Set[]): any;
+export async function addExerciseHistory(exercise: Exercise, sets: Set[], comment?: string): any;
 
 export function getFirebaseTimeStamp(seconds: number, nanoseconds: number): Date;
 
