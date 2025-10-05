@@ -1,26 +1,22 @@
-import { SetCard } from "@/components/SetCard";
-import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
-import emitter from "@/hooks/CustomEventEmitter";
-import { Exercise } from "@/interfaces/Exercise.Interface";
-import { Set } from "@/interfaces/Set.Interface";
-import { addExerciseHistory, getExerciseById } from "@/services/ExerciseService.Service";
-import Styles from "@/Styles";
+import { SetCard, SetsRef } from "../../components/SetCard";
+import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
+import emitter from "../../hooks/CustomEventEmitter";
+import { Exercise } from "../../interfaces/Exercise.Interface";
+import { addExerciseHistory, getExerciseById } from "../../services/ExerciseService.Service";
+import Styles from "../../Styles";
 import { Button } from "@rneui/themed";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { ScrollView, Text, TextInput, View } from "react-native";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { ScrollView, Text, View } from "react-native";
 
 export default function addSetScreen() {
 
     const { exerciseId } = useLocalSearchParams();
     const [isLoading, setLoading] = useState(false);
-    const [setData, setSetData] = useState<Set[]>([]); // setData might not be the best variable naming.
     const [comment, setComment] = useState<string>("");
     const [exercise, setExercise] = useState<Exercise>();
 
-    const setCallback = (setData: Set[]) => {
-        setSetData(setData);
-    }
+    const setsRef = useRef<SetsRef>(null);
 
     const load = async () => {
         setLoading(true);
@@ -32,7 +28,6 @@ export default function addSetScreen() {
         } finally {
             setLoading(false);
         }
-
     }
 
     useEffect(() => {
@@ -41,8 +36,11 @@ export default function addSetScreen() {
 
     const onAddHistory = async () => {
         try {
-            setLoading(true);
-            await addExerciseHistory(exercise, setData, comment)
+            if (setsRef.current) {
+                setLoading(true);
+                const sets = setsRef.current?.getSets();
+                await addExerciseHistory(exercise, sets, comment)
+            }
         }
 
         catch (error) {
@@ -72,9 +70,14 @@ export default function addSetScreen() {
 
     return (
         <View style={{ flex: 1, ...Styles.dark }}>
+            <Stack.Screen
+                    options={{
+                        title: exercise?.exe_name,
+                    }}
+                />
             <View style={{ flex: 1, }}>
                 <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-                    <SetCard historyId={exercise.id} exercise={exercise} setCallback={setCallback} commentCallback={setComment} />
+                    <SetCard editable={true} exercise={exercise} commentCallback={setComment} ref={setsRef} />
                 </ScrollView>
                 <View style={{ position: 'absolute', width: '100%', bottom: 0 }}>
                     <Button title='Complete' onPress={onAddHistory} buttonStyle={{ margin: 10, height: 40 }} />

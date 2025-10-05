@@ -1,4 +1,4 @@
-import Styles from "@/Styles";
+import Styles from "../../Styles";
 import { Button } from "@rneui/base";
 import { RelativePathString, router } from "expo-router";
 import { TouchableOpacity } from "react-native";

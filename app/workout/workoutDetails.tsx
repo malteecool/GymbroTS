@@ -1,16 +1,16 @@
-import emitter from "@/hooks/CustomEventEmitter";
-import { Exercise } from "@/interfaces/Exercise.Interface";
-import { Workout } from "@/interfaces/Workout.Interface";
-import { getFormattedTime, getWorkoutById, getWorkoutExercises, updateWorkout, updateWorkoutExerciseOrdinal } from "@/services/WorkoutService.Service";
-import { removeWorkoutExercise as removeWorkoutExerciseService, getFirebaseTimeStamp } from '@/services/ExerciseService.Service';
+import emitter from "../../hooks/CustomEventEmitter";
+import { Exercise } from "../../interfaces/Exercise.Interface";
+import { Workout } from "../../interfaces/Workout.Interface";
+import { getFormattedTime, getWorkoutById, getWorkoutExercises, updateWorkout, updateWorkoutExerciseOrdinal } from "../../services/WorkoutService.Service";
+import { removeWorkoutExercise as removeWorkoutExerciseService, getFirebaseTimeStamp } from '../../services/ExerciseService.Service';
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Animated, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import Styles from "@/Styles";
-import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
+import Styles from "../../Styles";
+import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
 import { Button, Card } from "@rneui/themed";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { WorkoutExercise } from "@/interfaces/WorkoutExercise.Interface";
+import { WorkoutExercise } from "../../interfaces/WorkoutExercise.Interface";
 import { HeaderBackButton } from "@react-navigation/elements";
 
 export default function WorkoutDetails() {

@@ -3,12 +3,12 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
-import Styles from '@/Styles';
+import Styles from '../Styles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AuthSession from 'expo-auth-session';
-import { getUserData, setStordUserData } from '@/services/UserService.Service';
+import { getUserData, setStordUserData } from '../services/UserService.Service';
 import { Button, StyleSheet, Text, View, StatusBar } from 'react-native';
-import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { LoadingIndicator } from '../components/ui/LoadingIndicator';
 import * as Font from 'expo-font';
 import { HeaderBackButton, HeaderButton } from "@react-navigation/elements";
 

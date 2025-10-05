@@ -1,17 +1,17 @@
 import { Text, View, TouchableOpacity, ScrollView, TextInput, StyleSheet, RefreshControl, Pressable, Alert } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getExercises, removeExercise as removeExerciseService, getFirebaseTimeStamp } from '@/services/ExerciseService.Service';
+import { getExercises, removeExercise as removeExerciseService, getFirebaseTimeStamp } from '../../services/ExerciseService.Service';
 import Styles from '../../Styles';
 import { Card, } from '@rneui/themed';
-import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
-import { Exercise } from '@/interfaces/Exercise.Interface';
-import { User } from '@/interfaces/User.Interface';
-import { getStordUserData } from '@/services/UserService.Service';
+import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
+import { Exercise } from '../../interfaces/Exercise.Interface';
+import { User } from '../../interfaces/User.Interface';
+import { getStordUserData } from '../../services/UserService.Service';
 import { router } from 'expo-router';
-import emitter from '@/hooks/CustomEventEmitter';
+import emitter from '../../hooks/CustomEventEmitter';
 import { Divider } from '@rneui/base';
-import { AddButton } from '@/components/ui/AddButton';
+import { AddButton } from '../../components/ui/AddButton';
 
 
 export default function ExcerciseScreen() {

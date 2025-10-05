@@ -2,15 +2,15 @@ import React, { MutableRefObject, useEffect, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, Dimensions, ScrollView, RefreshControl, FlatList } from "react-native";
 import { Card, Button } from '@rneui/themed';
 import Carousel from "react-native-snap-carousel";
-import { getReferenceWeek, markDayAsCompleted } from '@/services/SplitService.Service';
-import { getWeekNumber } from "@/services/StatsService.Service";
+import { getReferenceWeek, markDayAsCompleted } from '../../services/SplitService.Service';
+import { getWeekNumber } from "../../services/StatsService.Service";
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Styles from "../../Styles";
-import { LoadingIndicator } from "@/components/ui/LoadingIndicator";
-import emitter from "@/hooks/CustomEventEmitter";
-import { getStordUserData } from "@/services/UserService.Service";
-import { User } from "@/interfaces/User.Interface";
-import { Workout } from "@/interfaces/Workout.Interface";
+import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
+import emitter from "../../hooks/CustomEventEmitter";
+import { getStordUserData } from "../../services/UserService.Service";
+import { User } from "../../interfaces/User.Interface";
+import { Workout } from "../../interfaces/Workout.Interface";
 
 /**
  * 

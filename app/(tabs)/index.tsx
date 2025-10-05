@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, StyleSheet, Text } from "react-native";
-import StatsSlider from '@/components/Profile/StatsSlider';
-import ProfileDetailsHeader from '@/components/Profile/ProfileDetailsHeader';
+import StatsSlider from '../../components/Profile/StatsSlider';
+import ProfileDetailsHeader from '../../components/Profile/ProfileDetailsHeader';
 import { getWorkoutsCount, getWeekNumber } from '../../services/StatsService.Service';
-import emitter from '@/hooks/CustomEventEmitter';
-import { getStordUserData } from '@/services/UserService.Service';
-import { User } from '@/interfaces/User.Interface';
+import emitter from '../../hooks/CustomEventEmitter';
+import { getStordUserData } from '../../services/UserService.Service';
+import { User } from '../../interfaces/User.Interface';
 
 
 export interface WeeklyData {
