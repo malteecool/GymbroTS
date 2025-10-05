@@ -10,9 +10,6 @@ import { Stack, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
 
-const LABEL_WEIGHT = "WEIGHT";
-const LABEL_REPS = "REPS"
-
 export default function exerciseDetails() {
 
     const { exerciseId, workoutId } = useLocalSearchParams();

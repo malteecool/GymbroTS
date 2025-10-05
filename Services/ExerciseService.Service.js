@@ -137,8 +137,6 @@ export async function addExerciseHistory(exercise, sets, comment) {
             exh_comment: comment
         };
         const docRef = await addDoc(collection(db, 'Exercise_history'), documentData);
-        console.log(sets);
-        console.log(docRef.id);
         if (sets.length > 0) {
             sets.forEach(async (set, i) => {
                 const setRef = await addDoc(collection(db, 'Exercise_history', docRef.id, 'sets'), {

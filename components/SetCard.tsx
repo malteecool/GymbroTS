@@ -8,6 +8,9 @@ import { Set } from '../interfaces/Set.Interface';
 import { ExerciseHistory } from '../interfaces/ExerciseHistory.Interface';
 import { LoadingIndicator } from './ui/LoadingIndicator';
 
+const LABEL_WEIGHT = "WEIGHT";
+const LABEL_REPS = "REPS"
+
 export interface SetsRef {
     getSets: () => Set[];
 }
@@ -43,7 +46,6 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
         const load = () => {
             if (exerciseHistory) {
                 setSets(exerciseHistory.exh_sets);
-                console.log(exerciseHistory.exh_sets)
             } else {
                 setSets([{ set_weight: 0, set_reps: 0, set_order: 1 }])
             }
@@ -82,8 +84,8 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                         <Text style={{ fontSize: 30 }}>{new Date().toDateString()}</Text>
                     </Card.Title>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', paddingBottom: 5, }}>
-                        <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{"WEIGHT"}</Text>
-                        <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{"REPS"}</Text>
+                        <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{LABEL_WEIGHT}</Text>
+                        <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{LABEL_REPS}</Text>
                     </View>
                     {
                         sets.map((set, i) => {
@@ -127,36 +129,36 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                 {
                     (editable || exerciseHistory?.exh_comment) &&
                     <View
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: '#1c1a1a',
-                        borderRadius: 10,
-                        paddingHorizontal: 10,
-                        paddingVertical: 5,
-                        marginHorizontal: 5,
-                        marginTop: 5
-                    }}
-                >
-                    <MaterialCommunityIcons
-                        size={22}
-                        color={Styles.fontColor.color}
-                        name="comment"
-                    />
-                    <TextInput
                         style={{
-                            flex: 1,
-                            marginLeft: 10,
-                            color: Styles.fontColor.color,
-                            fontSize: 18,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            backgroundColor: '#1c1a1a',
+                            borderRadius: 10,
+                            paddingHorizontal: 10,
                             paddingVertical: 5,
+                            marginHorizontal: 5,
+                            marginTop: 5
                         }}
-                        onChangeText={commentCallback}
-                        placeholder={exerciseHistory?.exh_comment ? exerciseHistory.exh_comment : "Comment"}
-                        placeholderTextColor={Styles.fontColor.color}
-                        editable={editable}
-                    />
-                </View>
+                    >
+                        <MaterialCommunityIcons
+                            size={22}
+                            color={Styles.fontColor.color}
+                            name="comment"
+                        />
+                        <TextInput
+                            style={{
+                                flex: 1,
+                                marginLeft: 10,
+                                color: Styles.fontColor.color,
+                                fontSize: 18,
+                                paddingVertical: 5,
+                            }}
+                            onChangeText={commentCallback}
+                            placeholder={exerciseHistory?.exh_comment ? exerciseHistory.exh_comment : "Comment"}
+                            placeholderTextColor={Styles.fontColor.color}
+                            editable={editable}
+                        />
+                    </View>
                 }
             </View>
         )
