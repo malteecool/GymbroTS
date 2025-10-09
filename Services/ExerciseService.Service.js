@@ -1,15 +1,15 @@
-import { db } from "../firebaseConfig"
-import { collection, query, getDocs, where, Timestamp, deleteDoc, doc, updateDoc, getDoc, addDoc, orderBy } from "firebase/firestore";
+import { db } from '../firebaseConfig'
+import { collection, query, getDocs, where, Timestamp, deleteDoc, doc, updateDoc, getDoc, addDoc, orderBy } from 'firebase/firestore';
 
 export async function getExercises(usr_id) {
     var documentData = [];
     try {
         const collectionRef = collection(db, 'Exercise');
-        const q = query(collectionRef, where("exe_usr_id", "==", usr_id), orderBy("exe_date", "desc"));
+        const q = query(collectionRef, where('exe_usr_id', '==', usr_id), orderBy('exe_date', 'desc'));
         const docSnap = await getDocs(q);
         // would need a remap to create database like objects with id received from doc.id
         for (const doc of docSnap.docs) {
-            var exerciseDoc = { "id": doc.id, ...doc.data() };
+            var exerciseDoc = { 'id': doc.id, ...doc.data() };
             documentData.push(exerciseDoc);
         }
     }
@@ -22,7 +22,7 @@ export async function getExercises(usr_id) {
 export async function getExerciseById(exe_id) {
     try {
         const exerciseDoc= await getDoc(doc(db, 'Exercise', exe_id));
-        return {"id": exe_id, ...exerciseDoc.data()}
+        return {'id': exe_id, ...exerciseDoc.data()}
     }
     catch (error) {
         console.error(error)
@@ -43,20 +43,20 @@ export async function getDefaultExercises() {
 }
 
 export async function getSetDocument(docId) {
-    const sets = query(collection(db, 'Exercise_history', docId, 'sets'), orderBy("set_order", "asc"));
+    const sets = query(collection(db, 'Exercise_history', docId, 'sets'), orderBy('set_order', 'asc'));
     const docSnap = await getDocs(sets);
     var documentData = [];
     docSnap.forEach(async (doc) => {
         documentData.push(doc.data());
     });
-    return { "exh_sets": documentData };
+    return { 'exh_sets': documentData };
 };
 
 export async function getHistory(exerciseId, date) {
     var documentData = [];
     try {
         const collectionRef = collection(db, 'Exercise_history');
-        const q = query(collectionRef, where("exh_exe_id", "==", exerciseId), orderBy("exh_date", "desc"));
+        const q = query(collectionRef, where('exh_exe_id', '==', exerciseId), orderBy('exh_date', 'desc'));
         const docSnap = await getDocs(q);
         if (docSnap.size > 0) {
             for (const doc of docSnap.docs) {
@@ -78,7 +78,7 @@ export async function getHistoryByUser(userId) {
     var documentData = [];
     try {
         const collectionRef = collection(db, 'Exercise_history');
-        const q = query(collectionRef, where("exh_usr_id", "==", userId));
+        const q = query(collectionRef, where('exh_usr_id', '==', userId));
         const docSnap = await getDocs(q);
         if (docSnap.size > 0) {
             for (const doc of docSnap.docs) {
@@ -98,7 +98,7 @@ export function getFirebaseTimeStamp(seconds, nanoseconds) {
 
 export async function removeExercise(exe_id, usr_id) {
     try {
-        const docRef = await deleteDoc(doc(db, "Exercise", exe_id));
+        const docRef = await deleteDoc(doc(db, 'Exercise', exe_id));
 
         await removeWorkoutExercise(null, exe_id, usr_id);
 
@@ -123,7 +123,7 @@ export async function addExercise(name, usr_id) {
         exe_max_weight: 0,
         exe_usr_id: usr_id
     };
-    const docRef = await addDoc(collection(db, "Exercise"), documentData);
+    const docRef = await addDoc(collection(db, 'Exercise'), documentData);
     return docRef.id;//(await getDoc(doc(db, 'Exercise', docRef.id))).data(); TODO: possibly not needed.
 }
 
@@ -168,7 +168,7 @@ export async function removeWorkoutExercise(workout_id, exe_id, usr_id) {
     //scrape the workouts in order to remove the attached exercise.
     if (usr_id !== null) {
         const collectionRef = collection(db, 'Workout');
-        const q = query(collectionRef, where("wor_usr_id", "==", usr_id));
+        const q = query(collectionRef, where('wor_usr_id', '==', usr_id));
         const docSnap = await getDocs(q);
 
         for (const workoutDoc of docSnap.docs) {

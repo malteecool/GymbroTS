@@ -4,7 +4,7 @@ import { Card, Button } from '@rneui/themed';
 import Carousel from "react-native-snap-carousel";
 import { getReferenceWeek, markDayAsCompleted } from '../../services/SplitService.Service';
 import { getWeekNumber } from "../../services/StatsService.Service";
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Styles from "../../Styles";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
 import emitter from "../../hooks/CustomEventEmitter";

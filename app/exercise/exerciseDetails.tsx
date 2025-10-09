@@ -82,7 +82,7 @@ export default function exerciseDetails() {
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={_onRefresh} />}
                         >{
                                 data.map((exerciseHistory: ExerciseHistory, i: number) => (
-                                    <View>
+                                    <View key={i}>
                                         <SetCard editable={false} exercise={exercise!} exerciseHistory={exerciseHistory} commentCallback={undefined} ref={undefined} />
                                     </View>
 

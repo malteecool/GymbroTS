@@ -1,11 +1,11 @@
-import { db } from "../firebaseConfig"
-//import emitter from "../components/Custom/CustomEventEmitter.Custom";
-import { collection, query, getDocs, where, Timestamp, getDoc, doc, updateDoc, addDoc, deleteDoc, orderBy } from "firebase/firestore";
+import { db } from '../firebaseConfig'
+//import emitter from '../components/Custom/CustomEventEmitter.Custom';
+import { collection, query, getDocs, where, Timestamp, getDoc, doc, updateDoc, addDoc, deleteDoc, orderBy } from 'firebase/firestore';
 
 
 export async function getWorkouts(usr_id) {
     const collectionRef = collection(db, 'Workout');
-    const q = query(collectionRef, where("wor_usr_id", "==", usr_id), orderBy("wor_last_done", "desc"));
+    const q = query(collectionRef, where('wor_usr_id', '==', usr_id), orderBy('wor_last_done', 'desc'));
     const docSnap = await getDocs(q);
     var workoutData = []
     // iterate each workout
@@ -33,7 +33,7 @@ export const getExerciseDocument = async (docId) => {
     // iterate each exercise
     for (const exerciseDoc of docSnap.docs) {
         const exerciseId = await exerciseDoc.data().woe_exercise;
-        const docRef = doc(db, "Exercise", exerciseId);
+        const docRef = doc(db, 'Exercise', exerciseId);
         const exercise = await getDoc(docRef);
         documentData.push(exercise.data());
     }
@@ -50,18 +50,17 @@ export async function updateWorkout(workout, timer) {
 }
 
 export async function getWorkoutExercises(workoutId) {
-    const exercises = query(collection(db, 'Workout', workoutId, 'workout_exercise'));
+    const exercises = query(collection(db, 'Workout', workoutId, 'workout_exercise'), orderBy('woe_ordinal', 'asc'));
     const docSnap = await getDocs(exercises);
     var documentData = [];
     // iterate each exercise
     for (const exerciseDoc of docSnap.docs) {
         const exerciseData = exerciseDoc.data();
-        const docRef = doc(db, "Exercise", exerciseData.woe_exercise);
+        const docRef = doc(db, 'Exercise', exerciseData.woe_exercise);
         var exercise = await getDoc(docRef);
         exercise = { woe_id: exerciseDoc.id, id: exercise.id, ordinal: exerciseData.woe_ordinal, ...exercise.data() };
         documentData.push(exercise);
     }
-    documentData.sort((a, b) => a.ordinal >= b.ordinal);
     return documentData;
 }
 
@@ -88,7 +87,7 @@ export const getFormattedTime = (time) => {
     const hours = Math.floor(time / 3600);
     const minutes = Math.floor((time % 3600) / 60);
     const seconds = Math.floor((time % 60));
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 }
 
 export async function addWorkoutWithExercises(workoutName, selectedExercises, usr_id) {
@@ -127,7 +126,7 @@ export async function addWorkout(name, usr_id) {
             wor_name: name,
             wor_usr_id: usr_id
         };
-        const docRef = await addDoc(collection(db, "Workout"), documentData);
+        const docRef = await addDoc(collection(db, 'Workout'), documentData);
         return docRef.id;
     }
     catch (error) {
@@ -137,5 +136,5 @@ export async function addWorkout(name, usr_id) {
 }
 
 export async function removeWorkout(workoutId) {
-    const docRef = await deleteDoc(doc(db, "Workout", workoutId));
+    const docRef = await deleteDoc(doc(db, 'Workout', workoutId));
 }

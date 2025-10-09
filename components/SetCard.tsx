@@ -2,11 +2,12 @@ import React, { useEffect, useImperativeHandle, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card, Divider } from '@rneui/themed';
 import Styles from '../Styles';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Exercise } from '../interfaces/Exercise.Interface';
 import { Set } from '../interfaces/Set.Interface';
 import { ExerciseHistory } from '../interfaces/ExerciseHistory.Interface';
 import { LoadingIndicator } from './ui/LoadingIndicator';
+import { getFirebaseTimeStamp } from '../services/ExerciseService.Service';
 
 const LABEL_WEIGHT = "WEIGHT";
 const LABEL_REPS = "REPS"
@@ -27,6 +28,7 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
 
         const [sets, setSets] = useState<Set[]>([]);
         const [isLoading, setLoading] = useState<boolean>(true);
+        const [date, setDate] = useState<string>(new Date().toDateString());
 
         useImperativeHandle(ref, () => ({
             getSets: () => sets
@@ -45,6 +47,7 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
 
         const load = () => {
             if (exerciseHistory) {
+                setDate(getFirebaseTimeStamp(exerciseHistory.exh_date.seconds, exerciseHistory.exh_date.nanoseconds).toDateString());
                 setSets(exerciseHistory.exh_sets);
             } else {
                 setSets([{ set_weight: 0, set_reps: 0, set_order: 1 }])
@@ -81,7 +84,7 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                         backgroundColor: Styles.green.backgroundColor,
                         marginLeft: 0
                     }}>
-                        <Text style={{ fontSize: 30 }}>{new Date().toDateString()}</Text>
+                        <Text style={{ fontSize: 30 }}>{date}</Text>
                     </Card.Title>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', paddingBottom: 5, }}>
                         <Text style={{ marginHorizontal: 0, ...Styles.detailText, fontWeight: 'bold', width: '50%', textAlign: 'center' }}>{LABEL_WEIGHT}</Text>

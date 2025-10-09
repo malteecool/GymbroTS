@@ -1,7 +1,7 @@
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { Card } from '@rneui/themed';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import emitter from '../../hooks/CustomEventEmitter';
 import { removeWorkout as removeWorkoutService, getWorkouts, getFirebaseTimeStamp } from '../../services/WorkoutService.Service';
 import Styles from '../../Styles';

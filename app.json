@@ -8,6 +8,7 @@
     "scheme": "com.malteiscool.gymbrots",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "jsEngine": "jsc",
     "ios": {
       "supportsTablet": true
     },
@@ -17,11 +18,6 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.malteiscool.GymbroTS"
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-router",
