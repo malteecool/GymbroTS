@@ -13,7 +13,6 @@ export default function addSetScreen() {
 
     const { exerciseId } = useLocalSearchParams();
     const [isLoading, setLoading] = useState(false);
-    const [comment, setComment] = useState<string>("");
     const [exercise, setExercise] = useState<Exercise>();
 
     const setsRef = useRef<SetsRef>(null);
@@ -39,6 +38,8 @@ export default function addSetScreen() {
             if (setsRef.current) {
                 setLoading(true);
                 const sets = setsRef.current?.getSets();
+                const comment = setsRef.current?.getComment();
+                console.log(comment);
                 await addExerciseHistory(exercise, sets, comment)
             }
         }
@@ -77,7 +78,7 @@ export default function addSetScreen() {
                 />
             <View style={{ flex: 1, }}>
                 <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-                    <SetCard editable={true} exercise={exercise} commentCallback={setComment} ref={setsRef} />
+                    <SetCard editable={true} exercise={exercise} ref={setsRef} />
                 </ScrollView>
                 <View style={{ position: 'absolute', width: '100%', bottom: 0 }}>
                     <Button title='Complete' onPress={onAddHistory} buttonStyle={{ margin: 10, height: 40 }} />

@@ -10,9 +10,10 @@ import { getUserData, setStordUserData } from '../services/UserService.Service';
 import { Button, StyleSheet, Text, View, StatusBar } from 'react-native';
 import { LoadingIndicator } from '../components/ui/LoadingIndicator';
 import * as Font from 'expo-font';
-import { HeaderBackButton, HeaderButton } from "@react-navigation/elements";
+import { HeaderBackButton } from "@react-navigation/elements";
 
 import 'expo-router/entry';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -105,13 +106,7 @@ export default function RootLayout() {
         }
     };
 
-    if (isLoading || fontsLoading) {
-        return (
-            <LoadingIndicator text={'Logging in...'} />
-        )
-    }
-
-    if (!auth || !userInfo) {
+    if (!auth || !userInfo || isLoading || fontsLoading) {
         return (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
                 <StatusBar
@@ -119,9 +114,23 @@ export default function RootLayout() {
                     barStyle="light-content"
                     translucent={true}
                 />
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
+                    <MaterialCommunityIcons size={200} name='dumbbell' color={Styles.fontColor.color} />
+                </View>
+                {
+                    (isLoading || fontsLoading) && (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
+                            <LoadingIndicator text={'Logging in...'} backgroundColor={Styles.dark.backgroundColor} />
+                        </View>
+                    ) ||
+                    (!auth || !userInfo) && (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
+                            <Text style={{ padding: 6, color: Styles.fontColor.color }}>Please sign in to store your workouts</Text>
+                            <Button title='Login with Google' onPress={() => promptAsync({ showInRecents: true })} />
+                        </View>
+                    )
+                }
 
-                <Text style={{ padding: 6, color: Styles.fontColor.color }}>Please sign in to store your workouts</Text>
-                <Button title='Login with Google' onPress={() => promptAsync({ showInRecents: true })} />
             </View>
         )
     }
