@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, ActivityIndicator, StyleSheet, Text } from "react-native";
 import StatsSlider from '../../components/Profile/StatsSlider';
 import ProfileDetailsHeader from '../../components/Profile/ProfileDetailsHeader';
@@ -6,42 +6,40 @@ import { getWorkoutsCount, getWeekNumber } from '../../services/StatsService.Ser
 import emitter from '../../hooks/CustomEventEmitter';
 import { getStordUserData } from '../../services/UserService.Service';
 import { User } from '../../interfaces/User.Interface';
-
+import { Theme } from '../../constants/Theme';
+import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
 
 export interface WeeklyData {
     title: string;
     count: number;
-};
-
-const LoadingSlider = () => {
-    return (<View style={styles.cardContainer}>
-        <View style={{
-            flex: 1,
-            margin: 10,
-        }}>
-            <View style={{
-                flex: 1,
-                justifyContent: 'center',
-                alignContent: 'center',
-                marginTop: -20
-            }}>
-                <ActivityIndicator />
-            </View>
-        </View>
-    </View>)
 }
 
+interface TrendData {
+    title: string;
+    x: number[];
+    y: number[];
+}
+
+const LoadingSlider = () => {
+    return (
+        <View style={styles.cardContainer}>
+            <View style={styles.loadingCard}>
+                <View style={styles.loadingContent}>
+                    <ActivityIndicator size="large" color={Theme.colors.font} />
+                </View>
+            </View>
+        </View>
+    );
+};
 
 export default function ProfileScreen() {
-
     const [weeklyCountLoading, setWeeklyCountLoading] = useState(true);
     const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
     const [trendCountLoading, setTrendCountLoading] = useState(true);
-    const [trendData, setTrendData] = useState<{ title: string; x: number[]; y: any[]; }[]>([]);
-    const [user, setUser] = useState<User>();
+    const [trendData, setTrendData] = useState<TrendData[]>([]);
+    const [user, setUser] = useState<User | null>(null);
 
-
-    const createWeekylData = (data: any) => {
+    const createWeeklyData = useCallback((data: { weekly: string[]; lifetime: string[] }) => {
         setWeeklyData([
             {
                 title: 'This week',
@@ -53,12 +51,12 @@ export default function ProfileScreen() {
             }
         ]);
         setWeeklyCountLoading(false);
-    }
+    }, []);
 
-    const createTrendData = (data: any) => {
+    const createTrendData = useCallback((data: string[]) => {
         const currentWeek = getWeekNumber(new Date());
-        const groupedDates = data.reduce((result: any, date: any) => {
-            const weekNumber = getWeekNumber(date);
+        const groupedDates = data.reduce((result: Record<number, string[]>, date: string) => {
+            const weekNumber = getWeekNumber(new Date(date));
             if (!result[weekNumber]) {
                 result[weekNumber] = [];
             }
@@ -66,8 +64,8 @@ export default function ProfileScreen() {
             return result;
         }, {});
 
-        let xArray = [];
-        let yArray = [];
+        const xArray: number[] = [];
+        const yArray: number[] = [];
 
         for (let i = 0; i < 5; i++) {
             let x = currentWeek - i;
@@ -78,9 +76,9 @@ export default function ProfileScreen() {
             yArray.push(groupedDates[x] ? groupedDates[x].length : 0);
         }
 
-        // We have to reverse the arrays since we want the graph to have 5 weeks ago on the lhs and current week on the 
-        xArray = xArray.reverse();
-        yArray = yArray.reverse();
+        // Reverse arrays to show 5 weeks ago on the left and current week on the right
+        xArray.reverse();
+        yArray.reverse();
 
         setTrendData([{
             title: '5 Week Trend',
@@ -88,86 +86,103 @@ export default function ProfileScreen() {
             y: yArray
         }]);
         setTrendCountLoading(false);
-    }
+    }, []);
 
-    const load = async () => {
-        // get weekly and lifetime count
+    const load = useCallback(async () => {
         try {
-
             const storedUser = await getStordUserData();
+            if (!storedUser) {
+                console.error('User not found');
+                return;
+            }
+
             setUser(storedUser);
             setWeeklyCountLoading(true);
             setTrendCountLoading(true);
-            // Use storedUser incase the user state yet has to be updated.
+
             const counts = await getWorkoutsCount(storedUser);
-            
+
             if (counts) {
-                createWeekylData(counts);
+                createWeeklyData(counts);
                 createTrendData(counts.lifetime);
             }
-
         } catch (error) {
-            console.log(error);
+            console.error('Error loading profile data:', error);
         }
-    }
+    }, [createWeeklyData, createTrendData]);
 
     useEffect(() => {
         load();
-    }, []);
+    }, [load]);
 
     useEffect(() => {
-        const listener = (data: any) => {
+        const listener = () => {
             load();
         };
         emitter.on('profileEvent', listener);
 
         return () => {
             emitter.off('profileEvent', listener);
-        }
-
-    }, []);
+        };
+    }, [load]);
 
     return (
-        <View style={{
-            flex: 1,
-            backgroundColor: '#121111',
-        }}>
-            <ScrollView style={{
-                flex: 1,
-            }}>
+        <View style={styles.container}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
                 <ProfileDetailsHeader />
 
-                {weeklyCountLoading ? (<LoadingSlider />) : (<StatsSlider stats={weeklyData} sliderComponent={'CounterComponent'} />)}
+                {weeklyCountLoading ? (
+                    <LoadingSlider />
+                ) : (
+                    <StatsSlider
+                        stats={weeklyData}
+                        sliderComponent={'CounterComponent'}
+                    />
+                )}
 
-                {trendCountLoading ? (<LoadingSlider />) : (<StatsSlider stats={trendData} sliderComponent={'BarGraph'} />)}
-
+                {trendCountLoading ? (
+                    <LoadingSlider />
+                ) : (
+                    <StatsSlider
+                        stats={trendData}
+                        sliderComponent={'BarGraph'}
+                    />
+                )}
             </ScrollView>
         </View>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: Theme.colors.dark,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: Theme.spacing.xl,
+    },
     cardContainer: {
-        backgroundColor: '#121111',
-        //borderRadius: 30,
+        backgroundColor: Theme.colors.dark,
         height: 250,
-        marginLeft: 5,
-        marginRight: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-        marginBottom: 20
+        marginHorizontal: Theme.spacing.xs,
+        marginBottom: Theme.spacing.md,
+        ...Theme.shadows.small,
     },
-    title: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 10,
-        color: '#333',
+    loadingCard: {
+        flex: 1,
+        margin: Theme.spacing.sm,
     },
-    count: {
-        fontSize: 30,
-        fontWeight: 'bold',
-        color: '#3498db',
+    loadingContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignContent: 'center',
+        marginTop: -20,
     },
 });

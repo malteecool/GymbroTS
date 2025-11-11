@@ -3,88 +3,140 @@ import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
 import emitter from "../../hooks/CustomEventEmitter";
 import { Exercise } from "../../interfaces/Exercise.Interface";
 import { addExerciseHistory, getExerciseById } from "../../services/ExerciseService.Service";
-import Styles from "../../Styles";
+import { Theme } from "../../constants/Theme";
 import { Button } from "@rneui/themed";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 
-export default function addSetScreen() {
-
+export default function AddSetScreen() {
     const { exerciseId } = useLocalSearchParams();
     const [isLoading, setLoading] = useState(false);
-    const [exercise, setExercise] = useState<Exercise>();
+    const [exercise, setExercise] = useState<Exercise | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const setsRef = useRef<SetsRef>(null);
 
-    const load = async () => {
+    const load = useCallback(async () => {
         setLoading(true);
         try {
-            const e = await getExerciseById(exerciseId as string);
-            setExercise(e);
+            const exerciseData = await getExerciseById(exerciseId as string);
+            if (!exerciseData) {
+                Alert.alert('Error', 'Could not load the exercise');
+                return;
+            }
+            setExercise(exerciseData);
         } catch (error) {
-            console.log(error);
+            console.error('Error loading exercise:', error);
+            Alert.alert('Error', 'Failed to load exercise. Please try again.');
         } finally {
             setLoading(false);
         }
-    }
+    }, [exerciseId]);
 
     useEffect(() => {
         load();
-    }, []);
+    }, [load]);
 
-    const onAddHistory = async () => {
+    const onAddHistory = useCallback(async () => {
+        if (!exercise || !setsRef.current) {
+            return;
+        }
+
         try {
-            if (setsRef.current) {
-                setLoading(true);
-                const sets = setsRef.current?.getSets();
-                const comment = setsRef.current?.getComment();
-                console.log(comment);
-                await addExerciseHistory(exercise, sets, comment)
-            }
-        }
+            setIsSubmitting(true);
+            const sets = setsRef.current.getSets();
+            const comment = setsRef.current.getComment();
 
-        catch (error) {
-            console.log(error);
+            if (sets.length === 0 || sets.every(s => s.set_weight === 0 && s.set_reps === 0)) {
+                Alert.alert('Error', 'Please add at least one set with weight and reps');
+                return;
+            }
+
+            const success = await addExerciseHistory(exercise, sets, comment);
+            if (success) {
+                emitter.emit('setEvent', 0);
+                emitter.emit('workoutEvent', 0);
+                router.back();
+            } else {
+                Alert.alert('Error', 'Failed to save exercise history. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error adding exercise history:', error);
+            Alert.alert('Error', 'Failed to save exercise history. Please try again.');
+        } finally {
+            setIsSubmitting(false);
         }
-        finally {
-            emitter.emit('setEvent', 0);
-            emitter.emit('workoutEvent', 0);
-            setLoading(false);
-            router.back();
-        }
-    }
+    }, [exercise]);
 
     if (isLoading) {
-        return (
-            <LoadingIndicator text={''} />
-        )
+        return <LoadingIndicator text='Loading exercise...' />;
     }
 
     if (!exercise) {
         return (
-            <View style={{ flex: 1, ...Styles.dark }}>
-                <Text>Could not load the exercise</Text>
+            <View style={styles.container}>
+                <Text style={styles.errorText}>Could not load the exercise</Text>
             </View>
-        )
+        );
     }
 
     return (
-        <View style={{ flex: 1, ...Styles.dark }}>
+        <View style={styles.container}>
             <Stack.Screen
-                    options={{
-                        title: exercise?.exe_name,
-                    }}
-                />
-            <View style={{ flex: 1, }}>
-                <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+                options={{
+                    title: exercise.exe_name,
+                }}
+            />
+            <View style={styles.content}>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
                     <SetCard editable={true} exercise={exercise} ref={setsRef} />
                 </ScrollView>
-                <View style={{ position: 'absolute', width: '100%', bottom: 0 }}>
-                    <Button title='Complete' onPress={onAddHistory} buttonStyle={{ margin: 10, height: 40 }} />
+                <View style={styles.buttonContainer}>
+                    <Button
+                        title='Complete'
+                        onPress={onAddHistory}
+                        buttonStyle={styles.button}
+                        loading={isSubmitting}
+                        disabled={isSubmitting}
+                    />
                 </View>
             </View>
         </View>
-    )
-
+    );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: Theme.colors.dark,
+    },
+    content: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 120,
+    },
+    buttonContainer: {
+        position: 'absolute',
+        width: '100%',
+        bottom: 0,
+        padding: Theme.spacing.md,
+        backgroundColor: Theme.colors.dark,
+        ...Theme.shadows.medium,
+    },
+    button: {
+        height: 50,
+        borderRadius: Theme.borderRadius.md,
+        backgroundColor: Theme.colors.green,
+    },
+    errorText: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.lg,
+        textAlign: 'center',
+        marginTop: Theme.spacing.xl,
+    },
+});

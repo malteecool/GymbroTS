@@ -1,193 +1,182 @@
 import { Stack, useRouter } from 'expo-router';
-import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
+import React from 'react';
 import 'react-native-reanimated';
-import Styles from '../Styles';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as AuthSession from 'expo-auth-session';
-import { getUserData, setStordUserData } from '../services/UserService.Service';
-import { Button, StyleSheet, Text, View, StatusBar } from 'react-native';
-import { LoadingIndicator } from '../components/ui/LoadingIndicator';
-import * as Font from 'expo-font';
+import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { HeaderBackButton } from "@react-navigation/elements";
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuth } from '../hooks/useAuth';
+import { useFonts } from '../hooks/useFonts';
+import { LoadingIndicator } from '../components/ui/LoadingIndicator';
+import { Theme, Styles } from '../constants/Theme';
 
 import 'expo-router/entry';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
-
-    const [fontsLoading, setFontsLoading] = useState(true);
-    const [userInfo, setUserInfo] = useState();
-    const [auth, setAuth] = useState<AuthSession.TokenResponse | null>();
-    const [requireRefresh, setRequireRefresh] = useState(false);
-    const [isLoading, setLoading] = useState(true);
-    const [request, response, promptAsync] = Google.useAuthRequest({
-        androidClientId: process.env.EXPO_PUBLIC_REACT_APP_TOKEN,
-        redirectUri: AuthSession.makeRedirectUri({
-            scheme: 'com.malteiscool.gymbrots',
-            path: '/oathredirect', // To match the redirect of google auth we need to add an additional "/"
-        }),
-    });
     const router = useRouter();
+    const { auth, userInfo, isLoading, signIn } = useAuth();
+    const { fontsLoading } = useFonts();
 
-    // first time sign in
-    useEffect(() => {
-        if (response?.type === 'success') {
-            setAuth(response!.authentication);
-            setLoading(true);
-            //store user session so we do not need to login every time we enter the app.
-            const persistAuth = async () => {
-                await AsyncStorage.setItem('auth', JSON.stringify(response.authentication));
-                await getPersistedAuth();
-            };
-            persistAuth();
-        }
-    }, [response]);
+    const isAuthenticated = auth && userInfo;
+    const showLoading = isLoading || fontsLoading;
 
-    useEffect(() => {
-        const loadFonts = async () => {
-            await Font.loadAsync({
-                'Oswald-Bold': require('../assets/fonts/Oswald-Bold.ttf'),
-            });
-            setFontsLoading(false);
-        };
-
-        // check if user data exists;
-        loadFonts();
-
-        getPersistedAuth();
-    }, []);
-
-    const getPersistedAuth = async () => {
-        try {
-            const jsonValue = await AsyncStorage.getItem('auth');
-            const authFromJson = jsonValue ? JSON.parse(jsonValue) : null;
-            if (authFromJson) {
-                setAuth(authFromJson);
-                const isTokenFresh = AuthSession.TokenResponse.isTokenFresh({
-                    expiresIn: authFromJson.expiresIn,
-                    issuedAt: authFromJson.issuedAt
-                });
-                setRequireRefresh(!isTokenFresh);
-                console.log("getting user data");
-                const userData = await getUserData(authFromJson);
-                if (userData.id) {
-                    setUserInfo(userData);
-                    await setStordUserData(JSON.stringify(userData));
-                } else if (userData.error?.code == 401) {
-                    console.log("refreshing token");
-                    const clientId = process.env.EXPO_PUBLIC_REACT_APP_TOKEN;
-                    const tokenResult = await AuthSession.refreshAsync({
-                        clientId: clientId!,
-                        refreshToken: authFromJson.refreshToken
-                    }, {
-                        tokenEndpoint: 'https://www.googleapis.com/oauth2/v4/token'
-                    });
-                    tokenResult.refreshToken = authFromJson.refreshToken;
-                    setAuth(tokenResult);
-                    await AsyncStorage.setItem('auth', JSON.stringify(tokenResult));
-                    setRequireRefresh(false);
-                    const userData = await getUserData(tokenResult);
-                    if (userData) {
-                        setUserInfo(userData);
-                        await setStordUserData(JSON.stringify(userData));
-                    }
-                }
-            } else {
-                console.log('auth is null, user needs to sign in.');
-            }
-        } catch (error) {
-            console.log(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (!auth || !userInfo || isLoading || fontsLoading) {
+    if (showLoading || !isAuthenticated) {
         return (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
+            <View style={styles.container}>
                 <StatusBar
                     backgroundColor="transparent"
                     barStyle="light-content"
                     translucent={true}
                 />
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
-                    <MaterialCommunityIcons size={200} name='dumbbell' color={Styles.fontColor.color} />
+                <View style={styles.iconContainer}>
+                    <MaterialCommunityIcons 
+                        size={200} 
+                        name='dumbbell' 
+                        color={Theme.colors.font} 
+                    />
                 </View>
-                {
-                    (isLoading || fontsLoading) && (
-                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
-                            <LoadingIndicator text={'Logging in...'} backgroundColor={Styles.dark.backgroundColor} />
-                        </View>
-                    ) ||
-                    (!auth || !userInfo) && (
-                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Styles.dark.backgroundColor }}>
-                            <Text style={{ padding: 6, color: Styles.fontColor.color }}>Please sign in to store your workouts</Text>
-                            <Button title='Login with Google' onPress={() => promptAsync({ showInRecents: true })} />
-                        </View>
-                    )
-                }
-
+                {showLoading ? (
+                    <View style={styles.loadingContainer}>
+                        <LoadingIndicator 
+                            text='Logging in...' 
+                            backgroundColor={Theme.colors.dark} 
+                        />
+                    </View>
+                ) : (
+                    <View style={styles.signInContainer}>
+                        <Text style={styles.signInText}>
+                            Please sign in to store your workouts
+                        </Text>
+                        <TouchableOpacity 
+                            style={styles.signInButton}
+                            onPress={signIn}
+                        >
+                            <MaterialCommunityIcons 
+                                name="google" 
+                                size={24} 
+                                color={Theme.colors.font} 
+                                style={styles.signInIcon}
+                            />
+                            <Text style={styles.signInButtonText}>
+                                Sign in with Google
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
-        )
+        );
     }
 
     return (
-        <View style={{
-            flex: 1,
-            paddingTop: StatusBar.currentHeight || 0,
-            backgroundColor: Styles.lessDark.backgroundColor
-        }}>
+        <View style={styles.appContainer}>
             <StatusBar
                 backgroundColor="transparent"
                 barStyle="light-content"
                 translucent={true}
             />
-            {<Stack screenOptions={{
-                header: ({ options }) => (
-                    <View style={Styles.headerContainer}>
-                        <HeaderBackButton tintColor={Styles.fontColor.color}
-                            style={Styles.backButton}
-                            onPress={() => router.back()} />
-                        <Text style={Styles.headerTitle}>{options.title}</Text>
-                    </View>
-                )
-            }}>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="exercise/exerciseDetails" options={{ headerShown: true }} />
-                <Stack.Screen name="exercise/addExercise" options={{ headerShown: true }} />
-                <Stack.Screen name="exercise/addSet" options={{ headerShown: true }} />
-                <Stack.Screen name="workout/workoutDetails" options={{ headerShown: true }} />
-                <Stack.Screen name="workout/addWorkout" options={{ headerShown: true }} />
-                <Stack.Screen name="+not-found" />
-            </Stack>}
-
+            <Stack
+                screenOptions={{
+                    header: ({ options }) => (
+                        <View style={Styles.headerContainer}>
+                            <HeaderBackButton
+                                tintColor={Theme.colors.font}
+                                style={Styles.backButton}
+                                onPress={() => router.back()}
+                            />
+                            <Text style={Styles.headerTitle}>
+                                {options.title}
+                            </Text>
+                        </View>
+                    ),
+                }}
+            >
+                <Stack.Screen 
+                    name="(tabs)" 
+                    options={{ headerShown: false }} 
+                />
+                <Stack.Screen 
+                    name="exercise/exerciseDetails" 
+                    options={{ headerShown: true }} 
+                />
+                <Stack.Screen 
+                    name="exercise/addExercise" 
+                    options={{ headerShown: true }} 
+                />
+                <Stack.Screen 
+                    name="exercise/addSet" 
+                    options={{ headerShown: true }} 
+                />
+                <Stack.Screen 
+                    name="workout/workoutDetails" 
+                    options={{ headerShown: true }} 
+                />
+                <Stack.Screen 
+                    name="workout/addWorkout" 
+                    options={{ headerShown: true }} 
+                />
+                <Stack.Screen 
+                    name="+not-found" 
+                />
+            </Stack>
         </View>
     );
 }
 
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: Theme.colors.dark,
+    },
+    appContainer: {
+        flex: 1,
+        paddingTop: StatusBar.currentHeight || 0,
+        backgroundColor: Theme.colors.lessDark,
+    },
+    iconContainer: {
+        flex: 1,
         alignItems: 'center',
-        padding: 16,
+        justifyContent: 'center',
+        backgroundColor: Theme.colors.dark,
     },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 24,
-    },
-    userInfo: {
+    loadingContainer: {
+        flex: 1,
         alignItems: 'center',
-        marginTop: 16,
+        justifyContent: 'center',
+        backgroundColor: Theme.colors.dark,
     },
-    welcome: {
-        fontSize: 18,
-        fontWeight: 'bold',
+    signInContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Theme.colors.dark,
+        paddingHorizontal: Theme.spacing.lg,
+    },
+    signInText: {
+        padding: Theme.spacing.sm,
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.lg,
+        marginBottom: Theme.spacing.lg,
+        textAlign: 'center',
+    },
+    signInButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.lessDark,
+        paddingHorizontal: Theme.spacing.lg,
+        paddingVertical: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.md,
+        ...Theme.shadows.medium,
+    },
+    signInIcon: {
+        marginRight: Theme.spacing.sm,
+    },
+    signInButtonText: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.md,
+        fontWeight: Theme.fontWeight.semibold,
     },
 });
