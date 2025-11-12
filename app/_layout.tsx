@@ -117,6 +117,10 @@ export default function RootLayout() {
                     options={{ headerShown: true }} 
                 />
                 <Stack.Screen 
+                    name="split/createSplit" 
+                    options={{ headerShown: true }} 
+                />
+                <Stack.Screen 
                     name="+not-found" 
                 />
             </Stack>

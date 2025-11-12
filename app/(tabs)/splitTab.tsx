@@ -1,236 +1,386 @@
-import React, { MutableRefObject, useEffect, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, Dimensions, ScrollView, RefreshControl, FlatList } from "react-native";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { View, Text, TouchableOpacity, Dimensions, ScrollView, RefreshControl, FlatList, StyleSheet } from "react-native";
 import { Card, Button } from '@rneui/themed';
 import Carousel from "react-native-snap-carousel";
-import { getReferenceWeek, markDayAsCompleted } from '../../services/SplitService.Service';
+import { getReferenceWeek, markDayAsCompleted, SplitWeek } from '../../services/SplitService.Service';
 import { getWeekNumber } from "../../services/StatsService.Service";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Styles from "../../Styles";
+import { Theme, Styles } from "../../constants/Theme";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
 import emitter from "../../hooks/CustomEventEmitter";
 import { getStordUserData } from "../../services/UserService.Service";
 import { User } from "../../interfaces/User.Interface";
-import { Workout } from "../../interfaces/Workout.Interface";
+import { router } from "expo-router";
 
-/**
- * 
- * @TODO    Optimization is needed for this component in 
- *          order to effectively render and update the list
- *          which gets quite large. Currently its strictly 
- *          set to 5 weeks but if a larger value is wanted
- *          the list handling could be switched to useMemo (possibly)
- *  
- */
-
-export interface Day {
-    completed: boolean;
-    day: string;
-    weekId: string;
-    workout: Workout;
-}
-
-export interface Week {
-    Monday: Day;
-    Tuesday: Day;
-    Wednesday: Day;
-    Thursday: Day;
-    Friday: Day;
-    Saturday: Day;
-    Sunday: Day;
-}
-
-export interface Split {
-    splRefWeek: number | undefined;
-    weeks: Week[];
-}
+const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
 export default function SplitScreen() {
-
     const sliderWidth = Dimensions.get('window').width;
-    let carouselRef = useRef<Carousel<any>>(null);
-    const [weekData, setWeekData] = useState<Week[]>();
+    const carouselRef = useRef<Carousel<SplitWeek>>(null);
+    const [weekData, setWeekData] = useState<SplitWeek[]>([]);
     const [isLoading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const currentWeek = getWeekNumber(new Date());
     const [currentWeekLabel, setCurrentWeekLabel] = useState('Week ' + currentWeek);
-    const [user, setUser] = useState<User>();
+    const [user, setUser] = useState<User | null>(null);
+    const [currentIndex, setCurrentIndex] = useState(1);
 
-    const load = async () => {
-        setLoading(true);
+    const load = useCallback(async () => {
+        try {
+            setLoading(true);
+            const storedUser = await getStordUserData();
+            if (!storedUser) {
+                console.error('User not found');
+                return;
+            }
 
-        const storedUser = await getStordUserData();
-        setUser(storedUser);
-
-        const data = await getReferenceWeek(storedUser.id);
-        if (data) {
-            setWeekData(data.weeks);
+            setUser(storedUser);
+            const data = await getReferenceWeek(storedUser.id);
+            if (data) {
+                setWeekData(data.weeks);
+            }
+        } catch (error) {
+            console.error('Error loading split:', error);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
-    }
-
-    useEffect(() => {
-        load();
     }, []);
 
     useEffect(() => {
-        const listener = (data: any) => {
+        load();
+    }, [load]);
+
+    useEffect(() => {
+        const listener = () => {
             load();
         };
         emitter.on('splitEvent', listener);
 
         return () => {
             emitter.off('splitEvent', listener);
-        }
+        };
+    }, [load]);
 
-    }, []);
-
-    const _onSnapToItem = (index: number) => {
-        if (index > 0) {
-            setCurrentWeekLabel('Week ' + (currentWeek + (index - 1)));
+    const onSnapToItem = useCallback((index: number) => {
+        setCurrentIndex(index);
+        if (index === 0) {
+            setCurrentWeekLabel('Template Week');
         } else {
-            setCurrentWeekLabel('Reference week');
+            setCurrentWeekLabel(`Week ${currentWeek + (index - 1)}`);
         }
-    }
+    }, [currentWeek]);
 
-    const snapToNext = () => {
-        if (carouselRef.current) {
+    const snapToNext = useCallback(() => {
+        if (carouselRef.current && currentIndex < weekData.length - 1) {
             carouselRef.current.snapToNext();
         }
-    }
+    }, [currentIndex, weekData.length]);
 
-    const snapToPrev = () => {
-        if (carouselRef.current) {
+    const snapToPrev = useCallback(() => {
+        if (carouselRef.current && currentIndex > 0) {
             carouselRef.current.snapToPrev();
         }
-    }
+    }, [currentIndex]);
 
-    const _onRefresh = React.useCallback(() => {
-        load();
-    }, []);
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        load().finally(() => setRefreshing(false));
+    }, [load]);
 
-    const markAsCompleted = (week: number, day: string) => {
+    const handleMarkAsCompleted = useCallback(async (weekIndex: number, day: string) => {
+        if (!weekData[weekIndex]) return;
 
-        if (weekData) {
-            const dayKey = day as keyof Week;
-            weekData[week][dayKey].completed = !weekData[week][dayKey].completed;
-            const updatedWeekData = weekData.map(item => ({ ...item }));
+        const dayData = weekData[weekIndex][day as keyof SplitWeek];
+        if (!dayData.workout || !dayData.weekId) return;
+
+        try {
+            const newCompleted = !dayData.completed;
+            const updatedWeekData = [...weekData];
+            updatedWeekData[weekIndex] = {
+                ...updatedWeekData[weekIndex],
+                [day]: {
+                    ...dayData,
+                    completed: newCompleted
+                }
+            };
             setWeekData(updatedWeekData);
-            markDayAsCompleted(weekData[week][dayKey].weekId, weekData[week][dayKey].day, weekData[week][dayKey].completed);
+            await markDayAsCompleted(dayData.weekId, day, newCompleted);
+        } catch (error) {
+            console.error('Error marking day as completed:', error);
+            // Revert on error
+            load();
         }
-
-    }
+    }, [weekData, load]);
 
     const FirstIndexComponent = () => {
         return (
-            <View key={0} style={{ flex: 1, backgroundColor: Styles.dark.backgroundColor }}>
-                <View style={{ flex: 1, justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 20, justifyContent: 'center', textAlign: 'center', color: Styles.fontColor.color }}>
-                        When creating a new split, all the following weeks will be based on your reference week. Add the split that you want and the following weeks will be automatically generated.
-                    </Text>
-                </View>
-                <View style={{ flex: 1, backgroundColor: Styles.dark.backgroundColor, alignContent: 'center' }}>
-                    <Button onPress={() => { console.log("test1") }}
-                        buttonStyle={{ ...Styles.green, alignSelf: 'center' }} title={'Create a new split'} />
-                </View>
+            <View style={styles.emptyContainer}>
+                <MaterialCommunityIcons
+                    name="calendar-plus"
+                    size={80}
+                    color={Theme.colors.font + '40'}
+                />
+                <Text style={styles.emptyTitle}>No Split Created</Text>
+                <Text style={styles.emptyText}>
+                    Create a workout split to automatically generate your weekly training schedule.
+                    Assign workouts to each day and the system will rotate them for future weeks.
+                </Text>
+                <Button
+                    title="Create Split"
+                    onPress={() => router.push('/split/createSplit')}
+                    buttonStyle={styles.createButton}
+                    titleStyle={styles.createButtonText}
+                />
             </View>
-        )
-    }
+        );
+    };
 
-    const _renderItem = (props: { item: Week, index: number }) => {
-
-        const { item, index } = props;
-        if (index == 0) {
-            return (
-                <FirstIndexComponent />
-            );
+    const renderWeekItem = ({ item, index }: { item: SplitWeek; index: number }) => {
+        if (index === 0) {
+            return <FirstIndexComponent />;
         }
-        const keys = Object.keys(item);
+
         return (
-            <View style={{ flex: 1 }}>
+            <View style={styles.weekContainer}>
                 <FlatList
-                    contentContainerStyle={{ paddingBottom: 10 }}
-                    data={keys}
-                    renderItem={({ item: day, index: number }) => (
-                        <TouchableOpacity key={index} onPress={() => { if (item[day as keyof Week].workout) { console.log(item[day as keyof Week].workout) } }}>
-                            <Card containerStyle={[Styles.card, item[day as keyof Week].completed ? Styles.green : null]}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <View>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <MaterialCommunityIcons style={Styles.icon} name='calendar' size={22} />
-                                            <Text style={Styles.cardTitle}>{day}</Text>
+                    data={WEEK_DAYS}
+                    keyExtractor={(day) => day}
+                    contentContainerStyle={styles.daysList}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                    renderItem={({ item: day }) => {
+                        const dayData = item[day];
+                        const hasWorkout = dayData.workout !== null;
+
+                        return (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    if (hasWorkout) {
+                                        router.push({
+                                            pathname: '/workout/workoutDetails',
+                                            params: { workoutId: dayData.workout!.id }
+                                        });
+                                    }
+                                }}
+                                activeOpacity={hasWorkout ? 0.7 : 1}
+                            >
+                                <Card
+                                    containerStyle={[
+                                        Styles.card,
+                                        dayData.completed && styles.completedCard,
+                                        !hasWorkout && styles.emptyDayCard
+                                    ]}
+                                >
+                                    <View style={styles.dayContent}>
+                                        <View style={styles.dayInfo}>
+                                            <View style={styles.dayHeader}>
+                                                <MaterialCommunityIcons
+                                                    name="calendar"
+                                                    size={20}
+                                                    color={Theme.colors.font}
+                                                />
+                                                <Text style={Styles.cardTitle}>{day}</Text>
+                                            </View>
+                                            {hasWorkout ? (
+                                                <View style={styles.workoutInfo}>
+                                                    <MaterialCommunityIcons
+                                                        name="weight-lifter"
+                                                        size={18}
+                                                        color={Theme.colors.font}
+                                                    />
+                                                    <Text style={styles.workoutName}>
+                                                        {dayData.workout!.wor_name}
+                                                    </Text>
+                                                </View>
+                                            ) : (
+                                                <Text style={styles.restDayText}>Rest day</Text>
+                                            )}
                                         </View>
-                                        <Text style={{ ...Styles.fontColor, fontSize: 18, marginLeft: 10 }}>
-                                            <MaterialCommunityIcons style={Styles.icon} name='weight-lifter' size={22} />
-                                            {item[day as keyof Week].workout ? (' ' + item[day as keyof Week].workout.wor_name) : 'Could not find workout'}
-                                        </Text>
+                                        {hasWorkout && (
+                                            <TouchableOpacity
+                                                onPress={() => handleMarkAsCompleted(index, day)}
+                                                style={styles.checkButton}
+                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            >
+                                                <MaterialCommunityIcons
+                                                    name={dayData.completed ? "check-circle" : "circle-outline"}
+                                                    size={32}
+                                                    color={dayData.completed ? Theme.colors.green : Theme.colors.font + '60'}
+                                                />
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
-                                    <View style={{ justifyContent: 'center', alignContent: 'center', marginRight: 10 }}>
-                                        <TouchableOpacity style={{ padding: 10 }} onPress={() => markAsCompleted(index, day)}>
-                                            {
-                                                !item[day as keyof Week].completed ?
-                                                    (<MaterialCommunityIcons style={Styles.icon} name="check" size={35} />) :
-                                                    (<MaterialCommunityIcons style={Styles.icon} name="window-close" size={35} />)
-                                            }
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            </Card>
-                        </TouchableOpacity>
-                    )}
-                    keyExtractor={(item, index) => index.toString()}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={_onRefresh} />}
+                                </Card>
+                            </TouchableOpacity>
+                        );
+                    }}
                 />
             </View>
         );
     };
 
     if (isLoading) {
-        return (
-            <LoadingIndicator text={'Loading split...'} />
-        )
+        return <LoadingIndicator text='Loading split...' />;
     }
 
-    if (!weekData) {
+    if (!weekData || weekData.length === 0) {
         return (
-            <FirstIndexComponent />
-        )
-    }
-
-    if (true) {
-        return (
-            <View style={{ flex: 1, backgroundColor: Styles.dark.backgroundColor, alignContent: 'center', justifyContent: 'center'}}>
-                <Text style={{textAlign: 'center', color: Styles.fontColor.color}}>To be added</Text>
+            <View style={styles.container}>
+                <FirstIndexComponent />
             </View>
-        )
+        );
     }
 
-    /*return (
-        <View style={{ flex: 1, backgroundColor: Styles.dark.backgroundColor }}>
-            <View style={{ flex: 1 }}>
-                <View style={{ height: 60, flexDirection: 'row', alignContent: 'center', justifyContent: 'space-between', backgroundColor: Styles.lessDark.backgroundColor }}>
-                    <TouchableOpacity onPress={snapToPrev}
-                        style={{ justifyContent: 'center', alignContent: 'center' }}>
-                        <MaterialCommunityIcons style={Styles.fontColor} name='chevron-left' size={50} />
-                    </TouchableOpacity>
-                    <Text style={{ ...Styles.headerTitle, marginTop: 8, fontWeight: 'bold' }}>{currentWeekLabel}</Text>
-                    <TouchableOpacity onPress={snapToNext}
-                        style={{ justifyContent: 'center', alignContent: 'center' }}>
-                        <MaterialCommunityIcons style={Styles.fontColor} name='chevron-right' size={50} />
-                    </TouchableOpacity>
-                </View>
-                <View style={{ flex: 1, backgroundColor: Styles.dark.backgroundColor }}>{
-                    <Carousel
-                        ref={carouselRef}
-                        data={weekData}
-                        renderItem={_renderItem}
-                        sliderWidth={sliderWidth}
-                        itemWidth={sliderWidth}
-                        firstItem={1}
-                        onSnapToItem={_onSnapToItem}
-                    >
-                    </Carousel>
-                }</View>
+    return (
+        <View style={styles.container}>
+            <View style={styles.header}>
+                <TouchableOpacity
+                    onPress={snapToPrev}
+                    disabled={currentIndex === 0}
+                    style={[styles.navButton, currentIndex === 0 && styles.navButtonDisabled]}
+                >
+                    <MaterialCommunityIcons
+                        name='chevron-left'
+                        size={32}
+                        color={currentIndex === 0 ? Theme.colors.font + '40' : Theme.colors.font}
+                    />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>{currentWeekLabel}</Text>
+                <TouchableOpacity
+                    onPress={snapToNext}
+                    disabled={currentIndex >= weekData.length - 1}
+                    style={[
+                        styles.navButton,
+                        currentIndex >= weekData.length - 1 && styles.navButtonDisabled
+                    ]}
+                >
+                    <MaterialCommunityIcons
+                        name='chevron-right'
+                        size={32}
+                        color={currentIndex >= weekData.length - 1 ? Theme.colors.font + '40' : Theme.colors.font}
+                    />
+                </TouchableOpacity>
+            </View>
+            <View style={styles.carouselContainer}>
+                <Carousel
+                    ref={carouselRef}
+                    data={weekData}
+                    renderItem={renderWeekItem}
+                    sliderWidth={sliderWidth}
+                    itemWidth={sliderWidth}
+                    firstItem={1}
+                    onSnapToItem={onSnapToItem}
+                    enableMomentum={false}
+                    lockScrollWhileSnapping={true}
+                />
             </View>
         </View>
-    )*/
+    );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: Theme.colors.dark,
+    },
+    header: {
+        height: 60,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Theme.colors.lessDark,
+        paddingHorizontal: Theme.spacing.md,
+        ...Theme.shadows.small,
+    },
+    navButton: {
+        padding: Theme.spacing.sm,
+    },
+    navButtonDisabled: {
+        opacity: 0.3,
+    },
+    headerTitle: {
+        ...Styles.headerTitle,
+        fontSize: Theme.fontSize.lg,
+        fontWeight: Theme.fontWeight.bold,
+    },
+    carouselContainer: {
+        flex: 1,
+    },
+    weekContainer: {
+        flex: 1,
+    },
+    daysList: {
+        paddingBottom: Theme.spacing.lg,
+    },
+    dayContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    dayInfo: {
+        flex: 1,
+    },
+    dayHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+        marginBottom: Theme.spacing.xs,
+    },
+    workoutInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+        marginLeft: Theme.spacing.sm,
+    },
+    workoutName: {
+        ...Styles.fontColor,
+        fontSize: Theme.fontSize.md,
+    },
+    restDayText: {
+        ...Styles.fontColor,
+        fontSize: Theme.fontSize.sm,
+        fontStyle: 'italic',
+        marginLeft: Theme.spacing.sm,
+        opacity: 0.6,
+    },
+    checkButton: {
+        padding: Theme.spacing.xs,
+    },
+    completedCard: {
+        backgroundColor: Theme.colors.green + '30',
+        borderColor: Theme.colors.green,
+        borderWidth: 2,
+    },
+    emptyDayCard: {
+        opacity: 0.6,
+    },
+    emptyContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: Theme.spacing.xl,
+    },
+    emptyTitle: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.xl,
+        fontWeight: Theme.fontWeight.bold,
+        marginTop: Theme.spacing.lg,
+        marginBottom: Theme.spacing.md,
+    },
+    emptyText: {
+        color: Theme.colors.font + '80',
+        fontSize: Theme.fontSize.md,
+        textAlign: 'center',
+        marginBottom: Theme.spacing.xl,
+        lineHeight: 22,
+    },
+    createButton: {
+        backgroundColor: Theme.colors.green,
+        paddingHorizontal: Theme.spacing.xl,
+        paddingVertical: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.md,
+    },
+    createButtonText: {
+        fontSize: Theme.fontSize.md,
+        fontWeight: Theme.fontWeight.semibold,
+    },
+});
