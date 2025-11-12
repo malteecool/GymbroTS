@@ -1,14 +1,14 @@
 import { db } from "../firebaseConfig";
-import { 
-    collection, 
-    query, 
-    getDocs, 
-    where, 
-    addDoc, 
-    updateDoc, 
-    getDoc, 
-    doc, 
-    Timestamp, 
+import {
+    collection,
+    query,
+    getDocs,
+    where,
+    addDoc,
+    updateDoc,
+    getDoc,
+    doc,
+    Timestamp,
     writeBatch,
     DocumentData,
     QueryDocumentSnapshot
@@ -54,7 +54,7 @@ export async function getReferenceWeek(usr_id: string): Promise<SplitData | null
     try {
         const docs = await getSplitById(usr_id);
         const doc = docs[0];
-        
+
         if (!doc || !doc.id) {
             return null;
         }
@@ -64,7 +64,7 @@ export async function getReferenceWeek(usr_id: string): Promise<SplitData | null
 
         const subCollectionRef = collection(db, 'Split', doc.id, 'Split_week');
         const referenceDoc = await getDocs(subCollectionRef);
-        
+
         if (!referenceDoc || referenceDoc.docs.length === 0) {
             console.log('Could not find split weeks...');
             return null;
@@ -77,7 +77,7 @@ export async function getReferenceWeek(usr_id: string): Promise<SplitData | null
             if (!weekDoc) continue;
 
             const ordinal = weekDoc.data().ordinal;
-            const dayPromises = WEEK_DAYS.map(day => 
+            const dayPromises = WEEK_DAYS.map(day =>
                 getDocs(collection(subCollectionRef, weekDoc.id, day))
             );
             const dayResponses = await Promise.all(dayPromises);
@@ -137,8 +137,7 @@ export async function getReferenceWeek(usr_id: string): Promise<SplitData | null
         dataMap.sort((a, b) => a.ordinal - b.ordinal);
 
         const sortedWeeks = dataMap
-            .map(data => data.weekMapOrdered)
-            .filter(week => week !== null) as SplitWeek[];
+            .map(data => data.weekMapOrdered) as SplitWeek[];
 
         return {
             weeks: sortedWeeks,
@@ -159,7 +158,7 @@ export async function markDayAsCompleted(weekId: string, day: string, completed:
         const documentRef = await getDocs(
             collection(db, 'Split', splitId, 'Split_week', weekId, day)
         );
-        
+
         if (documentRef.docs.length === 0) {
             throw new Error('Day document not found');
         }
@@ -197,7 +196,7 @@ export async function addReferenceWeek(
             const week = generatedWeeks[i];
             const collectionRef = collection(db, 'Split', docRef.id, 'Split_week');
             const refDocRef = doc(collectionRef);
-            
+
             batch.set(refDocRef, { ordinal: i });
 
             WEEK_DAYS.forEach(day => {
@@ -229,7 +228,7 @@ async function removeOldSplitIfExists(usr_id: string): Promise<void> {
                 const bCreated = b.data().spl_created?.toMillis() || 0;
                 return aCreated - bCreated;
             });
-            
+
             await updateDoc(doc(db, 'Split', docs[0].id), {
                 spl_usr_id: null
             });
@@ -276,37 +275,22 @@ export function convertToWeekData(
     }
 
     const weeks: SplitWeek[] = [];
+    let workoutIndex = 0;
 
-    // Generate weeks by rotating through workouts day by day
-    // The pattern: rotate through workouts continuously across all days
-    // Week 0 starts with workout 0 on Monday, Week 1 starts with workout 1 on Monday, etc.
     for (let weekIndex = 0; weekIndex < numberOfFutureWeeks; weekIndex++) {
         const week: Partial<SplitWeek> = {};
-        
-        // Starting workout index for this week (shifts each week)
-        const weekStartOffset = weekIndex % activeWorkouts.length;
 
         WEEK_DAYS.forEach((day, dayIndex) => {
-            // Get the original workout for this day from template
-            const originalWorkout = splitData[day].workout;
-            if (originalWorkout === null) {
-                // If template day was empty, keep it empty
-                week[day] = {
-                    workout: null,
-                    completed: false,
-                    day: day
-                };
-            } else {
-                // Rotate through workouts: (week offset + day index) % number of workouts
-                // This creates a continuous rotation across all days
-                const workoutIndex = (weekStartOffset + dayIndex) % activeWorkouts.length;
-                
-                week[day] = {
-                    workout: activeWorkouts[workoutIndex],
-                    completed: false,
-                    day: day
-                };
+
+            if (workoutIndex === activeWorkouts.length) {
+                workoutIndex = 0;
             }
+            week[day] = {
+                workout: activeWorkouts[workoutIndex],
+                completed: false,
+                day: day
+            };
+            workoutIndex++;
         });
         weeks.push(week as SplitWeek);
     }
