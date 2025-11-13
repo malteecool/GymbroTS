@@ -107,15 +107,16 @@ export default function AddExerciseScreen() {
                 <MaterialCommunityIcons
                     name="magnify"
                     size={20}
-                    color={Theme.colors.font}
+                    color={Theme.colors.font + '80'}
                     style={styles.searchIcon}
                 />
                 <TextInput
                     onChangeText={searchFilterFunction}
                     value={search}
-                    style={styles.searchBar}
+                    style={styles.searchInput}
                     placeholder='Search exercises...'
-                    placeholderTextColor={Theme.colors.font + '80'}
+                    placeholderTextColor={Theme.colors.font + '60'}
+                    autoCapitalize="none"
                 />
                 {search.length > 0 && (
                     <TouchableOpacity
@@ -125,7 +126,7 @@ export default function AddExerciseScreen() {
                         <MaterialCommunityIcons
                             name="close-circle"
                             size={20}
-                            color={Theme.colors.font}
+                            color={Theme.colors.font + '80'}
                         />
                     </TouchableOpacity>
                 )}
@@ -142,37 +143,66 @@ export default function AddExerciseScreen() {
                             onPress={() => onAddExercise(item.exe_name, item.id)}
                             activeOpacity={0.7}
                         >
-                            <Card containerStyle={Styles.smallCard}>
-                                <Text style={styles.cardText}>
-                                    {item.exe_name}
-                                </Text>
+                            <Card containerStyle={styles.exerciseCard}>
+                                <View style={styles.exerciseContent}>
+                                    <MaterialCommunityIcons
+                                        name="dumbbell"
+                                        size={24}
+                                        color={Theme.colors.font}
+                                    />
+                                    <Text style={styles.exerciseText}>
+                                        {item.exe_name}
+                                    </Text>
+                                    <MaterialCommunityIcons
+                                        name="chevron-right"
+                                        size={20}
+                                        color={Theme.colors.font + '60'}
+                                    />
+                                </View>
                             </Card>
                         </TouchableOpacity>
                     ))
                 ) : (
-                    <TouchableOpacity
-                        onPress={() => onAddExercise(search)}
-                        disabled={!search.trim()}
-                        activeOpacity={0.7}
-                    >
-                        <Card containerStyle={[
-                            Styles.smallCard,
-                            !search.trim() && styles.disabledCard
-                        ]}>
-                            <View style={styles.addNewContainer}>
+                    <View>
+                        <TouchableOpacity
+                            onPress={() => onAddExercise(search)}
+                            disabled={!search.trim()}
+                            activeOpacity={0.7}
+                        >
+                            <Card containerStyle={[
+                                styles.exerciseCard,
+                                !search.trim() && styles.disabledCard
+                            ]}>
+                                <View style={styles.addNewContainer}>
+                                    <MaterialCommunityIcons
+                                        name="plus-circle"
+                                        size={24}
+                                        color={Theme.colors.font}
+                                    />
+                                    <Text style={styles.exerciseText}>
+                                        {search.trim()
+                                            ? `Add new: ${search}`
+                                            : 'Search for an exercise or type to add new'}
+                                    </Text>
+                                </View>
+                            </Card>
+                        </TouchableOpacity>
+                        {!search.trim() && (
+                            <View style={styles.emptyContainer}>
                                 <MaterialCommunityIcons
-                                    name="plus-circle"
-                                    size={20}
-                                    color={Theme.colors.font}
+                                    name="dumbbell"
+                                    size={48}
+                                    color={Theme.colors.font + '40'}
                                 />
-                                <Text style={styles.cardText}>
-                                    {search.trim()
-                                        ? `Add new: ${search}`
-                                        : 'Search for an exercise or type to add new'}
+                                <Text style={styles.emptyText}>
+                                    No exercises found
+                                </Text>
+                                <Text style={styles.emptySubtext}>
+                                    Type an exercise name above to create a new one
                                 </Text>
                             </View>
-                        </Card>
-                    </TouchableOpacity>
+                        )}
+                    </View>
                 )}
             </ScrollView>
         </View>
@@ -188,42 +218,71 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Theme.colors.lessDark,
+        margin: Theme.spacing.md,
+        marginBottom: Theme.spacing.sm,
         paddingHorizontal: Theme.spacing.md,
-        paddingVertical: Theme.spacing.sm,
-        marginHorizontal: Theme.spacing.xs,
-        marginTop: Theme.spacing.xs,
         borderRadius: Theme.borderRadius.md,
+        gap: Theme.spacing.sm,
     },
     searchIcon: {
-        marginRight: Theme.spacing.sm,
+        marginRight: Theme.spacing.xs,
     },
-    searchBar: {
+    searchInput: {
         flex: 1,
-        height: 40,
         color: Theme.colors.font,
         fontSize: Theme.fontSize.md,
+        paddingVertical: Theme.spacing.sm,
     },
     clearButton: {
-        marginLeft: Theme.spacing.sm,
         padding: Theme.spacing.xs,
     },
     scrollView: {
-        width: '100%',
+        flex: 1,
     },
     scrollContent: {
-        paddingBottom: 120,
+        paddingBottom: Theme.spacing.xl,
     },
-    cardText: {
-        ...Styles.detailText,
-        margin: 0,
+    exerciseCard: {
+        marginHorizontal: Theme.spacing.md,
+        marginBottom: Theme.spacing.sm,
+        borderRadius: Theme.borderRadius.md,
+        backgroundColor: Theme.colors.lessDark,
+        padding: Theme.spacing.md,
+    },
+    exerciseContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.md,
+    },
+    exerciseText: {
+        flex: 1,
+        color: Theme.colors.font,
         fontSize: Theme.fontSize.md,
     },
     addNewContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Theme.spacing.sm,
+        gap: Theme.spacing.md,
     },
     disabledCard: {
         opacity: 0.5,
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: Theme.spacing.xl * 2,
+        paddingHorizontal: Theme.spacing.xl,
+    },
+    emptyText: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.lg,
+        fontWeight: Theme.fontWeight.semibold,
+        marginTop: Theme.spacing.md,
+    },
+    emptySubtext: {
+        color: Theme.colors.font + '80',
+        fontSize: Theme.fontSize.sm,
+        marginTop: Theme.spacing.xs,
+        textAlign: 'center',
     },
 });
