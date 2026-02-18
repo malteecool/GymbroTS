@@ -1,51 +1,65 @@
-import { db } from "../firebaseConfig";
-import { collection, addDoc, query, getDocs, where, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from "../interfaces/User.Interface";
-import * as AuthSession from 'expo-auth-session';
+import { supabase } from "../supabaseConfig";
+import { UserMapper } from "./mappers/UserMapper";
 
-export interface UserDocument {
-    usr_name: string;
-    usr_token: string;
-}
-
-function getClientId(): string | null {
-    return process.env.EXPO_PUBLIC_REACT_APP_TOKEN || null;
-}
-
-async function userExist(id: string): Promise<UserDocument | undefined> {
+export async function getUserData(userId: string): Promise<User | null> {
     try {
-        const collectionRef = collection(db, 'User');
-        const q = query(collectionRef, where("usr_token", "==", id));
-        const docSnap = await getDocs(q);
+        const { data, error } = await supabase
+            .from('app_user')
+            .select('*')
+            .eq('id', userId)
+            .single();
 
-        if (docSnap.empty) {
-            return undefined;
+        if (error) {
+            console.error('Error fetching user data:', error);
+            return null;
         }
 
-        // Return first user found
-        return docSnap.docs[0].data() as UserDocument;
+        if (!data) {
+            return null;
+        }
+
+        // Map the database row to domain User object
+        const user = UserMapper.toDomain(data);
+        return user;
     } catch (error) {
-        console.error('Error checking if user exists:', error);
-        return undefined;
+        console.error('Error fetching user data:', error);
+        return null;
     }
 }
 
-export async function getUserData(auth: AuthSession.TokenResponse): Promise<User & { error?: { code: number } }> {
+export async function createUser(userId: string, name: string, email: string): Promise<User | null> {
     try {
-        const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-            headers: { Authorization: `Bearer ${auth.accessToken}` }
-        });
+        const now = new Date().toISOString();
         
-        if (!userInfoResponse.ok) {
-            return { error: { code: userInfoResponse.status } } as User & { error: { code: number } };
+        const { data, error } = await supabase
+            .from('app_user')
+            .insert({
+                id: userId,
+                name: name,
+                email: email,
+                created_at: now,
+                updated_at: now,
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error creating user:', error);
+            return null;
         }
-        
-        const responseJson = await userInfoResponse.json();
-        return responseJson as User;
+
+        if (!data) {
+            return null;
+        }
+
+        // Map the database row to domain User object
+        const user = UserMapper.toDomain(data);
+        return user;
     } catch (error) {
-        console.error('Error fetching user data:', error);
-        throw error;
+        console.error('Error creating user:', error);
+        return null;
     }
 }
 
@@ -67,29 +81,3 @@ export async function setStordUserData(userData: User): Promise<void> {
         throw error;
     }
 }
-
-async function addUser(userData: User): Promise<UserDocument | undefined> {
-    try {
-        const dbRef = collection(db, 'User');
-        await addDoc(dbRef, {
-            usr_name: userData.name,
-            usr_token: userData.id
-        });
-        return await userExist(userData.id);
-    } catch (error) {
-        console.error('Error adding user:', error);
-        return undefined;
-    }
-}
-
-export async function logout(): Promise<void> {
-    try {
-        console.log('Removing auth');
-        await AsyncStorage.removeItem('auth');
-    } catch (error) {
-        console.error('Error logging out:', error);
-        throw error;
-    }
-}
-
-export { getClientId, userExist, addUser };

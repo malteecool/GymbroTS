@@ -1,4 +1,4 @@
-import { getFirebaseTimeStamp, getHistoryByUser } from './ExerciseService.Service';
+import { getHistoryByUser } from './ExerciseService.Service';
 import { User } from '../interfaces/User.Interface';
 
 export interface WorkoutCounts {
@@ -30,8 +30,7 @@ export async function getWorkoutsCount(user: User): Promise<WorkoutCounts> {
     try {
         const history = await getHistoryByUser(user.id);
         const dates = history
-            .map(his => getFirebaseTimeStamp(his.exh_date.seconds, his.exh_date.nanoseconds))
-            .map(date => date.toISOString().split('T')[0]);
+            .map(his => new Date(his.exh_date).toISOString().split('T')[0]);
         
         const uniqueDates = dates.filter(onlyUnique);
         const startOfWeekVariable = roundToDate(startOfWeek(new Date()));

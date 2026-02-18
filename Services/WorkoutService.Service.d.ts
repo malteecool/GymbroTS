@@ -11,8 +11,6 @@ export async function getWorkoutExercises(workoutId: string): WorkoutExercise[];
 
 export async function updateWorkoutExerciseOrdinal(wor_id, woe_id, ordinal);
 
-export function getFirebaseTimeStamp(seconds: number, nanoseconds: number): Date;
-
 export function removeWorkout(workoutId: string);
 
 export async function attachToWorkout(exerciseId: string, workoutId: string, ordinal: number);

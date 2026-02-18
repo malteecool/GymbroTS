@@ -7,7 +7,6 @@ import { Exercise } from '../interfaces/Exercise.Interface';
 import { Set } from '../interfaces/Set.Interface';
 import { ExerciseHistory } from '../interfaces/ExerciseHistory.Interface';
 import { LoadingIndicator } from './ui/LoadingIndicator';
-import { getFirebaseTimeStamp } from '../services/ExerciseService.Service';
 
 const LABEL_WEIGHT = "WEIGHT";
 const LABEL_REPS = "REPS";
@@ -72,12 +71,7 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
 
         const load = () => {
             if (exerciseHistory) {
-                setDate(
-                    getFirebaseTimeStamp(
-                        exerciseHistory.exh_date.seconds,
-                        exerciseHistory.exh_date.nanoseconds
-                    ).toDateString()
-                );
+                setDate(new Date(exerciseHistory.exh_date).toDateString());
                 setSets(exerciseHistory.exh_sets);
                 setComment(exerciseHistory.exh_comment || "");
             } else {

@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, ScrollView, ActivityIndicator, StyleSheet, Text } from "react-native";
+import { View, ScrollView, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { useRouter } from 'expo-router';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import StatsSlider from '../../components/Profile/StatsSlider';
 import ProfileDetailsHeader from '../../components/Profile/ProfileDetailsHeader';
 import { getWorkoutsCount, getWeekNumber } from '../../services/StatsService.Service';
@@ -8,6 +10,7 @@ import { getStordUserData } from '../../services/UserService.Service';
 import { User } from '../../interfaces/User.Interface';
 import { Theme } from '../../constants/Theme';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
+import { useAuthContext } from '../../providers/AuthProvider';
 
 export interface WeeklyData {
     title: string;
@@ -33,11 +36,14 @@ const LoadingSlider = () => {
 };
 
 export default function ProfileScreen() {
+    const router = useRouter();
+    const { signOut } = useAuthContext();
     const [weeklyCountLoading, setWeeklyCountLoading] = useState(true);
     const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
     const [trendCountLoading, setTrendCountLoading] = useState(true);
     const [trendData, setTrendData] = useState<TrendData[]>([]);
     const [user, setUser] = useState<User | null>(null);
+    const [signingOut, setSigningOut] = useState(false);
 
     const createWeeklyData = useCallback((data: { weekly: string[]; lifetime: string[] }) => {
         setWeeklyData([
@@ -126,6 +132,17 @@ export default function ProfileScreen() {
         };
     }, [load]);
 
+    const handleSignOut = async () => {
+        try {
+            setSigningOut(true);
+            await signOut();
+            router.replace('/(auth)/LoginScreen');
+        } catch (error) {
+            console.error('Error signing out:', error);
+            setSigningOut(false);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView
@@ -152,6 +169,22 @@ export default function ProfileScreen() {
                         sliderComponent={'BarGraph'}
                     />
                 )}
+
+                <TouchableOpacity 
+                    style={[styles.signOutButton, signingOut && styles.signOutButtonDisabled]}
+                    onPress={handleSignOut}
+                    disabled={signingOut}
+                    activeOpacity={0.7}
+                >
+                    {signingOut ? (
+                        <ActivityIndicator size="small" color={Theme.colors.white} />
+                    ) : (
+                        <>
+                            <MaterialCommunityIcons name="logout" size={20} color={Theme.colors.white} />
+                            <Text style={styles.signOutButtonText}>Sign Out</Text>
+                        </>
+                    )}
+                </TouchableOpacity>
             </ScrollView>
         </View>
     );
@@ -184,5 +217,25 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignContent: 'center',
         marginTop: -20,
+    },
+    signOutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginHorizontal: Theme.spacing.md,
+        marginTop: Theme.spacing.lg,
+        paddingVertical: Theme.spacing.md,
+        backgroundColor: Theme.colors.danger,
+        borderRadius: Theme.spacing.sm,
+        ...Theme.shadows.small,
+    },
+    signOutButtonDisabled: {
+        opacity: 0.6,
+    },
+    signOutButtonText: {
+        color: Theme.colors.white,
+        fontSize: 16,
+        fontWeight: '600',
+        marginLeft: Theme.spacing.sm,
     },
 });

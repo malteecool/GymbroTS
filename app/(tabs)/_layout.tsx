@@ -31,6 +31,18 @@ export default function TabLayout() {
                 name="exerciseTab"
                 options={{
                     title: 'Exercise',
+                    headerShown: true,
+                    headerTitleAlign: 'center',
+                    headerStatusBarHeight: 0,
+                    headerStyle: {
+                        backgroundColor: Theme.colors.lessDark,
+                        borderBottomWidth: 1,
+                        borderBottomColor: Theme.colors.dark,
+                    },
+                    headerTitleStyle: {
+                        color: Theme.colors.font,
+                        fontWeight: '600',
+                    },
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name='dumbbell' color={color} size={size || 26} />
                     ),
@@ -40,6 +52,18 @@ export default function TabLayout() {
                 name="workoutTab"
                 options={{
                     title: 'Workout',
+                    headerShown: true,
+                    headerTitleAlign: 'center',
+                    headerStatusBarHeight: 0,
+                    headerStyle: {
+                        backgroundColor: Theme.colors.lessDark,
+                        borderBottomWidth: 1,
+                        borderBottomColor: Theme.colors.dark,
+                    },
+                    headerTitleStyle: {
+                        color: Theme.colors.font,
+                        fontWeight: '600',
+                    },
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name='weight-lifter' color={color} size={size || 26} />
                     ),
@@ -49,6 +73,18 @@ export default function TabLayout() {
                 name="splitTab"
                 options={{
                     title: 'Split',
+                    headerShown: true,
+                    headerTitleAlign: 'center',
+                    headerStatusBarHeight: 0,
+                    headerStyle: {
+                        backgroundColor: Theme.colors.lessDark,
+                        borderBottomWidth: 1,
+                        borderBottomColor: Theme.colors.dark,
+                    },
+                    headerTitleStyle: {
+                        color: Theme.colors.font,
+                        fontWeight: '600',
+                    },
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name='calendar' color={color} size={size || 26} />
                     ),

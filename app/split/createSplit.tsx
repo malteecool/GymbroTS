@@ -13,7 +13,6 @@ import { User } from '../../interfaces/User.Interface';
 import emitter from '../../hooks/CustomEventEmitter';
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
-const DEFAULT_WEEKS = 5;
 
 // Special "Rest day" workout identifier
 const REST_DAY_ID = 'REST_DAY';
@@ -24,7 +23,7 @@ const REST_DAY_WORKOUT: Workout = {
     wor_user_id: '',
     wor_completed_count: 0,
     wor_estimate_time: 0,
-    wor_last_done: { seconds: 0, nanoseconds: 0 }
+    wor_last_done: ''
 };
 
 export default function CreateSplitScreen() {
@@ -41,7 +40,6 @@ export default function CreateSplitScreen() {
         Saturday: { workout: null, completed: false, day: 'Saturday' },
         Sunday: { workout: null, completed: false, day: 'Sunday' }
     });
-    const [weeksToGenerate, setWeeksToGenerate] = useState(DEFAULT_WEEKS);
     const [selectedDay, setSelectedDay] = useState<typeof WEEK_DAYS[number] | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filteredWorkouts, setFilteredWorkouts] = useState<Workout[]>([]);
@@ -121,7 +119,7 @@ export default function CreateSplitScreen() {
 
         try {
             setIsSaving(true);
-            await addReferenceWeek(splitWeek, weeksToGenerate, user.id);
+            await addReferenceWeek(splitWeek, user.id);
             emitter.emit('splitEvent', 0);
             Alert.alert('Success', 'Split created successfully!', [
                 {
@@ -244,30 +242,7 @@ export default function CreateSplitScreen() {
                     );
                 })}
 
-                <View style={styles.weeksContainer}>
-                    <Text style={styles.weeksLabel}>Generate weeks:</Text>
-                    <View style={styles.weeksSelector}>
-                        {[3, 5, 8, 10].map((num) => (
-                            <TouchableOpacity
-                                key={num}
-                                onPress={() => setWeeksToGenerate(num)}
-                                style={[
-                                    styles.weekButton,
-                                    weeksToGenerate === num && styles.weekButtonSelected
-                                ]}
-                            >
-                                <Text
-                                    style={[
-                                        styles.weekButtonText,
-                                        weeksToGenerate === num && styles.weekButtonTextSelected
-                                    ]}
-                                >
-                                    {num}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
+
             </ScrollView>
 
             <View style={styles.buttonContainer}>
@@ -503,43 +478,7 @@ const styles = StyleSheet.create({
         fontSize: Theme.fontSize.md,
         fontStyle: 'italic',
     },
-    weeksContainer: {
-        padding: Theme.spacing.md,
-        backgroundColor: Theme.colors.lessDark,
-        margin: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-    },
-    weeksLabel: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.semibold,
-        marginBottom: Theme.spacing.sm,
-    },
-    weeksSelector: {
-        flexDirection: 'row',
-        gap: Theme.spacing.sm,
-    },
-    weekButton: {
-        flex: 1,
-        padding: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-        backgroundColor: Theme.colors.dark,
-        borderWidth: 1,
-        borderColor: Theme.colors.lessDark,
-        alignItems: 'center',
-    },
-    weekButtonSelected: {
-        backgroundColor: Theme.colors.green,
-        borderColor: Theme.colors.green,
-    },
-    weekButtonText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-    },
-    weekButtonTextSelected: {
-        color: Theme.colors.dark,
-        fontWeight: Theme.fontWeight.bold,
-    },
+
     buttonContainer: {
         position: 'absolute',
         bottom: 0,

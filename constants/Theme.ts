@@ -6,7 +6,12 @@ export const Theme = {
         lessDark: '#1c1a1aff',
         yellow: '#CDCD55',
         green: '#0C7C59',
+        danger: '#E74C3C',
+        accent: '#CDCD55',
         font: '#E5E3D4',
+        secondary: '#A9A89B',
+        placeholder: '#7a7a7a',
+        border: '#3A3A3A',
         white: '#FFFFFF',
         black: '#000000',
     },
@@ -61,6 +66,13 @@ export const Theme = {
             shadowRadius: 10,
             elevation: 10,
         },
+    },
+    lineHeight: {
+        sm: 16,
+        md: 20,
+        lg: 24,
+        xl: 28,
+        xxl: 32,
     },
 } as const;
 

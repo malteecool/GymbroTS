@@ -2,7 +2,7 @@ import emitter from "../../hooks/CustomEventEmitter";
 import { Exercise } from "../../interfaces/Exercise.Interface";
 import { Workout } from "../../interfaces/Workout.Interface";
 import { getFormattedTime, getWorkoutById, getWorkoutExercises, updateWorkout, updateWorkoutExerciseOrdinal } from "../../services/WorkoutService.Service";
-import { removeWorkoutExercise as removeWorkoutExerciseService, getFirebaseTimeStamp } from '../../services/ExerciseService.Service';
+import { removeWorkoutExercise as removeWorkoutExerciseService } from '../../services/ExerciseService.Service';
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Animated, ScrollView, Text, TouchableOpacity, View } from "react-native";
@@ -211,7 +211,7 @@ export default function WorkoutDetails() {
                 <View>
                     <ScrollView style={{ width: '100%' }} contentContainerStyle={{ paddingBottom: 100 }}>{
                         data.map((workoutExercise, i) => {
-                            var exerciseDate = getFirebaseTimeStamp(workoutExercise.exe_date.seconds, workoutExercise.exe_date.nanoseconds);
+                            var exerciseDate = new Date(workoutExercise.exe_date).toDateString();
                             return (
                                 <TouchableOpacity key={workoutExercise.exe_name} onPress={() => { router.push({ pathname: '/exercise/exerciseDetails', params: { 'exerciseId': workoutExercise.id } }) }}>
                                     <Card key={i} containerStyle={Styles.card}>
@@ -223,7 +223,7 @@ export default function WorkoutDetails() {
                                                 </Text>
                                                 <Text style={{ ...Styles.fontColor, marginLeft: 10 }}>
                                                     <MaterialCommunityIcons name='weight-kilogram' size={16} style={Styles.icon} />{' ' + workoutExercise.exe_max_weight + '  '}
-                                                    <MaterialCommunityIcons name='calendar-range' size={16} style={Styles.icon} />{' ' + (workoutExercise.exe_date !== null ? exerciseDate.toDateString() : 'never')}
+                                                    <MaterialCommunityIcons name='calendar-range' size={16} style={Styles.icon} />{' ' + (workoutExercise.exe_date !== null ? exerciseDate : 'never')}
                                                 </Text>
                                             </View>
                                             <View style={{ flex: 1, alignItems: 'flex-end', marginRight: 15 }}>
