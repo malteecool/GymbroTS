@@ -311,7 +311,7 @@ async function insertUsers(users) {
                 .insert([
                     {
                         name: user.usr_name || 'Unknown',
-                        email: user.usr_email || `user-${firebaseUserId}@gymbrots.local`,
+                        email: user.usr_email || `malte.lindgren11@gmail.com`,
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString(),
                     },
@@ -632,7 +632,7 @@ async function runMigration() {
             const history = await fetchExerciseHistoryForUser(userId);
             if (history.length > 0) {
                 await insertExerciseHistory(history);
-
+                
                 for (const record of history) {
                     const sets = await fetchSetsForHistory(record.id);
                     if (sets.length > 0) {

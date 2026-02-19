@@ -222,7 +222,7 @@ export default function WorkoutDetails() {
                                                     {workoutExercise.exe_name}
                                                 </Text>
                                                 <Text style={{ ...Styles.fontColor, marginLeft: 10 }}>
-                                                    <MaterialCommunityIcons name='weight-kilogram' size={16} style={Styles.icon} />{' ' + workoutExercise.exe_max_weight + '  '}
+                                                    <MaterialCommunityIcons name='weight-kilogram' size={16} style={Styles.icon} />{' ' + (workoutExercise.exe_max_weight !== null ? workoutExercise.exe_max_weight : "0") + '  '}
                                                     <MaterialCommunityIcons name='calendar-range' size={16} style={Styles.icon} />{' ' + (workoutExercise.exe_date !== null ? exerciseDate : 'never')}
                                                 </Text>
                                             </View>

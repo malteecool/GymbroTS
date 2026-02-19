@@ -23,6 +23,7 @@ export async function getExercises(usr_id: string): Promise<Exercise[]> {
 
 export async function getExerciseById(exe_id: string): Promise<Exercise | null> {
     try {
+        console.log(exe_id)
         const { data, error } = await supabase
             .from('exercise')
             .select('*')

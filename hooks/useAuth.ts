@@ -58,7 +58,7 @@ export function useAuth() {
 
                     // Fetch user data from app database using Supabase auth
                     try {
-                        const userData = await getUserData(currentUser.id);
+                        const userData = await getUserData(currentUser.email!);
                         if (userData) {
                             setUserInfo(userData);
                             await setStordUserData(userData);
@@ -123,7 +123,7 @@ export function useAuth() {
 
                         // Fetch user data or create if doesn't exist
                         try {
-                            let userData = await getUserData(result.user.id);
+                            let userData = await getUserData(result.user.email!);
                             
                             // If user doesn't exist, create them with Google info
                             if (!userData && result.googleUserInfo) {
@@ -236,7 +236,7 @@ export function useAuth() {
 
                 // Fetch user data
                 try {
-                    const userData = await getUserData(result.user.id);
+                    const userData = await getUserData(result.user.email!);
                     if (userData) {
                         setUserInfo(userData);
                         await setStordUserData(userData);

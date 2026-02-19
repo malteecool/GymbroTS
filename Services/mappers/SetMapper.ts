@@ -1,4 +1,4 @@
-import { Set } from '../interfaces/Set.Interface';
+import { Set } from '../../interfaces/Set.Interface';
 
 /**
  * Mapper for converting Supabase database rows to Set interface
@@ -9,9 +9,9 @@ export class SetMapper {
      */
     static toDomain(row: any): Set {
         return {
-            set_weight: row.SET_WEIGHT,
-            set_reps: row.SET_REPS,
-            set_order: row.SET_ORDER
+            set_weight: row.set_weight,
+            set_reps: row.set_reps,
+            set_order: row.set_order
         };
     }
 
@@ -27,10 +27,10 @@ export class SetMapper {
      */
     static toSupabase(set: Set, exerciseHistoryId: string, order: number): any {
         return {
-            EXERCISE_HISTORY_ID: exerciseHistoryId,
-            SET_WEIGHT: set.set_weight,
-            SET_REPS: set.set_reps,
-            SET_ORDER: order
+            exercise_history_id: exerciseHistoryId,
+            set_weight: set.set_weight,
+            set_reps: set.set_reps,
+            set_order: order
         };
     }
 

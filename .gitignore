@@ -44,3 +44,5 @@ app-example
 my-release-key.keystore
 
 firebaseConfig.js
+
+migration/.env.migration

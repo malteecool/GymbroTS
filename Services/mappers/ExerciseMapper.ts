@@ -10,12 +10,12 @@ export class ExerciseMapper {
      */
     static toDomain(row: any): Exercise {
         return {
-            id: row.ID,
-            exe_name: row.EXE_NAME,
-            exe_user_id: row.EXE_USER_ID,
-            exe_date: row.EXE_DATE || new Date().toISOString(),
-            exe_max_reps: row.EXE_MAX_REPS,
-            exe_max_weight: row.EXE_MAX_WEIGHT
+            id: row.id,
+            exe_name: row.exe_name,
+            exe_user_id: row.exe_user_id,
+            exe_date: row.exe_date || new Date().toISOString(),
+            exe_max_reps: row.exe_max_reps,
+            exe_max_weight: row.exe_max_weight
         };
     }
 
@@ -31,11 +31,11 @@ export class ExerciseMapper {
      */
     static toSupabase(exercise: Partial<Exercise>): any {
         return {
-            EXE_NAME: exercise.exe_name,
-            EXE_USER_ID: exercise.exe_user_id,
-            EXE_DATE: new Date().toISOString(),
-            EXE_MAX_REPS: exercise.exe_max_reps ?? 0,
-            EXE_MAX_WEIGHT: exercise.exe_max_weight ?? 0
+            exe_name: exercise.exe_name,
+            exe_user_id: exercise.exe_user_id,
+            exe_date: new Date().toISOString(),
+            exe_max_reps: exercise.exe_max_reps ?? 0,
+            exe_max_weight: exercise.exe_max_weight ?? 0
         };
     }
 
@@ -45,10 +45,10 @@ export class ExerciseMapper {
     static toSupabaseUpdate(exercise: Partial<Exercise>): any {
         const update: any = {};
         
-        if (exercise.exe_name !== undefined) update.EXE_NAME = exercise.exe_name;
-        if (exercise.exe_date !== undefined) update.EXE_DATE = new Date().toISOString();
-        if (exercise.exe_max_reps !== undefined) update.EXE_MAX_REPS = exercise.exe_max_reps;
-        if (exercise.exe_max_weight !== undefined) update.EXE_MAX_WEIGHT = exercise.exe_max_weight;
+        if (exercise.exe_name !== undefined) update.exe_name = exercise.exe_name;
+        if (exercise.exe_date !== undefined) update.exe_date = new Date().toISOString();
+        if (exercise.exe_max_reps !== undefined) update.exe_max_reps = exercise.exe_max_reps;
+        if (exercise.exe_max_weight !== undefined) update.exe_max_weight = exercise.exe_max_weight;
         
         return update;
     }

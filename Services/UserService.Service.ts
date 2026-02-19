@@ -3,12 +3,13 @@ import { User } from "../interfaces/User.Interface";
 import { supabase } from "../supabaseConfig";
 import { UserMapper } from "./mappers/UserMapper";
 
-export async function getUserData(userId: string): Promise<User | null> {
+export async function getUserData(email: string): Promise<User | null> {
+    console.log("getting user data with email:" , email)
     try {
         const { data, error } = await supabase
             .from('app_user')
             .select('*')
-            .eq('id', userId)
+            .eq('email', email)
             .single();
 
         if (error) {
