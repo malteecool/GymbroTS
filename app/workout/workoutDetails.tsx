@@ -41,10 +41,12 @@ export default function WorkoutDetails() {
     const load = async () => {
         await withLoading(async () => {
             const tempWorkout = await getWorkoutById(workoutId as string);
-            setWorkout(tempWorkout);
-            const workoutExercises = await getWorkoutExercises(workoutId as string);
-            setData(workoutExercises);
-            updateHeader(tempWorkout.wor_name);
+            if (tempWorkout) {
+                setWorkout(tempWorkout);
+                const workoutExercises = await getWorkoutExercises(workoutId as string);
+                setData(workoutExercises);
+                updateHeader(tempWorkout.worName);
+            }
         });
     };
 
@@ -75,14 +77,16 @@ export default function WorkoutDetails() {
     const updateExercisePosition = async (exerciseList: WorkoutExercise[]) => {
         if (exerciseList) {
             exerciseList.forEach((exercise, index) => {
-                updateWorkoutExerciseOrdinal(workout!.id, exercise.woe_id, index);
+                updateWorkoutExerciseOrdinal(workout!.id, exercise.woeId, index);
             });
         }
     }
 
     const saveWorkout = async () => {
         await withLoading(async () => {
-            await updateWorkout(workout, time);
+            if (workout) {
+                await updateWorkout(workout, time);
+            }
         }).then(() => {
             emitter.emit('workoutEvent');
             router.back();
@@ -98,7 +102,7 @@ export default function WorkoutDetails() {
     };
 
     const warnUser = (exercise: Exercise) => {
-        Alert.alert('Remove exercise', 'Are you sure you want to delete exercise ' + exercise.exe_name + '?', [
+        Alert.alert('Remove exercise', 'Are you sure you want to delete exercise ' + exercise.exeName + '?', [
             {
                 text: 'Cancel',
                 onPress: () => { return; },
@@ -137,7 +141,7 @@ export default function WorkoutDetails() {
         }
 
         if (workout) {
-            updateHeader(workout?.wor_name);
+            updateHeader(workout?.worName);
         }
 
         return () => clearInterval(intervalId);
@@ -204,37 +208,37 @@ export default function WorkoutDetails() {
         <View style={{ flex: 1, backgroundColor: '#121111' }}>
             <Stack.Screen
                 options={{
-                    title: workout?.wor_name
+                    title: workout?.worName
                 }}
             />
             <View style={{ flex: 1 }}>
                 <View>
                     <ScrollView style={{ width: '100%' }} contentContainerStyle={{ paddingBottom: 100 }}>{
                         data.map((workoutExercise, i) => {
-                            var exerciseDate = new Date(workoutExercise.exe_date).toDateString();
+                            var exerciseDate = new Date(workoutExercise.exeDate).toDateString();
                             return (
-                                <TouchableOpacity key={workoutExercise.exe_name} onPress={() => { router.push({ pathname: '/exercise/exerciseDetails', params: { 'exerciseId': workoutExercise.id } }) }}>
+                                <TouchableOpacity key={workoutExercise.exeName} onPress={() => { router.push({ pathname: '/exercise/exerciseDetails', params: { 'exerciseId': workoutExercise.id } }) }}>
                                     <Card key={i} containerStyle={Styles.card}>
 
                                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <View>
                                                 <Text style={Styles.cardTitle}>
-                                                    {workoutExercise.exe_name}
+                                                    {workoutExercise.exeName}
                                                 </Text>
                                                 <Text style={{ ...Styles.fontColor, marginLeft: 10 }}>
-                                                    <MaterialCommunityIcons name='weight-kilogram' size={16} style={Styles.icon} />{' ' + (workoutExercise.exe_max_weight !== null ? workoutExercise.exe_max_weight : "0") + '  '}
-                                                    <MaterialCommunityIcons name='calendar-range' size={16} style={Styles.icon} />{' ' + (workoutExercise.exe_date !== null ? exerciseDate : 'never')}
+                                                    <MaterialCommunityIcons name='weight-kilogram' size={16} style={Styles.icon} />{' ' + (workoutExercise.exeMaxWeight !== null ? workoutExercise.exeMaxWeight : "0") + '  '}
+                                                    <MaterialCommunityIcons name='calendar-range' size={16} style={Styles.icon} />{' ' + (workoutExercise.exeDate !== null ? exerciseDate : 'never')}
                                                 </Text>
                                             </View>
                                             <View style={{ flex: 1, alignItems: 'flex-end', marginRight: 15 }}>
-                                                <View style={{ flexDirection: 'row', backgroundColor: 'rgba(28, 26, 26, 0.7)', height: 50, alignItems: 'center'}}>
+                                                <View style={{ flexDirection: 'row', backgroundColor: 'rgba(28, 26, 26, 0.7)', height: 50, alignItems: 'center' }}>
                                                     <Animated.View style={{
                                                         opacity,
                                                         width: size,
                                                         flexDirection: 'row'
                                                     }}>
-                                                        <TouchableOpacity style={{ paddingRight: 10}} onPress={() => { moveExerciseBackwards(i) }}><MaterialCommunityIcons name='arrow-up' size={24} style={Styles.icon} /></TouchableOpacity>
-                                                        <TouchableOpacity style={{ paddingRight: 0}} onPress={() => { moveExerciseForward(i) }}><MaterialCommunityIcons name='arrow-down' size={24} style={Styles.icon} /></TouchableOpacity>
+                                                        <TouchableOpacity style={{ paddingRight: 10 }} onPress={() => { moveExerciseBackwards(i) }}><MaterialCommunityIcons name='arrow-up' size={24} style={Styles.icon} /></TouchableOpacity>
+                                                        <TouchableOpacity style={{ paddingRight: 0 }} onPress={() => { moveExerciseForward(i) }}><MaterialCommunityIcons name='arrow-down' size={24} style={Styles.icon} /></TouchableOpacity>
                                                     </Animated.View>
                                                     <TouchableOpacity style={{ paddingLeft: 0 }} onPress={() => { warnUser(workoutExercise) }}><MaterialCommunityIcons name='trash-can-outline' size={24} style={Styles.icon} /></TouchableOpacity>
                                                 </View>

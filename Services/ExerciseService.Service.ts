@@ -61,7 +61,7 @@ export async function getDefaultExercises(): Promise<Exercise[]> {
     }
 }
 
-export async function getSetDocument(exerciseHistoryId: string): Promise<{ exh_sets: Set[] }> {
+export async function getSetByHistoryId(exerciseHistoryId: string): Promise<{ exhSets: Set[] }> {
     try {
         const { data, error } = await supabase
             .from('set')
@@ -71,7 +71,7 @@ export async function getSetDocument(exerciseHistoryId: string): Promise<{ exh_s
 
         if (error) throw error;
 
-        return { exh_sets: SetMapper.toDomainList(data || []) };
+        return { exhSets: SetMapper.toDomainList(data || []) };
     } catch (error) {
         console.error('Error getting set document:', error);
         throw error;
@@ -94,13 +94,14 @@ export async function getHistory(exerciseId: string, date?: Date): Promise<Exerc
             const historyDate = new Date(historyRecord.exh_date);
 
             if (!date || (date && historyDate > date)) {
-                const setsData = await getSetDocument(historyRecord.id);
+                const setsData = await getSetByHistoryId(historyRecord.id);
+                console.log(setsData);
                 documentData.push(
-                    ExerciseHistoryMapper.toDomain(historyRecord, setsData.exh_sets)
+                    ExerciseHistoryMapper.toDomain(historyRecord, setsData.exhSets)
                 );
             }
         }
-
+        console.log("document data: ", documentData[0].exhSets)
         return documentData;
     } catch (error) {
         console.error('Error getting history:', error);
@@ -124,9 +125,9 @@ export async function getHistoryByUser(userId: string): Promise<ExerciseHistory[
         const documentData: ExerciseHistory[] = [];
 
         for (const historyRecord of data || []) {
-            const setsData = await getSetDocument(historyRecord.id);
+            const setsData = await getSetByHistoryId(historyRecord.id);
             documentData.push(
-                ExerciseHistoryMapper.toDomain(historyRecord, setsData.exh_sets)
+                ExerciseHistoryMapper.toDomain(historyRecord, setsData.exhSets)
             );
         }
 
@@ -174,8 +175,8 @@ export async function addExercise(name: string, usr_id: string): Promise<string>
         const { data, error } = await supabase
             .from('exercise')
             .insert(ExerciseMapper.toSupabase({
-                exe_name: name,
-                exe_user_id: usr_id
+                exeName: name,
+                exeUserId: usr_id
             }))
             .select()
             .single();
@@ -199,7 +200,7 @@ export async function addExerciseHistory(
         const { data: historyData, error: historyError } = await supabase
             .from('exercise_history')
             .insert(ExerciseHistoryMapper.toSupabase(
-                { id: exercise.id, exh_sets: sets, exh_date: exercise.exe_date, exh_comment: comment } as any,
+                { id: exercise.id, exhSets: sets, exhDate: exercise.exeDate, exhComment: comment } as any,
                 exercise.id
             ))
             .select()
@@ -221,7 +222,7 @@ export async function addExerciseHistory(
             await updateExerciseDate(exercise.id);
 
             // Update max weight
-            const maxWeight = Math.max(...sets.map(o => o.set_weight));
+            const maxWeight = Math.max(...sets.map(o => o.setWeight));
             await updateExerciseMaxWeight(exercise.id, maxWeight);
         }
 
@@ -245,7 +246,7 @@ export async function updateExerciseMaxWeight(exe_id: string, weight: number): P
         if (weight > (data?.exe_max_weight || 0)) {
             const { error: updateError } = await supabase
                 .from('exercise')
-                .update(ExerciseMapper.toSupabaseUpdate({ exe_max_weight: weight }))
+                .update(ExerciseMapper.toSupabaseUpdate({ exeMaxWeight: weight }))
                 .eq('id', exe_id);
 
             if (updateError) throw updateError;

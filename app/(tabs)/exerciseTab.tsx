@@ -82,7 +82,7 @@ export default function ExerciseScreen() {
     const warnUser = useCallback((exercise: Exercise) => {
         Alert.alert(
             'Remove exercise',
-            `Are you sure you want to delete exercise "${exercise.exe_name}"?`,
+            `Are you sure you want to delete exercise "${exercise.exeName}"?`,
             [
                 {
                     text: 'Cancel',
@@ -101,7 +101,7 @@ export default function ExerciseScreen() {
         setSearch(text);
         if (text) {
             const newData = masterDataSource.filter((item: Exercise) => {
-                const itemData = item.exe_name?.toUpperCase() || '';
+                const itemData = item.exeName?.toUpperCase() || '';
                 const textData = text.toUpperCase();
                 return itemData.indexOf(textData) > -1;
             });
@@ -182,7 +182,7 @@ export default function ExerciseScreen() {
                     </View>
                 ) : (
                     filteredDataSource.map((item: Exercise, i: number) => {
-                        const exerciseDate = new Date(item.exe_date).toDateString();
+                        const exerciseDate = new Date(item.exeDate).toDateString();
 
                         return (
                             <TouchableOpacity
@@ -199,7 +199,7 @@ export default function ExerciseScreen() {
                                     <View style={styles.cardContent}>
                                         <View style={styles.cardInfo}>
                                             <Text style={Styles.cardTitle}>
-                                                {item.exe_name}
+                                                {item.exeName}
                                             </Text>
                                             <View style={styles.cardDetails}>
                                                 <View style={styles.detailItem}>
@@ -209,7 +209,7 @@ export default function ExerciseScreen() {
                                                         color={Theme.colors.font}
                                                     />
                                                     <Text style={styles.detailText}>
-                                                        {item.exe_max_weight} kg
+                                                        {item.exeMaxWeight} kg
                                                     </Text>
                                                 </View>
                                                 <View style={styles.detailItem}>

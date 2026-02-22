@@ -75,7 +75,7 @@ export default function ExerciseDetails() {
         <View style={styles.container}>
             <Stack.Screen
                 options={{
-                    title: exercise.exe_name,
+                    title: exercise.exeName,
                 }}
             />
             <View style={styles.content}>

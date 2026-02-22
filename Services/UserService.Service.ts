@@ -3,17 +3,17 @@ import { User } from "../interfaces/User.Interface";
 import { supabase } from "../supabaseConfig";
 import { UserMapper } from "./mappers/UserMapper";
 
-export async function getUserData(email: string): Promise<User | null> {
-    console.log("getting user data with email:" , email)
+export async function getUserDataById(id: string): Promise<User | null> {
+    console.log("getting user data with id:" , id)
     try {
         const { data, error } = await supabase
             .from('app_user')
             .select('*')
-            .eq('email', email)
+            .eq('id', id)
             .single();
 
         if (error) {
-            console.error('Error fetching user data:', error);
+            console.error('1 Error fetching user data by id:', error);
             return null;
         }
 
@@ -25,41 +25,7 @@ export async function getUserData(email: string): Promise<User | null> {
         const user = UserMapper.toDomain(data);
         return user;
     } catch (error) {
-        console.error('Error fetching user data:', error);
-        return null;
-    }
-}
-
-export async function createUser(userId: string, name: string, email: string): Promise<User | null> {
-    try {
-        const now = new Date().toISOString();
-        
-        const { data, error } = await supabase
-            .from('app_user')
-            .insert({
-                id: userId,
-                name: name,
-                email: email,
-                created_at: now,
-                updated_at: now,
-            })
-            .select()
-            .single();
-
-        if (error) {
-            console.error('Error creating user:', error);
-            return null;
-        }
-
-        if (!data) {
-            return null;
-        }
-
-        // Map the database row to domain User object
-        const user = UserMapper.toDomain(data);
-        return user;
-    } catch (error) {
-        console.error('Error creating user:', error);
+        console.error('2 Error fetching user data by id:', error);
         return null;
     }
 }

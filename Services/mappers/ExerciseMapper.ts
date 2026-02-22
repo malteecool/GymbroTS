@@ -3,6 +3,7 @@ import { Exercise } from '../../interfaces/Exercise.Interface';
 
 /**
  * Mapper for converting Supabase database rows to Exercise interface
+ * Transforms snake_case database fields to camelCase domain properties
  */
 export class ExerciseMapper {
     /**
@@ -11,11 +12,11 @@ export class ExerciseMapper {
     static toDomain(row: any): Exercise {
         return {
             id: row.id,
-            exe_name: row.exe_name,
-            exe_user_id: row.exe_user_id,
-            exe_date: row.exe_date || new Date().toISOString(),
-            exe_max_reps: row.exe_max_reps,
-            exe_max_weight: row.exe_max_weight
+            exeName: row.exe_name,
+            exeUserId: row.exe_user_id,
+            exeDate: row.exe_date || new Date().toISOString(),
+            exeMaxReps: row.exe_max_reps,
+            exeMaxWeight: row.exe_max_weight
         };
     }
 
@@ -28,14 +29,15 @@ export class ExerciseMapper {
 
     /**
      * Convert Exercise interface to Supabase insert format
+     * Transforms camelCase domain properties to snake_case database fields
      */
     static toSupabase(exercise: Partial<Exercise>): any {
         return {
-            exe_name: exercise.exe_name,
-            exe_user_id: exercise.exe_user_id,
+            exe_name: exercise.exeName,
+            exe_user_id: exercise.exeUserId,
             exe_date: new Date().toISOString(),
-            exe_max_reps: exercise.exe_max_reps ?? 0,
-            exe_max_weight: exercise.exe_max_weight ?? 0
+            exe_max_reps: exercise.exeMaxReps ?? 0,
+            exe_max_weight: exercise.exeMaxWeight ?? 0
         };
     }
 
@@ -45,10 +47,10 @@ export class ExerciseMapper {
     static toSupabaseUpdate(exercise: Partial<Exercise>): any {
         const update: any = {};
         
-        if (exercise.exe_name !== undefined) update.exe_name = exercise.exe_name;
-        if (exercise.exe_date !== undefined) update.exe_date = new Date().toISOString();
-        if (exercise.exe_max_reps !== undefined) update.exe_max_reps = exercise.exe_max_reps;
-        if (exercise.exe_max_weight !== undefined) update.exe_max_weight = exercise.exe_max_weight;
+        if (exercise.exeName !== undefined) update.exe_name = exercise.exeName;
+        if (exercise.exeDate !== undefined) update.exe_date = new Date().toISOString();
+        if (exercise.exeMaxReps !== undefined) update.exe_max_reps = exercise.exeMaxReps;
+        if (exercise.exeMaxWeight !== undefined) update.exe_max_weight = exercise.exeMaxWeight;
         
         return update;
     }

@@ -339,7 +339,7 @@ async function insertExercises(exercises) {
         try {
             const firebaseExerciseId = exercise.id;
             const firebaseUserId = exercise.exe_usr_id;
-            const supabaseUserId = idMaps.users[firebaseUserId];
+            const supabaseUserId = "548f46a6-92e3-4705-9067-c4962e7504e8"; //idMaps.users[firebaseUserId];
             
             if (!supabaseUserId) {
                 throw new Error(`No mapped user ID found for Firebase user ${firebaseUserId}`);
@@ -452,7 +452,7 @@ async function insertWorkouts(workouts) {
         try {
             const firebaseWorkoutId = workout.id;
             const firebaseUserId = workout.wor_usr_id;
-            const supabaseUserId = idMaps.users[firebaseUserId];
+            const supabaseUserId = "548f46a6-92e3-4705-9067-c4962e7504e8"; //idMaps.users[firebaseUserId];
             
             if (!supabaseUserId) {
                 throw new Error(`No mapped user ID found for Firebase user ${firebaseUserId}`);
@@ -532,7 +532,7 @@ async function insertSplits(splits) {
         try {
             const firebaseSplitId = split.id;
             const firebaseUserId = split.spl_usr_id;
-            const supabaseUserId = idMaps.users[firebaseUserId];
+            const supabaseUserId = "548f46a6-92e3-4705-9067-c4962e7504e8"; //idMaps.users[firebaseUserId];
             
             if (!supabaseUserId) {
                 throw new Error(`No mapped user ID found for Firebase user ${firebaseUserId}`);
@@ -614,7 +614,7 @@ async function runMigration() {
             log('No users found in Firebase. Aborting.', 'warning');
             return;
         }
-        await insertUsers(users);
+        //await insertUsers(users);
 
         // 2. For each user, migrate their data
         for (const user of users) {

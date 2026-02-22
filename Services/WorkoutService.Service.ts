@@ -21,11 +21,11 @@ export async function getWorkouts(usr_id: string): Promise<Workout[]> {
 
         return (data || []).map(workout => ({
             id: workout.id,
-            wor_completed_count: workout.wor_completed_count,
-            wor_estimate_time: workout.wor_estimate_time,
-            wor_last_done: workout.wor_last_done,
-            wor_name: workout.wor_name,
-            wor_user_id: workout.wor_user_id
+            worCompletedCount: workout.wor_completed_count,
+            worEstimateTime: workout.wor_estimate_time,
+            worLastDone: workout.wor_last_done,
+            worName: workout.wor_name,
+            worUserId: workout.wor_user_id
         }));
     } catch (error) {
         console.error('Error getting workouts:', error);
@@ -52,11 +52,11 @@ export async function getWorkoutById(wor_id: string): Promise<Workout | null> {
 
         return {
             id: data.id,
-            wor_completed_count: data.wor_completed_count,
-            wor_estimate_time: data.wor_estimate_time,
-            wor_last_done: data.wor_last_done,
-            wor_name: data.wor_name,
-            wor_user_id: data.wor_user_id
+            worCompletedCount: data.wor_completed_count,
+            worEstimateTime: data.wor_estimate_time,
+            worLastDone: data.wor_last_done,
+            worName: data.wor_name,
+            worUserId: data.wor_user_id
         };
     } catch (error) {
         console.error('Error getting workout by id:', error);
@@ -98,7 +98,7 @@ export async function updateWorkout(workout: Workout, timer: number): Promise<vo
         const { error } = await supabase
             .from('workout')
             .update({
-                wor_completed_count: workout.wor_completed_count + 1,
+                wor_completed_count: workout.worCompletedCount + 1,
                 wor_estimate_time: timer,
                 wor_last_done: new Date().toISOString()
             })
@@ -111,7 +111,7 @@ export async function updateWorkout(workout: Workout, timer: number): Promise<vo
     }
 }
 
-export async function getWorkoutExercises(workoutId: string): Promise<(Exercise & { woe_id: string; ordinal: number })[]> {
+export async function getWorkoutExercises(workoutId: string): Promise<(Exercise & { woeId: string; ordinal: number })[]> {
     try {
         const { data, error } = await supabase
             .from('workout_exercise')
@@ -125,11 +125,11 @@ export async function getWorkoutExercises(workoutId: string): Promise<(Exercise 
 
         if (error) throw error;
 
-        const documentData: (Exercise & { woe_id: string; ordinal: number })[] = [];
+        const documentData: (Exercise & { woeId: string; ordinal: number })[] = [];
         for (const row of data || []) {
             if (row.exercise) {
                 documentData.push({
-                    woe_id: row.woe_id,
+                    woeId: row.woe_id,
                     ordinal: row.ordinal,
                     ...ExerciseMapper.toDomain(row.exercise)
                 });
@@ -167,11 +167,11 @@ export async function getDefaultWorkouts(): Promise<Workout[]> {
 
         return (data || []).map(workout => ({
             id: workout.id,
-            wor_completed_count: workout.wor_completed_count,
-            wor_estimate_time: workout.wor_estimate_time,
-            wor_last_done: workout.wor_last_done,
-            wor_name: workout.wor_name,
-            wor_user_id: workout.wor_user_id
+            worCompletedCount: workout.wor_completed_count,
+            worEstimateTime: workout.wor_estimate_time,
+            worLastDone: workout.wor_last_done,
+            worName: workout.wor_name,
+            worUserId: workout.wor_user_id
         }));
     } catch (error) {
         console.error('Error getting default workouts:', error);

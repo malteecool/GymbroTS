@@ -48,7 +48,7 @@ export default function AddSetScreen() {
             const sets = setsRef.current.getSets();
             const comment = setsRef.current.getComment();
 
-            if (sets.length === 0 || sets.every(s => s.set_weight === 0 && s.set_reps === 0)) {
+            if (sets.length === 0 || sets.every(s => s.setWeight === 0 && s.setReps === 0)) {
                 Alert.alert('Error', 'Please add at least one set with weight and reps');
                 return;
             }
@@ -85,7 +85,7 @@ export default function AddSetScreen() {
         <View style={styles.container}>
             <Stack.Screen
                 options={{
-                    title: exercise.exe_name,
+                    title: exercise.exeName,
                 }}
             />
             <View style={styles.content}>

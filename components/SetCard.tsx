@@ -39,7 +39,7 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                 const updated = [...prevSets];
                 updated[i] = {
                     ...updated[i],
-                    set_weight: parseInt(value) || 0
+                    setWeight: parseInt(value) || 0
                 };
                 return updated;
             });
@@ -50,7 +50,7 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                 const updated = [...prevSets];
                 updated[i] = {
                     ...updated[i],
-                    set_reps: parseInt(value) || 0
+                    setReps: parseInt(value) || 0
                 };
                 return updated;
             });
@@ -58,24 +58,25 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
 
         const onAddSet = () => {
             setSets([...sets, {
-                set_weight: 0,
-                set_reps: 0,
-                set_order: sets.length + 1
+                setWeight: 0,
+                setReps: 0,
+                setOrder: sets.length + 1
             }]);
         };
 
         const onRemoveSet = (index: number) => {
             const newSets = sets.filter((_, i) => i !== index);
-            setSets(newSets.map((set, i) => ({ ...set, set_order: i + 1 })));
+            setSets(newSets.map((set, i) => ({ ...set, setOrder: i + 1 })));
         };
 
         const load = () => {
             if (exerciseHistory) {
-                setDate(new Date(exerciseHistory.exh_date).toDateString());
-                setSets(exerciseHistory.exh_sets);
-                setComment(exerciseHistory.exh_comment || "");
+                setDate(new Date(exerciseHistory.exhDate).toDateString());
+                setSets(exerciseHistory.exhSets);
+                console.log(exerciseHistory.exhSets);
+                setComment(exerciseHistory.exhComment || "");
             } else {
-                setSets([{ set_weight: 0, set_reps: 0, set_order: 1 }]);
+                setSets([{ setWeight: 0, setReps: 0, setOrder: 1 }]);
             }
             setLoading(false);
         };
@@ -111,10 +112,10 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                                             keyboardType='number-pad'
                                             onChangeText={value => handleChangeWeight(i, value)}
                                             style={styles.input}
-                                            placeholder={String(set.set_weight)}
+                                            placeholder={String(set.setWeight)}
                                             placeholderTextColor={Theme.colors.dark + '80'}
                                             editable={editable}
-                                            defaultValue={set.set_weight > 0 ? String(set.set_weight) : ''}
+                                            defaultValue={set.setWeight > 0 ? String(set.setWeight) : ''}
                                         />
                                     </View>
                                     <View style={editable ? styles.inputContainer : {width: '50%'}}>
@@ -122,10 +123,10 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                                             keyboardType='number-pad'
                                             onChangeText={value => handleChangeReps(i, value)}
                                             style={styles.input}
-                                            placeholder={String(set.set_reps)}
+                                            placeholder={String(set.setReps)}
                                             placeholderTextColor={Theme.colors.dark + '80'}
                                             editable={editable}
-                                            defaultValue={set.set_reps > 0 ? String(set.set_reps) : ''}
+                                            defaultValue={set.setReps > 0 ? String(set.setReps) : ''}
                                         />
                                     </View>
                                     {editable && sets.length > 0 && (
@@ -160,7 +161,7 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                         </TouchableOpacity>
                     )}
                 </Card>
-                {(editable || exerciseHistory?.exh_comment) && (
+                {(editable || exerciseHistory?.exhComment) && (
                     <View style={styles.commentContainer}>
                         <MaterialCommunityIcons
                             size={22}
@@ -170,10 +171,10 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                         <TextInput
                             style={styles.commentInput}
                             onChangeText={(text) => setComment(text)}
-                            placeholder={exerciseHistory?.exh_comment || "Comment"}
+                            placeholder={exerciseHistory?.exhComment || "Comment"}
                             placeholderTextColor={Theme.colors.font + '80'}
                             editable={editable}
-                            defaultValue={exerciseHistory?.exh_comment || ''}
+                            defaultValue={exerciseHistory?.exhComment || ''}
                             multiline
                         />
                     </View>

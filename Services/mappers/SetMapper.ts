@@ -2,6 +2,7 @@ import { Set } from '../../interfaces/Set.Interface';
 
 /**
  * Mapper for converting Supabase database rows to Set interface
+ * Transforms snake_case database fields to camelCase domain properties
  */
 export class SetMapper {
     /**
@@ -9,9 +10,9 @@ export class SetMapper {
      */
     static toDomain(row: any): Set {
         return {
-            set_weight: row.set_weight,
-            set_reps: row.set_reps,
-            set_order: row.set_order
+            setWeight: row.set_weight,
+            setReps: row.set_reps,
+            setOrder: row.set_order
         };
     }
 
@@ -28,8 +29,8 @@ export class SetMapper {
     static toSupabase(set: Set, exerciseHistoryId: string, order: number): any {
         return {
             exercise_history_id: exerciseHistoryId,
-            set_weight: set.set_weight,
-            set_reps: set.set_reps,
+            set_weight: set.setWeight,
+            set_reps: set.setReps,
             set_order: order
         };
     }

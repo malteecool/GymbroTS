@@ -35,7 +35,7 @@ export function CustomExerciseView(props: { userId: string, childToParent: (sele
             setFilteredData(data);
         } else {
             const filtered = data.filter(exercise =>
-                exercise.exe_name.toLowerCase().includes(searchQuery.toLowerCase())
+                exercise.exeName.toLowerCase().includes(searchQuery.toLowerCase())
             );
             setFilteredData(filtered);
         }
@@ -45,7 +45,7 @@ export function CustomExerciseView(props: { userId: string, childToParent: (sele
         setSelectedExercises((prev) => {
             let updated: WorkoutExercise[];
             if (!prev.map((x: WorkoutExercise) => x.id).includes(exercise.id)) {
-                updated = [...prev, { woe_id: exercise.id, ordinal: prev.length, ...exercise }];
+                updated = [...prev, { woeId: exercise.id, ordinal: prev.length, ...exercise }];
             } else {
                 updated = prev.filter((item: WorkoutExercise) => item.id !== exercise.id);
             }
@@ -134,7 +134,7 @@ export function CustomExerciseView(props: { userId: string, childToParent: (sele
                                             styles.exerciseText,
                                             isSelected && styles.exerciseTextSelected
                                         ]}>
-                                            {item.exe_name}
+                                            {item.exeName}
                                         </Text>
                                         {isSelected && (
                                             <MaterialCommunityIcons

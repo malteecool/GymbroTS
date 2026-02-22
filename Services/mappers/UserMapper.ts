@@ -29,6 +29,7 @@ export class UserMapper {
 
     /**
      * Convert User interface to Supabase insert format
+     * Database fields use UPPERCASE
      */
     static toSupabase(user: User): any {
         return {

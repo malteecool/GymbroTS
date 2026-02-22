@@ -3,7 +3,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { AuthService } from '../services/AuthService.Service';
-import { getUserData, setStordUserData, createUser } from '../services/UserService.Service';
+import { setStordUserData, getUserDataById } from '../services/UserService.Service';
 import { User } from '../interfaces/User.Interface';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -56,15 +56,15 @@ export function useAuth() {
                     setSession(currentSession);
                     setUser(currentUser);
 
-                    // Fetch user data from app database using Supabase auth
+                    // Fetch user data from app database using auth UUID
                     try {
-                        const userData = await getUserData(currentUser.email!);
+                        const userData = await getUserDataById(currentUser.id);
                         if (userData) {
                             setUserInfo(userData);
                             await setStordUserData(userData);
                         }
                     } catch (err) {
-                        console.error('Error fetching user data:', err);
+                        console.error('Error fetching user data by id:', err);
                     }
                 }
             } catch (err) {
@@ -85,15 +85,15 @@ export function useAuth() {
             setUser(authUser);
 
             if (authUser && authSession) {
-                // Fetch user data when authenticated
-                getUserData(authUser.id)
+                // Fetch user data when authenticated (app_user auto-created by trigger)
+                getUserDataById(authUser.id)
                     .then(userData => {
                         if (userData) {
                             setUserInfo(userData);
                             setStordUserData(userData);
                         }
                     })
-                    .catch(err => console.error('Error fetching user data:', err));
+                    .catch(err => console.error('Error fetching user data by id:', err));
             } else {
                 setUserInfo(null);
             }
@@ -121,25 +121,15 @@ export function useAuth() {
                         setUser(result.user);
                         setAuthMethod({ type: 'google' });
 
-                        // Fetch user data or create if doesn't exist
+                        // Fetch user data (app_user auto-created by trigger)
                         try {
-                            let userData = await getUserData(result.user.email!);
-                            
-                            // If user doesn't exist, create them with Google info
-                            if (!userData && result.googleUserInfo) {
-                                userData = await createUser(
-                                    result.user.id,
-                                    result.googleUserInfo.name,
-                                    result.googleUserInfo.email
-                                );
-                            }
-                            
+                            const userData = await getUserDataById(result.user.id);
                             if (userData) {
                                 setUserInfo(userData);
                                 await setStordUserData(userData);
                             }
                         } catch (err) {
-                            console.error('Error fetching or creating user data:', err);
+                            console.error('Error fetching user data:', err);
                         }
                     }
                 } catch (err) {
@@ -234,9 +224,9 @@ export function useAuth() {
                 setSession(result.session);
                 setUser(result.user);
 
-                // Fetch user data
+                // Fetch user data (app_user auto-created by trigger)
                 try {
-                    const userData = await getUserData(result.user.email!);
+                    const userData = await getUserDataById(result.user.id);
                     if (userData) {
                         setUserInfo(userData);
                         await setStordUserData(userData);

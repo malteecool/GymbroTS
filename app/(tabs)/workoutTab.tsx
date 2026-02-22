@@ -67,7 +67,7 @@ export default function WorkoutScreen() {
         setSearch(text);
         if (text) {
             const newData = masterDataSource.filter((item: Workout) => {
-                const itemData = item.wor_name?.toUpperCase() || '';
+                const itemData = item.worName?.toUpperCase() || '';
                 const textData = text.toUpperCase();
                 return itemData.indexOf(textData) > -1;
             });
@@ -108,7 +108,7 @@ export default function WorkoutScreen() {
     const warnUser = useCallback((workout: Workout) => {
         Alert.alert(
             'Remove workout',
-            `Are you sure you want to delete workout "${workout.wor_name}"?`,
+            `Are you sure you want to delete workout \"${workout.worName}\"?`,
             [
                 {
                     text: 'Cancel',
@@ -183,8 +183,8 @@ export default function WorkoutScreen() {
                     </View>
                 ) : (
                     filteredDataSource.map((item: Workout) => {
-                        const lastDoneDate = item.wor_last_done
-                            ? new Date(item.wor_last_done).toDateString()
+                        const lastDoneDate = item.worLastDone
+                            ? new Date(item.worLastDone).toDateString()
                             : 'never';
 
                         return (
@@ -202,7 +202,7 @@ export default function WorkoutScreen() {
                                     <View style={styles.cardContent}>
                                         <View style={styles.cardInfo}>
                                             <Text style={Styles.cardTitle}>
-                                                {item.wor_name}
+                                                {item.worName}
                                             </Text>
                                             <View style={styles.cardDetails}>
                                                 <View style={styles.detailItem}>
@@ -212,7 +212,7 @@ export default function WorkoutScreen() {
                                                         color={Theme.colors.font}
                                                     />
                                                     <Text style={styles.detailText}>
-                                                        {getFormattedTime(item.wor_estimate_time)}
+                                                        {getFormattedTime(item.worEstimateTime)}
                                                     </Text>
                                                 </View>
                                                 <View style={styles.detailItem}>
@@ -232,7 +232,7 @@ export default function WorkoutScreen() {
                                                         color={Theme.colors.font}
                                                     />
                                                     <Text style={styles.detailText}>
-                                                        {item.wor_completed_count}x
+                                                        {item.worCompletedCount}x
                                                     </Text>
                                                 </View>
                                             </View>

@@ -2,6 +2,7 @@ import { WorkoutExercise } from '../../interfaces/WorkoutExercise.Interface';
 
 /**
  * Mapper for converting Supabase database rows to WorkoutExercise interface
+ * Transforms snake_case database fields to camelCase domain properties
  */
 export class WorkoutExerciseMapper {
     /**
@@ -10,13 +11,13 @@ export class WorkoutExerciseMapper {
     static toDomain(row: any): WorkoutExercise {
         return {
             id: row.EXERCISE_ID,
-            woe_id: row.WOE_ID,
+            woeId: row.WOE_ID,
             ordinal: row.ORDINAL,
-            exe_name: row.EXE_NAME,
-            exe_user_id: row.EXE_USER_ID,
-            exe_date: row.EXE_DATE || new Date().toISOString(),
-            exe_max_reps: row.EXE_MAX_REPS,
-            exe_max_weight: row.EXE_MAX_WEIGHT
+            exeName: row.EXE_NAME,
+            exeUserId: row.EXE_USER_ID,
+            exeDate: row.EXE_DATE || new Date().toISOString(),
+            exeMaxReps: row.EXE_MAX_REPS,
+            exeMaxWeight: row.EXE_MAX_WEIGHT
         };
     }
 

@@ -1,20 +1,29 @@
 import { ExerciseHistory } from '../../interfaces/ExerciseHistory.Interface';
 import { SetMapper } from './SetMapper';
+import { Set } from '../../interfaces/Set.Interface';
 
 /**
  * Mapper for converting Supabase database rows to ExerciseHistory interface
+ * Transforms snake_case database fields to camelCase domain properties
+ * Requires sets to be passed separately or fetched separately
  */
 export class ExerciseHistoryMapper {
     /**
      * Convert Supabase database row to ExerciseHistory interface
-     * Requires sets to be passed separately or fetched separately
+     * Sets can be either raw database rows (need mapping) or already mapped Set instances
      */
     static toDomain(row: any, sets: any[] = []): ExerciseHistory {
+        // Check if sets are already mapped (domain instances) or need mapping
+        // Domain Set instances have camelCase properties like setWeight
+        const mappedSets = sets.length > 0 && 'setWeight' in sets[0]
+            ? sets  // Already mapped
+            : SetMapper.toDomainList(sets);  // Need mapping
+        
         return {
             id: row.id,
-            exh_date: row.exh_date,
-            exh_sets: SetMapper.toDomainList(sets),
-            exh_comment: row.exh_comment
+            exhDate: row.exh_date,
+            exhSets: mappedSets,
+            exhComment: row.exh_comment
         };
     }
 
@@ -32,7 +41,7 @@ export class ExerciseHistoryMapper {
         return {
             exercise_id: exerciseId,
             exh_date: this.dateToSupabase(new Date()),
-            exh_comment: history.exh_comment || null
+            exh_comment: history.exhComment || null
         };
     }
 

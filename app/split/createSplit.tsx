@@ -19,11 +19,11 @@ const REST_DAY_ID = 'REST_DAY';
 
 const REST_DAY_WORKOUT: Workout = {
     id: '-1',
-    wor_name: 'Rest Day',
-    wor_user_id: '',
-    wor_completed_count: 0,
-    wor_estimate_time: 0,
-    wor_last_done: ''
+    worName: 'Rest Day',
+    worUserId: '',
+    worCompletedCount: 0,
+    worEstimateTime: 0,
+    worLastDone: ''
 };
 
 export default function CreateSplitScreen() {
@@ -75,7 +75,7 @@ export default function CreateSplitScreen() {
             setFilteredWorkouts(workouts);
         } else {
             const filtered = workouts.filter(workout =>
-                workout.wor_name.toLowerCase().includes(searchQuery.toLowerCase())
+                workout.worName.toLowerCase().includes(searchQuery.toLowerCase())
             );
             setFilteredWorkouts(filtered);
         }
@@ -140,7 +140,7 @@ export default function CreateSplitScreen() {
         if (!workout) {
             return 'No workout assigned';
         }
-        return workout.wor_name;
+        return workout.worName;
     };
 
     if (isLoading) {
@@ -216,7 +216,7 @@ export default function CreateSplitScreen() {
                                                 color={Theme.colors.green}
                                             />
                                             <Text style={styles.workoutName}>
-                                                {dayData.workout!.wor_name}
+                                                {dayData.workout!.worName}
                                             </Text>
                                         </View>
                                     ) : (
@@ -378,7 +378,7 @@ export default function CreateSplitScreen() {
                                                     isSelected && styles.workoutOptionTextSelected
                                                 ]}
                                             >
-                                                {workout.wor_name}
+                                                {workout.worName}
                                             </Text>
                                             {isSelected && (
                                                 <MaterialCommunityIcons
