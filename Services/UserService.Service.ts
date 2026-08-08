@@ -3,6 +3,7 @@ import { User } from "../interfaces/User.Interface";
 import { supabase } from "../supabaseConfig";
 import { UserMapper } from "./mappers/UserMapper";
 
+
 export async function getUserDataById(id: string): Promise<User | null> {
     console.log("getting user data with id:" , id)
     try {
@@ -46,5 +47,39 @@ export async function setStordUserData(userData: User): Promise<void> {
     } catch (error) {
         console.error('Error storing user data:', error);
         throw error;
+    }
+}
+
+export async function updateProfile(userId: string, updates: Pick<User, 'name' | 'bio' | 'avatarUrl'>): Promise<User> {
+    const { data, error } = await supabase
+        .from('app_user')
+        .update({
+            name: updates.name,
+            bio: updates.bio ?? null,
+            avatar_url: updates.avatarUrl ?? null,
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    const updated = UserMapper.toDomainFromRow(data);
+    await setStordUserData(updated);
+    return updated;
+}
+
+export async function toggleVisibility(userId: string, isPublic: boolean): Promise<void> {
+    const { error } = await supabase
+        .from('app_user')
+        .update({ is_public: isPublic, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
+    if (error) throw error;
+
+    const stored = await getStordUserData();
+    if (stored) {
+        await setStordUserData({ ...stored, isPublic });
     }
 }

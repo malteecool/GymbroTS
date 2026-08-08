@@ -1,11 +1,15 @@
 import emitter from "../../hooks/CustomEventEmitter";
 import { Exercise } from "../../interfaces/Exercise.Interface";
 import { Workout } from "../../interfaces/Workout.Interface";
-import { getFormattedTime, getWorkoutById, getWorkoutExercises, updateWorkout, updateWorkoutExerciseOrdinal } from "../../services/WorkoutService.Service";
+import {
+    getFormattedTime, getWorkoutById, getWorkoutExercises, updateWorkout, updateWorkoutExerciseOrdinal,
+    toggleWorkoutVisibility, syncLinkedWorkout, unlinkWorkout,
+} from "../../services/WorkoutService.Service";
 import { removeWorkoutExercise as removeWorkoutExerciseService } from '../../services/ExerciseService.Service';
+import { getUserDataById } from '../../services/UserService.Service';
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Animated, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Animated, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
 import Styles from "../../Styles";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
 import { Button, Card } from "@rneui/themed";
@@ -24,6 +28,8 @@ export default function WorkoutDetails() {
     const [startTime, setStartTime] = useState<Date>(new Date(0));
     const [intervalTime, setIntervalTime] = useState<number>(0);
     const [edit, setEdit] = useState<boolean>(false);
+    const [linkedOwnerName, setLinkedOwnerName] = useState<string | null>(null);
+    const [publicToggleLoading, setPublicToggleLoading] = useState<boolean>(false);
 
     const navigation = useNavigation();
 
@@ -40,14 +46,51 @@ export default function WorkoutDetails() {
 
     const load = async () => {
         await withLoading(async () => {
-            const tempWorkout = await getWorkoutById(workoutId as string);
+            let tempWorkout = await getWorkoutById(workoutId as string);
             if (tempWorkout) {
-                setWorkout(tempWorkout);
+                if (tempWorkout.linkType === 'follow' && tempWorkout.sourceWorkoutId) {
+                    await syncLinkedWorkout(tempWorkout.id);
+                    tempWorkout = await getWorkoutById(workoutId as string);
+                    const sourceWorkout = await getWorkoutById(tempWorkout!.sourceWorkoutId!);
+                    const owner = sourceWorkout ? await getUserDataById(sourceWorkout.worUserId) : null;
+                    setLinkedOwnerName(owner?.name ?? null);
+                } else {
+                    setLinkedOwnerName(null);
+                }
+                setWorkout(tempWorkout!);
                 const workoutExercises = await getWorkoutExercises(workoutId as string);
                 setData(workoutExercises);
-                updateHeader(tempWorkout.worName);
+                updateHeader(tempWorkout!.worName);
             }
         });
+    };
+
+    const handleTogglePublic = async () => {
+        if (!workout) return;
+        const next = !workout.isPublic;
+        try {
+            setPublicToggleLoading(true);
+            await toggleWorkoutVisibility(workout.id, next);
+            setWorkout({ ...workout, isPublic: next });
+        } catch (error) {
+            console.error('Error toggling workout visibility:', error);
+        } finally {
+            setPublicToggleLoading(false);
+        }
+    };
+
+    const handleUnlink = () => {
+        if (!workout) return;
+        Alert.alert('Unlink workout', 'This workout will stop syncing exercises from the original. Continue?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Unlink', onPress: async () => {
+                    await withLoading(async () => {
+                        await unlinkWorkout(workout.id);
+                    }).then(() => load());
+                }
+            },
+        ]);
     };
 
     useEffect(() => {
@@ -212,6 +255,33 @@ export default function WorkoutDetails() {
                 }}
             />
             <View style={{ flex: 1 }}>
+                {linkedOwnerName && (
+                    <View style={{
+                        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                        backgroundColor: 'rgba(28, 26, 26, 0.7)', marginHorizontal: 10, marginTop: 10,
+                        paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10,
+                    }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <MaterialCommunityIcons name='link-variant' size={16} style={Styles.icon} />
+                            <Text style={{ ...Styles.fontColor, marginLeft: 6 }}>{'Linked from ' + linkedOwnerName}</Text>
+                        </View>
+                        <TouchableOpacity onPress={handleUnlink}>
+                            <Text style={{ color: '#CDCD55' }}>Unlink</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                <View style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                    marginHorizontal: 10, marginTop: 10, paddingHorizontal: 12,
+                }}>
+                    <Text style={Styles.fontColor}>Public (visible on your profile)</Text>
+                    <Switch
+                        value={workout?.isPublic ?? false}
+                        onValueChange={handleTogglePublic}
+                        disabled={publicToggleLoading}
+                        trackColor={{ false: '#3A3A3A', true: '#CDCD55' }}
+                    />
+                </View>
                 <View>
                     <ScrollView style={{ width: '100%' }} contentContainerStyle={{ paddingBottom: 100 }}>{
                         data.map((workoutExercise, i) => {

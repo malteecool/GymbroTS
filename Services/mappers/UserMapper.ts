@@ -21,9 +21,12 @@ export class UserMapper {
      */
     static toDomainFromRow(row: any): User {
         return {
-            id: row.ID,
-            email: row.EMAIL,
-            name: row.NAME || '',
+            id: row.ID || row.id,
+            email: row.EMAIL || row.email,
+            name: row.NAME || row.name || '',
+            bio: row.BIO || row.bio || undefined,
+            avatarUrl: row.AVATAR_URL || row.avatar_url || undefined,
+            isPublic: row.IS_PUBLIC ?? row.is_public ?? false,
         };
     }
 
@@ -36,6 +39,9 @@ export class UserMapper {
             ID: user.id,
             EMAIL: user.email,
             NAME: user.name,
+            BIO: user.bio,
+            AVATAR_URL: user.avatarUrl,
+            IS_PUBLIC: user.isPublic ?? false,
         };
     }
 
@@ -44,10 +50,13 @@ export class UserMapper {
      */
     static toSupabaseUpdate(user: Partial<User>): any {
         const update: any = {};
-        
+
         if (user.email !== undefined) update.EMAIL = user.email;
         if (user.name !== undefined) update.NAME = user.name;
-        
+        if (user.bio !== undefined) update.BIO = user.bio;
+        if (user.avatarUrl !== undefined) update.AVATAR_URL = user.avatarUrl;
+        if (user.isPublic !== undefined) update.IS_PUBLIC = user.isPublic;
+
         return update;
     }
 

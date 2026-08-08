@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthContext } from '../../providers/AuthProvider';
 import { Theme } from '../../constants/Theme';
 
-export function LoginScreen() {
+export default function LoginScreen() {
     const { 
         isLoading, 
         error, 
