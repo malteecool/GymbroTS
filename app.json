@@ -20,7 +20,16 @@
       "package": "com.malteiscool.GymbroTS"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#1c1a1a"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
