@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Dimensions, ScrollView, RefreshControl, F
 import { Card, Button } from '@rneui/themed';
 import Carousel from "react-native-snap-carousel";
 import { getReferenceWeek, markDayAsCompleted, SplitWeek } from '../../services/SplitService.Service';
+import { WorkoutSharePrompt } from '../../components/Social/WorkoutSharePrompt';
 import { getWeekNumber } from "../../services/StatsService.Service";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme, Styles } from "../../constants/Theme";
@@ -24,6 +25,7 @@ export default function SplitScreen() {
     const [currentWeekLabel, setCurrentWeekLabel] = useState('Week ' + currentWeek);
     const [user, setUser] = useState<User | null>(null);
     const [currentIndex, setCurrentIndex] = useState(1);
+    const [sharePrompt, setSharePrompt] = useState<{ workoutId: string; workoutName: string } | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -105,6 +107,10 @@ export default function SplitScreen() {
             };
             setWeekData(updatedWeekData);
             await markDayAsCompleted(dayData.weekId, day, newCompleted);
+
+            if (newCompleted && dayData.workout) {
+                setSharePrompt({ workoutId: dayData.workout.id, workoutName: dayData.workout.worName });
+            }
         } catch (error) {
             console.error('Error marking day as completed:', error);
             // Revert on error
@@ -188,7 +194,7 @@ export default function SplitScreen() {
                                                         color={Theme.colors.font}
                                                     />
                                                     <Text style={styles.workoutName}>
-                                                        {dayData.workout!.wor_name}
+                                                        {dayData.workout!.worName}}
                                                     </Text>
                                                 </View>
                                             ) : (
@@ -273,6 +279,15 @@ export default function SplitScreen() {
                     lockScrollWhileSnapping={true}
                 />
             </View>
+            {sharePrompt && (
+                <WorkoutSharePrompt
+                    visible={!!sharePrompt}
+                    workoutId={sharePrompt.workoutId}
+                    workoutName={sharePrompt.workoutName}
+                    onClose={() => setSharePrompt(null)}
+                    onShared={() => setSharePrompt(null)}
+                />
+            )}
         </View>
     );
 }

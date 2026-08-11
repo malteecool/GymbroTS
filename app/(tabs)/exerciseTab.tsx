@@ -1,19 +1,19 @@
 import { Text, View, TouchableOpacity, ScrollView, TextInput, StyleSheet, RefreshControl, Alert } from 'react-native';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getExercises, removeExercise as removeExerciseService, getFirebaseTimeStamp } from '../../services/ExerciseService.Service';
+import { getExercises, removeExercise as removeExerciseService } from '../../services/ExerciseService.Service';
 import { Theme, Styles } from '../../constants/Theme';
 import { Card } from '@rneui/themed';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
 import { Exercise } from '../../interfaces/Exercise.Interface';
 import { User } from '../../interfaces/User.Interface';
 import { getStordUserData } from '../../services/UserService.Service';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import emitter from '../../hooks/CustomEventEmitter';
 import { Divider } from '@rneui/base';
-import { AddButton } from '../../components/ui/AddButton';
 
 export default function ExerciseScreen() {
+    const navigation = useNavigation();
     const [isLoading, setLoading] = useState(true);
     const [data, setData] = useState<Exercise[]>([]);
     const [search, setSearch] = useState('');
@@ -21,6 +21,23 @@ export default function ExerciseScreen() {
     const [masterDataSource, setMasterDataSource] = useState<Exercise[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [user, setUser] = useState<User | null>(null);
+
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <TouchableOpacity
+                    onPress={() => router.push('/exercise/addExercise')}
+                    style={styles.headerButton}
+                >
+                    <MaterialCommunityIcons
+                        name="plus"
+                        size={24}
+                        color={Theme.colors.green}
+                    />
+                </TouchableOpacity>
+            ),
+        });
+    }, [navigation]);
 
     const load = useCallback(async () => {
         try {
@@ -65,7 +82,7 @@ export default function ExerciseScreen() {
     const warnUser = useCallback((exercise: Exercise) => {
         Alert.alert(
             'Remove exercise',
-            `Are you sure you want to delete exercise "${exercise.exe_name}"?`,
+            `Are you sure you want to delete exercise "${exercise.exeName}"?`,
             [
                 {
                     text: 'Cancel',
@@ -84,7 +101,7 @@ export default function ExerciseScreen() {
         setSearch(text);
         if (text) {
             const newData = masterDataSource.filter((item: Exercise) => {
-                const itemData = item.exe_name?.toUpperCase() || '';
+                const itemData = item.exeName?.toUpperCase() || '';
                 const textData = text.toUpperCase();
                 return itemData.indexOf(textData) > -1;
             });
@@ -165,10 +182,7 @@ export default function ExerciseScreen() {
                     </View>
                 ) : (
                     filteredDataSource.map((item: Exercise, i: number) => {
-                        const exerciseDate = getFirebaseTimeStamp(
-                            item.exe_date.seconds,
-                            item.exe_date.nanoseconds
-                        );
+                        const exerciseDate = new Date(item.exeDate).toDateString();
 
                         return (
                             <TouchableOpacity
@@ -185,7 +199,7 @@ export default function ExerciseScreen() {
                                     <View style={styles.cardContent}>
                                         <View style={styles.cardInfo}>
                                             <Text style={Styles.cardTitle}>
-                                                {item.exe_name}
+                                                {item.exeName}
                                             </Text>
                                             <View style={styles.cardDetails}>
                                                 <View style={styles.detailItem}>
@@ -195,7 +209,7 @@ export default function ExerciseScreen() {
                                                         color={Theme.colors.font}
                                                     />
                                                     <Text style={styles.detailText}>
-                                                        {item.exe_max_weight} kg
+                                                        {item.exeMaxWeight} kg
                                                     </Text>
                                                 </View>
                                                 <View style={styles.detailItem}>
@@ -205,7 +219,7 @@ export default function ExerciseScreen() {
                                                         color={Theme.colors.font}
                                                     />
                                                     <Text style={styles.detailText}>
-                                                        {exerciseDate.toLocaleDateString()}
+                                                        {exerciseDate}
                                                     </Text>
                                                 </View>
                                             </View>
@@ -228,7 +242,6 @@ export default function ExerciseScreen() {
                     })
                 )}
             </ScrollView>
-            <AddButton navigation='/exercise/addExercise' />
         </View>
     );
 }
@@ -310,5 +323,8 @@ const styles = StyleSheet.create({
     },
     trashButton: {
         padding: Theme.spacing.xs,
+    },
+    headerButton: {
+        paddingRight: Theme.spacing.md,
     },
 });

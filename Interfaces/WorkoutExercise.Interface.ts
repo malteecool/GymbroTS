@@ -1,6 +1,6 @@
 import { Exercise } from "./Exercise.Interface";
 
 export interface WorkoutExercise extends Exercise {
-    woe_id: string,
+    woeId: string,
     ordinal: number
 }

@@ -1,8 +1,8 @@
 export interface Exercise {
     id: string;
-    exe_name: string;
-    exe_user_id: string;
-    exe_date: { nanoseconds: number, seconds: number };
-    exe_max_reps: number;
-    exe_max_weight: number;
+    exeName: string;
+    exeUserId: string;
+    exeDate: string;
+    exeMaxReps: number;
+    exeMaxWeight: number;
 }

@@ -1,21 +1,8 @@
-import { db } from '../firebaseConfig';
-import { 
-    collection, 
-    query, 
-    getDocs, 
-    where, 
-    Timestamp, 
-    getDoc, 
-    doc, 
-    updateDoc, 
-    addDoc, 
-    deleteDoc, 
-    orderBy,
-    DocumentData,
-    QueryDocumentSnapshot
-} from 'firebase/firestore';
+import { supabase } from '../supabaseConfig';
 import { Workout } from '../interfaces/Workout.Interface';
 import { Exercise } from '../interfaces/Exercise.Interface';
+import { ExerciseMapper } from './mappers';
+import { addExercise, removeWorkoutExercise } from './ExerciseService.Service';
 
 export interface WorkoutExercise {
     woe_exercise: string;
@@ -23,34 +10,28 @@ export interface WorkoutExercise {
     woe_id?: string;
 }
 
-export interface WorkoutDocument extends Omit<Workout, 'wor_last_done'> {
-    wor_last_done: Timestamp;
-    wor_usr_id: string;
-}
-
 export async function getWorkouts(usr_id: string): Promise<Workout[]> {
     try {
-        const collectionRef = collection(db, 'Workout');
-        const q = query(
-            collectionRef, 
-            where('wor_usr_id', '==', usr_id), 
-            orderBy('wor_last_done', 'desc')
-        );
-        const docSnap = await getDocs(q);
-        
-        const workoutData: Workout[] = [];
-        for (const document of docSnap.docs) {
-            const tempDoc = document.data();
-            workoutData.push({
-                id: document.id,
-                wor_completed_count: tempDoc.wor_completed_count,
-                wor_estimate_time: tempDoc.wor_estimate_time,
-                wor_last_done: tempDoc.wor_last_done,
-                wor_name: tempDoc.wor_name,
-                wor_user_id: tempDoc.wor_usr_id
-            });
-        }
-        return workoutData;
+        const { data, error } = await supabase
+            .from('workout')
+            .select('*')
+            .eq('wor_user_id', usr_id)
+            .order('wor_last_done', { ascending: false });
+
+        if (error) throw error;
+
+        return (data || []).map(workout => ({
+            id: workout.id,
+            worCompletedCount: workout.wor_completed_count,
+            worEstimateTime: workout.wor_estimate_time,
+            worLastDone: workout.wor_last_done,
+            worName: workout.wor_name,
+            worUserId: workout.wor_user_id,
+            isPublic: workout.is_public ?? false,
+            sourceWorkoutId: workout.source_workout_id ?? null,
+            linkType: workout.link_type ?? null,
+            copyCount: workout.copy_count ?? 0,
+        }));
     } catch (error) {
         console.error('Error getting workouts:', error);
         throw error;
@@ -59,18 +40,32 @@ export async function getWorkouts(usr_id: string): Promise<Workout[]> {
 
 export async function getWorkoutById(wor_id: string): Promise<Workout | null> {
     try {
-        const docRef = await getDoc(doc(db, 'Workout', wor_id));
-        if (!docRef.exists()) {
-            return null;
+        const { data, error } = await supabase
+            .from('workout')
+            .select('*')
+            .eq('id', wor_id)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return null;
+            }
+            throw error;
         }
-        const data = docRef.data();
+
+        if (!data) return null;
+
         return {
-            id: wor_id,
-            wor_completed_count: data.wor_completed_count,
-            wor_estimate_time: data.wor_estimate_time,
-            wor_last_done: data.wor_last_done,
-            wor_name: data.wor_name,
-            wor_user_id: data.wor_usr_id
+            id: data.id,
+            worCompletedCount: data.wor_completed_count,
+            worEstimateTime: data.wor_estimate_time,
+            worLastDone: data.wor_last_done,
+            worName: data.wor_name,
+            worUserId: data.wor_user_id,
+            isPublic: data.is_public ?? false,
+            sourceWorkoutId: data.source_workout_id ?? null,
+            linkType: data.link_type ?? null,
+            copyCount: data.copy_count ?? 0,
         };
     } catch (error) {
         console.error('Error getting workout by id:', error);
@@ -78,34 +73,29 @@ export async function getWorkoutById(wor_id: string): Promise<Workout | null> {
     }
 }
 
-export function getFirebaseTimeStamp(seconds: number, nanoseconds: number): Date {
-    return new Timestamp(seconds, nanoseconds).toDate();
-}
-
 export const getExerciseDocument = async (docId: string): Promise<Exercise[]> => {
     try {
-        const exercises = query(collection(db, 'Workout', docId, 'workout_exercise'));
-        const docSnap = await getDocs(exercises);
-        const documentData: Exercise[] = [];
-        
-        for (const exerciseDoc of docSnap.docs) {
-            const exerciseId = exerciseDoc.data().woe_exercise;
-            const docRef = doc(db, 'Exercise', exerciseId);
-            const exercise = await getDoc(docRef);
-            
-            if (exercise.exists()) {
-                const exerciseData = exercise.data();
-                documentData.push({
-                    id: exercise.id,
-                    exe_name: exerciseData.exe_name,
-                    exe_user_id: exerciseData.exe_usr_id,
-                    exe_date: exerciseData.exe_date,
-                    exe_max_reps: exerciseData.exe_max_reps,
-                    exe_max_weight: exerciseData.exe_max_weight
-                });
+        const { data, error } = await supabase
+            .from('workout_exercise')
+            .select('exercise_id')
+            .eq('workout_id', docId)
+            .order('ordinal', { ascending: true });
+
+        if (error) throw error;
+
+        const exercises: Exercise[] = [];
+        for (const row of data || []) {
+            const { data: exerciseData, error: exerciseError } = await supabase
+                .from('exercise')
+                .select('*')
+                .eq('id', row.exercise_id)
+                .single();
+
+            if (!exerciseError && exerciseData) {
+                exercises.push(ExerciseMapper.toDomain(exerciseData));
             }
         }
-        return documentData;
+        return exercises;
     } catch (error) {
         console.error('Error getting exercise document:', error);
         throw error;
@@ -114,42 +104,43 @@ export const getExerciseDocument = async (docId: string): Promise<Exercise[]> =>
 
 export async function updateWorkout(workout: Workout, timer: number): Promise<void> {
     try {
-        await updateDoc(doc(db, 'Workout', workout.id), {
-            wor_completed_count: workout.wor_completed_count + 1,
-            wor_estimate_time: timer,
-            wor_last_done: Timestamp.fromDate(new Date())
-        });
+        const { error } = await supabase
+            .from('workout')
+            .update({
+                wor_completed_count: workout.worCompletedCount + 1,
+                wor_estimate_time: timer,
+                wor_last_done: new Date().toISOString()
+            })
+            .eq('id', workout.id);
+
+        if (error) throw error;
     } catch (error) {
         console.error('Error updating workout:', error);
         throw error;
     }
 }
 
-export async function getWorkoutExercises(workoutId: string): Promise<(Exercise & { woe_id: string; ordinal: number })[]> {
+export async function getWorkoutExercises(workoutId: string): Promise<(Exercise & { woeId: string; ordinal: number })[]> {
     try {
-        const exercises = query(
-            collection(db, 'Workout', workoutId, 'workout_exercise'), 
-            orderBy('woe_ordinal', 'asc')
-        );
-        const docSnap = await getDocs(exercises);
-        const documentData: (Exercise & { woe_id: string; ordinal: number })[] = [];
-        
-        for (const exerciseDoc of docSnap.docs) {
-            const exerciseData = exerciseDoc.data();
-            const docRef = doc(db, 'Exercise', exerciseData.woe_exercise);
-            const exercise = await getDoc(docRef);
-            
-            if (exercise.exists()) {
-                const exerciseDocData = exercise.data();
+        const { data, error } = await supabase
+            .from('workout_exercise')
+            .select(`
+                woe_id,
+                ordinal,
+                exercise(*)
+            `)
+            .eq('workout_id', workoutId)
+            .order('ordinal', { ascending: true });
+
+        if (error) throw error;
+
+        const documentData: (Exercise & { woeId: string; ordinal: number })[] = [];
+        for (const row of data || []) {
+            if (row.exercise) {
                 documentData.push({
-                    woe_id: exerciseDoc.id,
-                    id: exercise.id,
-                    ordinal: exerciseData.woe_ordinal,
-                    exe_name: exerciseDocData.exe_name,
-                    exe_user_id: exerciseDocData.exe_usr_id,
-                    exe_date: exerciseDocData.exe_date,
-                    exe_max_reps: exerciseDocData.exe_max_reps,
-                    exe_max_weight: exerciseDocData.exe_max_weight
+                    woeId: row.woe_id,
+                    ordinal: row.ordinal,
+                    ...ExerciseMapper.toDomain(row.exercise)
                 });
             }
         }
@@ -162,28 +153,39 @@ export async function getWorkoutExercises(workoutId: string): Promise<(Exercise 
 
 export async function updateWorkoutExerciseOrdinal(wor_id: string, woe_id: string, ordinal: number): Promise<void> {
     try {
-        await updateDoc(doc(db, 'Workout', wor_id, 'workout_exercise', woe_id), {
-            woe_ordinal: ordinal
-        });
+        const { error } = await supabase
+            .from('workout_exercise')
+            .update({ ordinal: ordinal })
+            .eq('woe_id', woe_id);
+
+        if (error) throw error;
     } catch (error) {
         console.error('Error updating workout exercise ordinal:', error);
         throw error;
     }
 }
 
-export async function getDefaultWorkouts(): Promise<any[]> {
+export async function getDefaultWorkouts(): Promise<Workout[]> {
     try {
-        const collectionRef = collection(db, 'Default_workouts');
-        const q = query(collectionRef);
-        const docSnap = await getDocs(q);
-        const docDataArray: any[] = [];
-        
-        docSnap.forEach((document) => {
-            const docData = document.data();
-            docDataArray.push(docData);
-        });
-        
-        return docDataArray;
+        const { data, error } = await supabase
+            .from('workout')
+            .select('*')
+            .is('wor_user_id', null);
+
+        if (error) throw error;
+
+        return (data || []).map(workout => ({
+            id: workout.id,
+            worCompletedCount: workout.wor_completed_count,
+            worEstimateTime: workout.wor_estimate_time,
+            worLastDone: workout.wor_last_done,
+            worName: workout.wor_name,
+            worUserId: workout.wor_user_id,
+            isPublic: workout.is_public ?? false,
+            sourceWorkoutId: workout.source_workout_id ?? null,
+            linkType: workout.link_type ?? null,
+            copyCount: workout.copy_count ?? 0,
+        }));
     } catch (error) {
         console.error('Error getting default workouts:', error);
         throw error;
@@ -209,10 +211,13 @@ export async function addWorkoutWithExercises(
         }
         
         for (const exercise of selectedExercises) {
-            await addDoc(collection(db, 'Workout', workoutId, 'workout_exercise'), {
-                woe_exercise: exercise.id,
-                woe_ordinal: exercise.ordinal
-            });
+            await supabase
+                .from('workout_exercise')
+                .insert({
+                    workout_id: workoutId,
+                    exercise_id: exercise.id,
+                    ordinal: exercise.ordinal
+                });
         }
     } catch (error) {
         console.error(`Error adding workout with exercises: ${error}`);
@@ -222,10 +227,15 @@ export async function addWorkoutWithExercises(
 
 export const attachToWorkout = async (exerciseId: string, workoutId: string, ordinal: number): Promise<void> => {
     try {
-        await addDoc(collection(db, 'Workout', workoutId, 'workout_exercise'), {
-            woe_exercise: exerciseId,
-            woe_ordinal: ordinal
-        });
+        const { error } = await supabase
+            .from('workout_exercise')
+            .insert({
+                workout_id: workoutId,
+                exercise_id: exerciseId,
+                ordinal: ordinal
+            });
+
+        if (error) throw error;
     } catch (error) {
         console.error('Error attaching exercise to workout:', error);
         throw error;
@@ -234,15 +244,20 @@ export const attachToWorkout = async (exerciseId: string, workoutId: string, ord
 
 export async function addWorkout(name: string, usr_id: string): Promise<string | null> {
     try {
-        const documentData = {
-            wor_completed_count: 0,
-            wor_estimate_time: 0,
-            wor_last_done: Timestamp.fromDate(new Date()),
-            wor_name: name,
-            wor_usr_id: usr_id
-        };
-        const docRef = await addDoc(collection(db, 'Workout'), documentData);
-        return docRef.id;
+        const { data, error } = await supabase
+            .from('workout')
+            .insert({
+                wor_completed_count: 0,
+                wor_estimate_time: 0,
+                wor_last_done: new Date().toISOString(),
+                wor_name: name,
+                wor_user_id: usr_id
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data?.id || null;
     } catch (error) {
         console.error('Error adding workout:', error);
         return null;
@@ -251,9 +266,169 @@ export async function addWorkout(name: string, usr_id: string): Promise<string |
 
 export async function removeWorkout(workoutId: string): Promise<void> {
     try {
-        await deleteDoc(doc(db, 'Workout', workoutId));
+        const { error } = await supabase
+            .from('workout')
+            .delete()
+            .eq('id', workoutId);
+
+        if (error) throw error;
     } catch (error) {
         console.error('Error removing workout:', error);
+        throw error;
+    }
+}
+
+export async function toggleWorkoutVisibility(workoutId: string, isPublic: boolean): Promise<void> {
+    try {
+        const { error } = await supabase
+            .from('workout')
+            .update({ is_public: isPublic })
+            .eq('id', workoutId);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error toggling workout visibility:', error);
+        throw error;
+    }
+}
+
+export async function getPublicWorkouts(userId: string): Promise<Workout[]> {
+    try {
+        const { data, error } = await supabase
+            .from('workout')
+            .select('*')
+            .eq('wor_user_id', userId)
+            .eq('is_public', true)
+            .order('wor_last_done', { ascending: false });
+
+        if (error) throw error;
+
+        return (data || []).map(workout => ({
+            id: workout.id,
+            worCompletedCount: workout.wor_completed_count,
+            worEstimateTime: workout.wor_estimate_time,
+            worLastDone: workout.wor_last_done,
+            worName: workout.wor_name,
+            worUserId: workout.wor_user_id,
+            isPublic: workout.is_public ?? false,
+            sourceWorkoutId: workout.source_workout_id ?? null,
+            linkType: workout.link_type ?? null,
+            copyCount: workout.copy_count ?? 0,
+        }));
+    } catch (error) {
+        console.error('Error getting public workouts:', error);
+        throw error;
+    }
+}
+
+async function cloneWorkoutForUser(
+    sourceWorkoutId: string,
+    targetUserId: string,
+    linkType: 'copy' | 'follow'
+): Promise<string> {
+    const source = await getWorkoutById(sourceWorkoutId);
+    if (!source) throw new Error('Source workout not found');
+
+    const sourceExercises = await getWorkoutExercises(sourceWorkoutId);
+
+    const { data: newWorkout, error: insertError } = await supabase
+        .from('workout')
+        .insert({
+            wor_name: source.worName,
+            wor_user_id: targetUserId,
+            wor_completed_count: 0,
+            wor_estimate_time: source.worEstimateTime,
+            wor_last_done: null,
+            source_workout_id: sourceWorkoutId,
+            link_type: linkType,
+        })
+        .select()
+        .single();
+
+    if (insertError) throw insertError;
+
+    for (const sourceExercise of sourceExercises) {
+        const newExerciseId = await addExercise(sourceExercise.exeName, targetUserId);
+        await attachToWorkout(newExerciseId, newWorkout.id, sourceExercise.ordinal);
+    }
+
+    return newWorkout.id;
+}
+
+export async function copyWorkout(sourceWorkoutId: string, targetUserId: string): Promise<string> {
+    try {
+        const newWorkoutId = await cloneWorkoutForUser(sourceWorkoutId, targetUserId, 'copy');
+
+        const { data: source } = await supabase
+            .from('workout')
+            .select('copy_count')
+            .eq('id', sourceWorkoutId)
+            .single();
+
+        await supabase
+            .from('workout')
+            .update({ copy_count: (source?.copy_count ?? 0) + 1 })
+            .eq('id', sourceWorkoutId);
+
+        return newWorkoutId;
+    } catch (error) {
+        console.error('Error copying workout:', error);
+        throw error;
+    }
+}
+
+export async function linkWorkout(sourceWorkoutId: string, targetUserId: string): Promise<string> {
+    try {
+        return await cloneWorkoutForUser(sourceWorkoutId, targetUserId, 'follow');
+    } catch (error) {
+        console.error('Error linking workout:', error);
+        throw error;
+    }
+}
+
+export async function syncLinkedWorkout(workoutId: string): Promise<void> {
+    try {
+        const workout = await getWorkoutById(workoutId);
+        if (!workout || workout.linkType !== 'follow' || !workout.sourceWorkoutId) return;
+
+        const [sourceExercises, localExercises] = await Promise.all([
+            getWorkoutExercises(workout.sourceWorkoutId),
+            getWorkoutExercises(workoutId),
+        ]);
+
+        const sourceNames = new Set(sourceExercises.map(e => e.exeName.trim().toLowerCase()));
+        const localNames = new Set(localExercises.map(e => e.exeName.trim().toLowerCase()));
+
+        let nextOrdinal = localExercises.length;
+        for (const sourceExercise of sourceExercises) {
+            if (!localNames.has(sourceExercise.exeName.trim().toLowerCase())) {
+                const newExerciseId = await addExercise(sourceExercise.exeName, workout.worUserId);
+                await attachToWorkout(newExerciseId, workoutId, nextOrdinal);
+                nextOrdinal++;
+            }
+        }
+
+        for (const localExercise of localExercises) {
+            if (!sourceNames.has(localExercise.exeName.trim().toLowerCase())) {
+                await removeWorkoutExercise(workoutId, localExercise.id, null);
+            }
+        }
+    } catch (error) {
+        console.error('Error syncing linked workout:', error);
+        throw error;
+    }
+}
+
+export async function unlinkWorkout(workoutId: string): Promise<void> {
+    try {
+        const { error } = await supabase
+            .from('workout')
+            .update({ source_workout_id: null, link_type: null })
+            .eq('id', workoutId);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error unlinking workout:', error);
         throw error;
     }
 }

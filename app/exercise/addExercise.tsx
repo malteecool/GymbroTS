@@ -87,7 +87,7 @@ export default function AddExerciseScreen() {
         setSearch(text);
         if (text) {
             const newData = masterDataSource.filter((item: Exercise) => {
-                const itemData = item.exe_name?.toUpperCase() || '';
+                const itemData = item.exeName?.toUpperCase() || '';
                 const textData = text.toUpperCase();
                 return itemData.indexOf(textData) > -1;
             });
@@ -140,7 +140,7 @@ export default function AddExerciseScreen() {
                     filteredDataSource.map((item: Exercise, i: number) => (
                         <TouchableOpacity
                             key={item.id || i}
-                            onPress={() => onAddExercise(item.exe_name, item.id)}
+                            onPress={() => onAddExercise(item.exeName, item.id)}
                             activeOpacity={0.7}
                         >
                             <Card containerStyle={styles.exerciseCard}>
@@ -151,7 +151,7 @@ export default function AddExerciseScreen() {
                                         color={Theme.colors.font}
                                     />
                                     <Text style={styles.exerciseText}>
-                                        {item.exe_name}
+                                        {item.exeName}
                                     </Text>
                                     <MaterialCommunityIcons
                                         name="chevron-right"

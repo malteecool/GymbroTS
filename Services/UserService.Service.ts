@@ -1,51 +1,33 @@
-import { db } from "../firebaseConfig";
-import { collection, addDoc, query, getDocs, where, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from "../interfaces/User.Interface";
-import * as AuthSession from 'expo-auth-session';
+import { supabase } from "../supabaseConfig";
+import { UserMapper } from "./mappers/UserMapper";
 
-export interface UserDocument {
-    usr_name: string;
-    usr_token: string;
-}
 
-function getClientId(): string | null {
-    return process.env.EXPO_PUBLIC_REACT_APP_TOKEN || null;
-}
-
-async function userExist(id: string): Promise<UserDocument | undefined> {
+export async function getUserDataById(id: string): Promise<User | null> {
+    console.log("getting user data with id:" , id)
     try {
-        const collectionRef = collection(db, 'User');
-        const q = query(collectionRef, where("usr_token", "==", id));
-        const docSnap = await getDocs(q);
+        const { data, error } = await supabase
+            .from('app_user')
+            .select('*')
+            .eq('id', id)
+            .single();
 
-        if (docSnap.empty) {
-            return undefined;
+        if (error) {
+            console.error('1 Error fetching user data by id:', error);
+            return null;
         }
 
-        // Return first user found
-        return docSnap.docs[0].data() as UserDocument;
-    } catch (error) {
-        console.error('Error checking if user exists:', error);
-        return undefined;
-    }
-}
-
-export async function getUserData(auth: AuthSession.TokenResponse): Promise<User & { error?: { code: number } }> {
-    try {
-        const userInfoResponse = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-            headers: { Authorization: `Bearer ${auth.accessToken}` }
-        });
-        
-        if (!userInfoResponse.ok) {
-            return { error: { code: userInfoResponse.status } } as User & { error: { code: number } };
+        if (!data) {
+            return null;
         }
-        
-        const responseJson = await userInfoResponse.json();
-        return responseJson as User;
+
+        // Map the database row to domain User object
+        const user = UserMapper.toDomain(data);
+        return user;
     } catch (error) {
-        console.error('Error fetching user data:', error);
-        throw error;
+        console.error('2 Error fetching user data by id:', error);
+        return null;
     }
 }
 
@@ -68,28 +50,36 @@ export async function setStordUserData(userData: User): Promise<void> {
     }
 }
 
-async function addUser(userData: User): Promise<UserDocument | undefined> {
-    try {
-        const dbRef = collection(db, 'User');
-        await addDoc(dbRef, {
-            usr_name: userData.name,
-            usr_token: userData.id
-        });
-        return await userExist(userData.id);
-    } catch (error) {
-        console.error('Error adding user:', error);
-        return undefined;
-    }
+export async function updateProfile(userId: string, updates: Pick<User, 'name' | 'bio' | 'avatarUrl'>): Promise<User> {
+    const { data, error } = await supabase
+        .from('app_user')
+        .update({
+            name: updates.name,
+            bio: updates.bio ?? null,
+            avatar_url: updates.avatarUrl ?? null,
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    const updated = UserMapper.toDomainFromRow(data);
+    await setStordUserData(updated);
+    return updated;
 }
 
-export async function logout(): Promise<void> {
-    try {
-        console.log('Removing auth');
-        await AsyncStorage.removeItem('auth');
-    } catch (error) {
-        console.error('Error logging out:', error);
-        throw error;
+export async function toggleVisibility(userId: string, isPublic: boolean): Promise<void> {
+    const { error } = await supabase
+        .from('app_user')
+        .update({ is_public: isPublic, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
+    if (error) throw error;
+
+    const stored = await getStordUserData();
+    if (stored) {
+        await setStordUserData({ ...stored, isPublic });
     }
 }
-
-export { getClientId, userExist, addUser };

@@ -1,5 +1,6 @@
-import { getFirebaseTimeStamp, getHistoryByUser } from './ExerciseService.Service';
+import { getHistoryByUser } from './ExerciseService.Service';
 import { User } from '../interfaces/User.Interface';
+import { supabase } from '../supabaseConfig';
 
 export interface WorkoutCounts {
     lifetime: string[];
@@ -28,19 +29,55 @@ function roundToDate(date: Date): Date {
 
 export async function getWorkoutsCount(user: User): Promise<WorkoutCounts> {
     try {
-        const history = await getHistoryByUser(user.id);
-        const dates = history
-            .map(his => getFirebaseTimeStamp(his.exh_date.seconds, his.exh_date.nanoseconds))
-            .map(date => date.toISOString().split('T')[0]);
+        const startOfWeekDate = roundToDate(startOfWeek(new Date()));
         
-        const uniqueDates = dates.filter(onlyUnique);
-        const startOfWeekVariable = roundToDate(startOfWeek(new Date()));
-        const weeklyDates = uniqueDates.filter(d => new Date(d) >= startOfWeekVariable);
+        // Fetch all distinct dates in lifetime
+        const { data: lifetimeData, error: lifetimeError } = await supabase
+            .from('exercise_history')
+            .select('exh_date', { count: 'exact' })
+            .in('exercise_id', await getExerciseIdsByUser(user.id));
         
-        return { lifetime: uniqueDates, weekly: weeklyDates };
+        if (lifetimeError) throw lifetimeError;
+        
+        const lifetimeDates = lifetimeData
+            ? [...new Set(lifetimeData.map(row => new Date(row.exh_date).toISOString().split('T')[0]))]
+            : [];
+        
+        // Fetch distinct dates within the current week
+        const { data: weeklyData, error: weeklyError } = await supabase
+            .from('exercise_history')
+            .select('exh_date')
+            .in('exercise_id', await getExerciseIdsByUser(user.id))
+            .gte('exh_date', startOfWeekDate.toISOString());
+        
+        if (weeklyError) throw weeklyError;
+        
+        const weeklyDates = weeklyData
+            ? [...new Set(weeklyData.map(row => new Date(row.exh_date).toISOString().split('T')[0]))]
+            : [];
+        
+        return { lifetime: lifetimeDates, weekly: weeklyDates };
     } catch (error) {
         console.error('Error getting workouts count:', error);
         throw error;
+    }
+}
+
+/**
+ * Get all exercise IDs for a user (helper for workout count queries)
+ */
+async function getExerciseIdsByUser(userId: string): Promise<string[]> {
+    try {
+        const { data, error } = await supabase
+            .from('exercise')
+            .select('id')
+            .eq('exe_user_id', userId);
+        
+        if (error) throw error;
+        return data?.map(e => e.id) || [];
+    } catch (error) {
+        console.error('Error getting exercise IDs:', error);
+        return [];
     }
 }
 

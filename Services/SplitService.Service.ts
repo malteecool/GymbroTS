@@ -1,18 +1,4 @@
-import { db } from "../firebaseConfig";
-import {
-    collection,
-    query,
-    getDocs,
-    where,
-    addDoc,
-    updateDoc,
-    getDoc,
-    doc,
-    Timestamp,
-    writeBatch,
-    DocumentData,
-    QueryDocumentSnapshot
-} from "firebase/firestore";
+import { supabase } from '../supabaseConfig';
 import { getWeekNumber } from './StatsService.Service';
 import { getWorkoutById } from './WorkoutService.Service';
 import { Workout } from '../interfaces/Workout.Interface';
@@ -40,84 +26,112 @@ export interface SplitData {
 }
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+const DAY_INDICES = [1, 2, 3, 4, 5, 6, 0]; // Monday=1 to Sunday=0 (ISO standard)
 
 let splitId: string | null = null;
 
-async function getSplitById(usr_id: string): Promise<QueryDocumentSnapshot<DocumentData>[]> {
-    const collectionRef = collection(db, 'Split');
-    const q = query(collectionRef, where("spl_usr_id", "==", usr_id));
-    const docSnap = await getDocs(q);
-    return docSnap.docs;
+async function getSplitIdByUser(usr_id: string): Promise<string | null> {
+    try {
+        const { data, error } = await supabase
+            .from('split')
+            .select('id')
+            .eq('user_id', usr_id)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') return null; // Not found
+            throw error;
+        }
+
+        return data?.id || null;
+    } catch (error) {
+        console.error('Error getting split by user:', error);
+        return null;
+    }
 }
 
 export async function getReferenceWeek(usr_id: string): Promise<SplitData | null> {
     try {
-        const docs = await getSplitById(usr_id);
-        const doc = docs[0];
+        // Get the split template
+        const { data: splitData, error: splitError } = await supabase
+            .from('split')
+            .select('id, spl_ref_week')
+            .eq('user_id', usr_id)
+            .single();
 
-        if (!doc || !doc.id) {
+        if (splitError) {
+            if (splitError.code === 'PGRST116') return null; // Not found
+            throw splitError;
+        }
+
+        if (!splitData) return null;
+
+        splitId = splitData.id;
+        const refWeek = splitData.spl_ref_week;
+
+        // Get all days for this split template
+        const { data: daysData, error: daysError } = await supabase
+            .from('split_day')
+            .select('day_of_week, workout_id, id')
+            .eq('split_id', splitData.id)
+            .order('day_of_week', { ascending: true });
+
+        if (daysError) throw daysError;
+
+        if (!daysData || daysData.length === 0) {
             return null;
         }
 
-        splitId = doc.id;
-        const splitLength = doc.data().spl_length || 5;
+        // Get the current and upcoming week numbers
+        const currentWeekNumber = getWeekNumber(new Date());
+        const numberOfFutureWeeks = 5; // Default to 5 weeks
 
-        const subCollectionRef = collection(db, 'Split', doc.id, 'Split_week');
-        const referenceDoc = await getDocs(subCollectionRef);
+        // Create week instances with completion data
+        const weeks: SplitWeek[] = [];
 
-        if (!referenceDoc || referenceDoc.docs.length === 0) {
-            console.log('Could not find split weeks...');
-            return null;
-        }
+        for (let i = 0; i < numberOfFutureWeeks; i++) {
+            const weekNumber = currentWeekNumber + i;
+            
+            // Get or create week instance (lazy instantiation)
+            const weekId = await getOrCreateSplitWeek(splitData.id, weekNumber);
 
-        const dataMap: Array<{ weekMapOrdered: SplitWeek | null; ordinal: number }> = [];
+            // Get completion data for the week
+            const { data: weekInstance, error: weekError } = await supabase
+                .from('split_week')
+                .select('completed_days')
+                .eq('id', weekId)
+                .single();
 
-        for (let i = 0; i < splitLength; i++) {
-            const weekDoc = referenceDoc.docs[i];
-            if (!weekDoc) continue;
+            if (weekError) {
+                console.error('Error fetching week instance:', weekError);
+                continue;
+            }
 
-            const ordinal = weekDoc.data().ordinal;
-            const dayPromises = WEEK_DAYS.map(day =>
-                getDocs(collection(subCollectionRef, weekDoc.id, day))
-            );
-            const dayResponses = await Promise.all(dayPromises);
+            const completedDays = weekInstance?.completed_days || [];
 
-            const workoutMap = dayResponses.map((response, index) => {
-                if (!response || response.docs.length === 0) {
-                    return { dayIndex: index, workoutId: null, completed: false };
-                }
-                const data = response.docs[0].data();
-                return {
-                    dayIndex: index,
-                    workoutId: data.swk_wor_id || null,
-                    completed: data.swk_completed || false
-                };
-            });
+            // Build the week structure
+            const weekMap: Partial<SplitWeek> = {};
 
-            const workouts = await Promise.all(
-                workoutMap.map(async (workoutData) => {
-                    if (!workoutData.workoutId) {
-                        return null;
-                    }
+            for (let dayIndex = 0; dayIndex < daysData.length; dayIndex++) {
+                const dayData = daysData[dayIndex];
+                const dayName = WEEK_DAYS[dayIndex];
+
+                let workout: Workout | null = null;
+                if (dayData.workout_id) {
                     try {
-                        return await getWorkoutById(workoutData.workoutId);
+                        workout = await getWorkoutById(dayData.workout_id);
                     } catch (error) {
                         console.error('Error fetching workout:', error);
-                        return null;
                     }
-                })
-            );
+                }
 
-            const weekMap: Partial<SplitWeek> = {};
-            WEEK_DAYS.forEach((day, index) => {
-                const workout = workouts[index];
-                weekMap[day] = {
-                    workout: workout,
-                    completed: workoutMap[index].completed,
-                    day: day,
-                    weekId: weekDoc.id
+                weekMap[dayName] = {
+                    workout,
+                    completed: completedDays.includes(dayIndex),
+                    day: dayName,
+                    weekId: weekId
                 };
-            });
+            }
 
             const weekMapOrdered: SplitWeek = {
                 Monday: weekMap.Monday!,
@@ -129,19 +143,12 @@ export async function getReferenceWeek(usr_id: string): Promise<SplitData | null
                 Sunday: weekMap.Sunday!
             };
 
-            dataMap.push({ weekMapOrdered, ordinal });
+            weeks.push(weekMapOrdered);
         }
 
-        // Add placeholder for first view in carousel
-        dataMap.push({ weekMapOrdered: null as any, ordinal: -1 });
-        dataMap.sort((a, b) => a.ordinal - b.ordinal);
-
-        const sortedWeeks = dataMap
-            .map(data => data.weekMapOrdered) as SplitWeek[];
-
         return {
-            weeks: sortedWeeks,
-            spl_ref_week: doc.data().spl_ref_week
+            weeks,
+            spl_ref_week: refWeek
         };
     } catch (error) {
         console.error('Error getting reference week:', error);
@@ -150,24 +157,37 @@ export async function getReferenceWeek(usr_id: string): Promise<SplitData | null
 }
 
 export async function markDayAsCompleted(weekId: string, day: string, completed: boolean): Promise<void> {
-    if (!splitId) {
-        throw new Error('Split ID not found');
-    }
-
     try {
-        const documentRef = await getDocs(
-            collection(db, 'Split', splitId, 'Split_week', weekId, day)
-        );
-
-        if (documentRef.docs.length === 0) {
-            throw new Error('Day document not found');
+        const dayIndex = WEEK_DAYS.indexOf(day as any);
+        if (dayIndex === -1) {
+            throw new Error('Invalid day name');
         }
 
-        const documentId = documentRef.docs[0].id;
-        await updateDoc(
-            doc(db, 'Split', splitId, 'Split_week', weekId, day, documentId),
-            { swk_completed: completed }
-        );
+        // Get current completed days
+        const { data: weekData, error: fetchError } = await supabase
+            .from('split_week')
+            .select('completed_days')
+            .eq('id', weekId)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        let completedDays = weekData?.completed_days || [];
+
+        // Update the completed array
+        if (completed && !completedDays.includes(dayIndex)) {
+            completedDays = [...completedDays, dayIndex];
+        } else if (!completed) {
+            completedDays = completedDays.filter((d: number) => d !== dayIndex);
+        }
+
+        // Update the week
+        const { error: updateError } = await supabase
+            .from('split_week')
+            .update({ completed_days: completedDays })
+            .eq('id', weekId);
+
+        if (updateError) throw updateError;
     } catch (error) {
         console.error('Error marking day as completed:', error);
         throw error;
@@ -176,124 +196,119 @@ export async function markDayAsCompleted(weekId: string, day: string, completed:
 
 export async function addReferenceWeek(
     referenceWeek: SplitWeek,
-    splitLength: number,
     usr_id: string
 ): Promise<void> {
     const currentWeek = getWeekNumber(new Date());
-    const splitDocumentData = {
-        spl_usr_id: usr_id,
-        spl_ref_week: currentWeek,
-        spl_length: splitLength,
-        spl_created: Timestamp.fromDate(new Date()),
-    };
 
     try {
-        const docRef = await addDoc(collection(db, 'Split'), splitDocumentData);
-        const generatedWeeks = convertToWeekData(referenceWeek, splitLength, currentWeek);
-        const batch = writeBatch(db);
+        // Create or update the split template
+        let splitRecord = await getSplitIdByUser(usr_id);
 
-        for (let i = 0; i < generatedWeeks.length; i++) {
-            const week = generatedWeeks[i];
-            const collectionRef = collection(db, 'Split', docRef.id, 'Split_week');
-            const refDocRef = doc(collectionRef);
+        if (!splitRecord) {
+            // Create new split
+            const { data: newSplit, error: createError } = await supabase
+                .from('split')
+                .insert({
+                    user_id: usr_id,
+                    spl_ref_week: currentWeek
+                })
+                .select()
+                .single();
 
-            batch.set(refDocRef, { ordinal: i });
+            if (createError) throw createError;
+            splitRecord = newSplit?.id;
+        } else {
+            // Update existing split's reference week
+            const { error: updateError } = await supabase
+                .from('split')
+                .update({ spl_ref_week: currentWeek })
+                .eq('id', splitRecord);
 
-            WEEK_DAYS.forEach(day => {
-                const splitDayWorkout = week[day];
-                const dayData = {
-                    swk_wor_id: splitDayWorkout?.workout?.id || null,
-                    swk_completed: false
-                };
-                const dayRef = doc(collection(db, 'Split', docRef.id, 'Split_week', refDocRef.id, day));
-                batch.set(dayRef, dayData);
-            });
+            if (updateError) throw updateError;
         }
 
-        await batch.commit();
-        await removeOldSplitIfExists(usr_id);
+        // Delete old split days
+        await supabase
+            .from('split_day')
+            .delete()
+            .eq('split_id', splitRecord);
+
+        // Insert new split days
+        const splitDaysData = WEEK_DAYS.map((day, index) => ({
+            split_id: splitRecord,
+            day_of_week: DAY_INDICES[index],
+            workout_id: referenceWeek[day].workout?.id || null,
+            ordinal: index
+        }));
+
+        const { error: insertError } = await supabase
+            .from('split_day')
+            .insert(splitDaysData);
+
+        if (insertError) throw insertError;
+
+        // Remove old split weeks (keep only recent ones for history)
+        const twoWeeksAgo = getWeekNumber(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000));
+        await supabase
+            .from('split_week')
+            .delete()
+            .eq('split_id', splitRecord)
+            .lt('week_number', twoWeeksAgo);
+
     } catch (error) {
         console.error('Error adding reference week:', error);
         throw error;
     }
 }
 
-async function removeOldSplitIfExists(usr_id: string): Promise<void> {
+/**
+ * Get or create a split week instance for tracking completion
+ */
+export async function getOrCreateSplitWeek(
+    splitId: string,
+    weekNumber: number
+): Promise<string> {
     try {
-        const docs = await getSplitById(usr_id);
+        // Try to get existing week
+        const { data: existing } = await supabase
+            .from('split_week')
+            .select('id')
+            .eq('split_id', splitId)
+            .eq('week_number', weekNumber)
+            .single();
 
-        if (docs && docs.length > 1) {
-            docs.sort((a, b) => {
-                const aCreated = a.data().spl_created?.toMillis() || 0;
-                const bCreated = b.data().spl_created?.toMillis() || 0;
-                return aCreated - bCreated;
-            });
-
-            await updateDoc(doc(db, 'Split', docs[0].id), {
-                spl_usr_id: null
-            });
+        if (existing?.id) {
+            return existing.id;
         }
+
+        // Create new week instance
+        const { data: newWeek, error } = await supabase
+            .from('split_week')
+            .insert({
+                split_id: splitId,
+                week_number: weekNumber,
+                completed_days: []
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return newWeek?.id;
     } catch (error) {
-        console.error('Error removing old split:', error);
+        console.error('Error getting or creating split week:', error);
+        throw error;
     }
 }
 
+/**
+ * Convert split template to week data (simplified - no longer cycles through workouts)
+ */
 export function convertToWeekData(
     splitData: SplitWeek,
-    splitLength: number,
-    refWeek: number
+    _splitLength?: number
 ): SplitWeek[] {
-    const numberOfFutureWeeks = splitLength ? splitLength : 5; // The number of week forward the split is calculated.
-    const referenceWeekNumber = refWeek ? refWeek : getWeekNumber(new Date());
-    const currentWeekNumber = getWeekNumber(new Date());
-
-    const weekIterations = currentWeekNumber - referenceWeekNumber + numberOfFutureWeeks;
-
-    // Extract workouts from template (only non-null workouts, maintaining order)
-    const activeWorkouts: Workout[] = [];
-    WEEK_DAYS.forEach(day => {
-        const workout = splitData[day].workout;
-        if (workout !== null) {
-            activeWorkouts.push(workout);
-        }
-    });
-
-    if (activeWorkouts.length === 0) {
-        // If no workouts, return empty weeks
-        return Array(numberOfFutureWeeks).fill(null).map(() => {
-            const emptyWeek: SplitWeek = {
-                Monday: { workout: null, completed: false, day: 'Monday' },
-                Tuesday: { workout: null, completed: false, day: 'Tuesday' },
-                Wednesday: { workout: null, completed: false, day: 'Wednesday' },
-                Thursday: { workout: null, completed: false, day: 'Thursday' },
-                Friday: { workout: null, completed: false, day: 'Friday' },
-                Saturday: { workout: null, completed: false, day: 'Saturday' },
-                Sunday: { workout: null, completed: false, day: 'Sunday' }
-            };
-            return emptyWeek;
-        });
-    }
-
-    const weeks: SplitWeek[] = [];
-    let workoutIndex = 0;
-
-    for (let weekIndex = 0; weekIndex < numberOfFutureWeeks; weekIndex++) {
-        const week: Partial<SplitWeek> = {};
-
-        WEEK_DAYS.forEach((day, dayIndex) => {
-
-            if (workoutIndex === activeWorkouts.length) {
-                workoutIndex = 0;
-            }
-            week[day] = {
-                workout: activeWorkouts[workoutIndex],
-                completed: false,
-                day: day
-            };
-            workoutIndex++;
-        });
-        weeks.push(week as SplitWeek);
-    }
-
-    return weeks;
+    // With improved design, we just return the template week repeated
+    // The actual week instances are created on demand in split_week table
+    const numberOfFutureWeeks = 5;
+    return Array(numberOfFutureWeeks).fill(null).map(() => splitData);
 }
