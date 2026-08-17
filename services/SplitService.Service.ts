@@ -27,6 +27,7 @@ export interface SplitData {
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 const DAY_INDICES = [1, 2, 3, 4, 5, 6, 0]; // Monday=1 to Sunday=0 (ISO standard)
+const DAY_NAMES_BY_JS_INDEX = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 let splitId: string | null = null;
 
@@ -153,6 +154,50 @@ export async function getReferenceWeek(usr_id: string): Promise<SplitData | null
     } catch (error) {
         console.error('Error getting reference week:', error);
         return null;
+    }
+}
+
+export interface TodaysWorkout {
+    workout: Workout | null;
+    dayName: string;
+    hasSplit: boolean;
+}
+
+/**
+ * Lightweight lookup of just today's assigned workout, without pulling the
+ * full multi-week schedule that getReferenceWeek does.
+ */
+export async function getTodaysSplitWorkout(usr_id: string): Promise<TodaysWorkout> {
+    const todayIndex = new Date().getDay(); // 0=Sunday .. 6=Saturday
+    const dayName = DAY_NAMES_BY_JS_INDEX[todayIndex];
+
+    try {
+        const splitId = await getSplitIdByUser(usr_id);
+        if (!splitId) {
+            return { workout: null, dayName, hasSplit: false };
+        }
+
+        const { data, error } = await supabase
+            .from('split_day')
+            .select('workout_id')
+            .eq('split_id', splitId)
+            .eq('day_of_week', todayIndex)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') return { workout: null, dayName, hasSplit: true }; // No day row found
+            throw error;
+        }
+
+        let workout: Workout | null = null;
+        if (data?.workout_id) {
+            workout = await getWorkoutById(data.workout_id);
+        }
+
+        return { workout, dayName, hasSplit: true };
+    } catch (error) {
+        console.error('Error getting todays split workout:', error);
+        return { workout: null, dayName, hasSplit: false };
     }
 }
 

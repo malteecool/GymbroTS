@@ -1,44 +1,59 @@
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import React, { useEffect, useState, useCallback, useLayoutEffect } from 'react';
-import { Card } from '@rneui/themed';
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { Card, Button } from '@rneui/themed';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import emitter from '../../hooks/CustomEventEmitter';
-import { removeWorkout as removeWorkoutService, getWorkouts, getFormattedTime } from '../../services/WorkoutService.Service';
+import { getWorkouts, getFormattedTime } from '../../services/WorkoutService.Service';
+import { getTodaysSplitWorkout } from '../../services/SplitService.Service';
 import { Theme, Styles } from '../../constants/Theme';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
 import { getStordUserData } from '../../services/UserService.Service';
 import { User } from '../../interfaces/User.Interface';
 import { Workout } from '../../interfaces/Workout.Interface';
+import { WorkoutListItem } from '../../components/Workout/WorkoutListItem';
 import { router, useNavigation } from 'expo-router';
-import { Divider } from '@rneui/base';
 
 export default function WorkoutScreen() {
     const navigation = useNavigation();
-    const [data, setData] = useState<Workout[]>([]);
-    const [search, setSearch] = useState('');
-    const [filteredDataSource, setFilteredDataSource] = useState<Workout[]>([]);
-    const [masterDataSource, setMasterDataSource] = useState<Workout[]>([]);
-    const [refreshing, setRefreshing] = useState<boolean>(false);
     const [isLoading, setLoading] = useState<boolean>(true);
     const [user, setUser] = useState<User | null>(null);
+    const [dayName, setDayName] = useState<string>('');
+    const [hasSplit, setHasSplit] = useState<boolean>(false);
+    const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
+    const [allWorkouts, setAllWorkouts] = useState<Workout[]>([]);
+    const [pickerVisible, setPickerVisible] = useState<boolean>(false);
+    const [pickerSearch, setPickerSearch] = useState<string>('');
 
     useLayoutEffect(() => {
         navigation.setOptions({
             headerRight: () => (
-                <TouchableOpacity
-                    onPress={() => router.push('/workout/addWorkout')}
-                    style={styles.headerButton}
-                >
-                    <MaterialCommunityIcons
-                        name="plus"
-                        size={24}
-                        color={Theme.colors.green}
-                    />
-                </TouchableOpacity>
+                <View style={styles.headerButtons}>
+                    <TouchableOpacity
+                        onPress={() => router.push('/workout/allWorkouts')}
+                        style={styles.headerButton}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons
+                            name="format-list-bulleted"
+                            size={22}
+                            color={Theme.colors.font}
+                        />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => router.push('/workout/addWorkout')}
+                        style={styles.headerButton}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons
+                            name="plus"
+                            size={24}
+                            color={Theme.colors.green}
+                        />
+                    </TouchableOpacity>
+                </View>
             ),
         });
     }, [navigation]);
-
 
     const load = useCallback(async () => {
         try {
@@ -46,36 +61,25 @@ export default function WorkoutScreen() {
             const storedUser = await getStordUserData();
             if (!storedUser) {
                 console.error('User not found');
-                router.back();
                 return;
             }
 
             setUser(storedUser);
-            const workouts = await getWorkouts(storedUser.id);
-            setData(workouts);
-            setFilteredDataSource(workouts);
-            setMasterDataSource(workouts);
+            const [todays, workouts] = await Promise.all([
+                getTodaysSplitWorkout(storedUser.id),
+                getWorkouts(storedUser.id),
+            ]);
+
+            setDayName(todays.dayName);
+            setHasSplit(todays.hasSplit);
+            setSelectedWorkout(todays.workout);
+            setAllWorkouts(workouts);
         } catch (error) {
-            console.error('Error loading workouts:', error);
-            Alert.alert('Error', 'Failed to load workouts. Please try again.');
+            console.error('Error loading today\'s workout:', error);
         } finally {
             setLoading(false);
         }
     }, []);
-
-    const searchFilterFunction = useCallback((text: string) => {
-        setSearch(text);
-        if (text) {
-            const newData = masterDataSource.filter((item: Workout) => {
-                const itemData = item.worName?.toUpperCase() || '';
-                const textData = text.toUpperCase();
-                return itemData.indexOf(textData) > -1;
-            });
-            setFilteredDataSource(newData);
-        } else {
-            setFilteredDataSource(masterDataSource);
-        }
-    }, [masterDataSource]);
 
     useEffect(() => {
         load();
@@ -85,176 +89,205 @@ export default function WorkoutScreen() {
         const listener = () => {
             load();
         };
+        emitter.on('splitEvent', listener);
         emitter.on('workoutEvent', listener);
 
         return () => {
+            emitter.off('splitEvent', listener);
             emitter.off('workoutEvent', listener);
         };
     }, [load]);
 
-    const removeWorkout = useCallback(async (workoutId: string) => {
-        try {
-            setLoading(true);
-            await removeWorkoutService(workoutId);
-            await load();
-        } catch (error) {
-            console.error('Error removing workout:', error);
-            Alert.alert('Error', 'Failed to remove workout. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    }, [load]);
+    const openPicker = useCallback(() => {
+        setPickerSearch('');
+        setPickerVisible(true);
+    }, []);
 
-    const warnUser = useCallback((workout: Workout) => {
-        Alert.alert(
-            'Remove workout',
-            `Are you sure you want to delete workout \"${workout.worName}\"?`,
-            [
-                {
-                    text: 'Cancel',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => removeWorkout(workout.id),
-                },
-            ]
-        );
-    }, [removeWorkout]);
+    const selectWorkout = useCallback((workout: Workout) => {
+        setSelectedWorkout(workout);
+        setPickerVisible(false);
+    }, []);
 
-    const onRefresh = useCallback(() => {
-        setRefreshing(true);
-        load().finally(() => setRefreshing(false));
-    }, [load]);
+    const startWorkout = useCallback(() => {
+        if (!selectedWorkout) return;
+        router.push({
+            pathname: '/workout/workoutDetails',
+            params: { workoutId: selectedWorkout.id, autostart: 'true' },
+        });
+    }, [selectedWorkout]);
 
-    if (isLoading && data.length === 0) {
-        return <LoadingIndicator text='Loading workouts...' />;
+    const filteredWorkouts = pickerSearch
+        ? allWorkouts.filter((w) => (w.worName || '').toUpperCase().includes(pickerSearch.toUpperCase()))
+        : allWorkouts;
+
+    if (isLoading) {
+        return <LoadingIndicator text='Loading your workout...' />;
     }
 
     return (
         <View style={styles.container}>
-            <View style={styles.searchContainer}>
-                <MaterialCommunityIcons
-                    name="magnify"
-                    size={20}
-                    color={Theme.colors.font}
-                    style={styles.searchIcon}
-                />
-                <TextInput
-                    onChangeText={searchFilterFunction}
-                    value={search}
-                    style={styles.searchBar}
-                    placeholder='Search workouts...'
-                    placeholderTextColor={Theme.colors.font + '80'}
-                />
-                {search.length > 0 && (
-                    <TouchableOpacity
-                        onPress={() => searchFilterFunction('')}
-                        style={styles.clearButton}
-                    >
-                        <MaterialCommunityIcons
-                            name="close-circle"
-                            size={20}
-                            color={Theme.colors.font}
-                        />
-                    </TouchableOpacity>
-                )}
-            </View>
-            <Divider width={1} color={Theme.colors.dark} />
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            >
-                {filteredDataSource.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <MaterialCommunityIcons
-                            name="weight-lifter"
-                            size={64}
-                            color={Theme.colors.font + '40'}
-                        />
-                        <Text style={styles.emptyText}>
-                            {search ? 'No workouts found' : 'No workouts yet'}
-                        </Text>
-                        <Text style={styles.emptySubtext}>
-                            {search ? 'Try a different search term' : 'Tap the + button to create your first workout'}
-                        </Text>
-                    </View>
-                ) : (
-                    filteredDataSource.map((item: Workout) => {
-                        const lastDoneDate = item.worLastDone
-                            ? new Date(item.worLastDone).toDateString()
-                            : 'never';
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+                <View style={styles.dayLabelRow}>
+                    <MaterialCommunityIcons
+                        name="calendar-today"
+                        size={16}
+                        color={Theme.colors.font + '99'}
+                    />
+                    <Text style={styles.dayLabel}>{dayName ? `Today · ${dayName}` : 'Today'}</Text>
+                </View>
 
-                        return (
-                            <TouchableOpacity
-                                key={item.id}
-                                onPress={() => {
-                                    router.push({
-                                        pathname: '/workout/workoutDetails',
-                                        params: { workoutId: item.id }
-                                    });
-                                }}
-                                activeOpacity={0.7}
-                            >
-                                <Card containerStyle={Styles.card}>
-                                    <View style={styles.cardContent}>
-                                        <View style={styles.cardInfo}>
-                                            <Text style={Styles.cardTitle}>
-                                                {item.worName}
-                                            </Text>
-                                            <View style={styles.cardDetails}>
-                                                <View style={styles.detailItem}>
-                                                    <MaterialCommunityIcons
-                                                        name='clock-time-four-outline'
-                                                        size={16}
-                                                        color={Theme.colors.font}
-                                                    />
-                                                    <Text style={styles.detailText}>
-                                                        {getFormattedTime(item.worEstimateTime)}
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.detailItem}>
-                                                    <MaterialCommunityIcons
-                                                        name='calendar-range'
-                                                        size={16}
-                                                        color={Theme.colors.font}
-                                                    />
-                                                    <Text style={styles.detailText}>
-                                                        {lastDoneDate}
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.detailItem}>
-                                                    <MaterialCommunityIcons
-                                                        name='repeat'
-                                                        size={16}
-                                                        color={Theme.colors.font}
-                                                    />
-                                                    <Text style={styles.detailText}>
-                                                        {item.worCompletedCount}x
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                        </View>
-                                        <TouchableOpacity
-                                            onPress={() => warnUser(item)}
-                                            style={styles.trashButton}
-                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name="trash-can-outline"
-                                                size={20}
-                                                color={Theme.colors.font}
-                                            />
-                                        </TouchableOpacity>
-                                    </View>
-                                </Card>
-                            </TouchableOpacity>
-                        );
-                    })
+                {selectedWorkout ? (
+                    <>
+                        <Card containerStyle={styles.heroCard}>
+                            <View style={styles.heroIconWrap}>
+                                <MaterialCommunityIcons
+                                    name="weight-lifter"
+                                    size={40}
+                                    color={Theme.colors.accent}
+                                />
+                            </View>
+                            <Text style={styles.heroTitle}>{selectedWorkout.worName}</Text>
+                            <View style={styles.heroMetaRow}>
+                                <View style={styles.detailItem}>
+                                    <MaterialCommunityIcons
+                                        name='clock-time-four-outline'
+                                        size={16}
+                                        color={Theme.colors.font}
+                                    />
+                                    <Text style={styles.detailText}>
+                                        {getFormattedTime(selectedWorkout.worEstimateTime)}
+                                    </Text>
+                                </View>
+                                <View style={styles.detailItem}>
+                                    <MaterialCommunityIcons
+                                        name='calendar-range'
+                                        size={16}
+                                        color={Theme.colors.font}
+                                    />
+                                    <Text style={styles.detailText}>
+                                        {selectedWorkout.worLastDone
+                                            ? new Date(selectedWorkout.worLastDone).toDateString()
+                                            : 'never'}
+                                    </Text>
+                                </View>
+                                <View style={styles.detailItem}>
+                                    <MaterialCommunityIcons
+                                        name='repeat'
+                                        size={16}
+                                        color={Theme.colors.font}
+                                    />
+                                    <Text style={styles.detailText}>{selectedWorkout.worCompletedCount}x</Text>
+                                </View>
+                            </View>
+                        </Card>
+
+                        <TouchableOpacity style={styles.changeRow} onPress={openPicker}>
+                            <MaterialCommunityIcons name="swap-horizontal" size={18} color={Theme.colors.font} />
+                            <Text style={styles.changeText}>Change workout</Text>
+                        </TouchableOpacity>
+                    </>
+                ) : (
+                    <>
+                        <Card containerStyle={styles.heroCard}>
+                            <MaterialCommunityIcons
+                                name={hasSplit ? 'weather-night' : 'calendar-remove'}
+                                size={40}
+                                color={Theme.colors.font + '60'}
+                            />
+                            <Text style={styles.heroTitle}>{hasSplit ? 'Rest day' : 'No split set up'}</Text>
+                            <Text style={styles.heroSubtitle}>
+                                {hasSplit
+                                    ? `Nothing scheduled for ${dayName}. Enjoy the recovery, or start something anyway.`
+                                    : 'Set up a split and your workout will be ready here automatically.'}
+                            </Text>
+                        </Card>
+
+                        {!hasSplit && (
+                            <Button
+                                title="Create a split"
+                                onPress={() => router.push('/split/createSplit')}
+                                buttonStyle={styles.secondaryButton}
+                                titleStyle={styles.secondaryButtonText}
+                            />
+                        )}
+
+                        <TouchableOpacity style={styles.changeRow} onPress={openPicker}>
+                            <MaterialCommunityIcons name="swap-horizontal" size={18} color={Theme.colors.font} />
+                            <Text style={styles.changeText}>
+                                {hasSplit ? 'Pick a workout anyway' : 'Pick a workout to start'}
+                            </Text>
+                        </TouchableOpacity>
+                    </>
                 )}
             </ScrollView>
+
+            {selectedWorkout && (
+                <View style={styles.startButtonWrap}>
+                    <Button
+                        title="Start"
+                        onPress={startWorkout}
+                        buttonStyle={styles.startButton}
+                        titleStyle={styles.startButtonText}
+                        icon={{ name: 'play', type: 'material-community', color: Theme.colors.dark, size: 20 }}
+                    />
+                </View>
+            )}
+
+            <Modal
+                visible={pickerVisible}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setPickerVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Change workout</Text>
+                        <TouchableOpacity
+                            onPress={() => setPickerVisible(false)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <MaterialCommunityIcons name="close" size={24} color={Theme.colors.font} />
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.searchContainer}>
+                        <MaterialCommunityIcons
+                            name="magnify"
+                            size={20}
+                            color={Theme.colors.font}
+                            style={styles.searchIcon}
+                        />
+                        <TextInput
+                            onChangeText={setPickerSearch}
+                            value={pickerSearch}
+                            style={styles.searchBar}
+                            placeholder='Search workouts...'
+                            placeholderTextColor={Theme.colors.font + '80'}
+                        />
+                    </View>
+                    <ScrollView contentContainerStyle={styles.pickerListContent}>
+                        {filteredWorkouts.length === 0 ? (
+                            <View style={styles.emptyContainer}>
+                                <MaterialCommunityIcons
+                                    name="weight-lifter"
+                                    size={48}
+                                    color={Theme.colors.font + '40'}
+                                />
+                                <Text style={styles.emptyText}>
+                                    {pickerSearch ? 'No workouts found' : 'No workouts yet'}
+                                </Text>
+                            </View>
+                        ) : (
+                            filteredWorkouts.map((item) => (
+                                <WorkoutListItem
+                                    key={item.id}
+                                    workout={item}
+                                    onPress={() => selectWorkout(item)}
+                                />
+                            ))
+                        )}
+                    </ScrollView>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -264,14 +297,139 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Theme.colors.dark,
     },
+    scrollContent: {
+        padding: Theme.spacing.md,
+        paddingBottom: Theme.spacing.xl * 3,
+    },
+    dayLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+        marginBottom: Theme.spacing.md,
+    },
+    dayLabel: {
+        color: Theme.colors.font + '99',
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.semibold,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    heroCard: {
+        borderRadius: Theme.borderRadius.lg,
+        borderWidth: 0,
+        marginHorizontal: 0,
+        marginBottom: Theme.spacing.md,
+        paddingVertical: Theme.spacing.xl,
+        alignItems: 'center',
+        backgroundColor: Theme.colors.lessDark,
+        ...Theme.shadows.medium,
+    },
+    heroIconWrap: {
+        marginBottom: Theme.spacing.sm,
+    },
+    heroTitle: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.xxl,
+        fontWeight: Theme.fontWeight.bold,
+        textAlign: 'center',
+        marginBottom: Theme.spacing.sm,
+    },
+    heroSubtitle: {
+        color: Theme.colors.font + '99',
+        fontSize: Theme.fontSize.md,
+        textAlign: 'center',
+        marginTop: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.md,
+        lineHeight: Theme.lineHeight.md,
+    },
+    heroMetaRow: {
+        flexDirection: 'row',
+        gap: Theme.spacing.md,
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+    },
+    detailItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+    },
+    detailText: {
+        ...Styles.fontColor,
+        fontSize: Theme.fontSize.sm,
+    },
+    changeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Theme.spacing.xs,
+        paddingVertical: Theme.spacing.md,
+    },
+    changeText: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.md,
+        fontWeight: Theme.fontWeight.medium,
+    },
+    secondaryButton: {
+        backgroundColor: Theme.colors.green,
+        borderRadius: Theme.borderRadius.md,
+        paddingVertical: Theme.spacing.md,
+    },
+    secondaryButtonText: {
+        fontSize: Theme.fontSize.md,
+        fontWeight: Theme.fontWeight.semibold,
+    },
+    startButtonWrap: {
+        position: 'absolute',
+        left: Theme.spacing.md,
+        right: Theme.spacing.md,
+        bottom: Theme.spacing.lg,
+    },
+    startButton: {
+        backgroundColor: Theme.colors.accent,
+        borderRadius: Theme.borderRadius.xl,
+        paddingVertical: Theme.spacing.md,
+        ...Theme.shadows.large,
+    },
+    startButtonText: {
+        color: Theme.colors.dark,
+        fontSize: Theme.fontSize.lg,
+        fontWeight: Theme.fontWeight.bold,
+        marginLeft: Theme.spacing.xs,
+    },
+    headerButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.md,
+        paddingRight: Theme.spacing.md,
+    },
+    headerButton: {
+        padding: Theme.spacing.xs,
+    },
+    modalContainer: {
+        flex: 1,
+        backgroundColor: Theme.colors.dark,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: Theme.spacing.md,
+        paddingTop: Theme.spacing.lg,
+        paddingBottom: Theme.spacing.md,
+    },
+    modalTitle: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.xl,
+        fontWeight: Theme.fontWeight.bold,
+    },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Theme.colors.lessDark,
         paddingHorizontal: Theme.spacing.md,
         paddingVertical: Theme.spacing.sm,
-        marginHorizontal: Theme.spacing.xs,
-        marginTop: Theme.spacing.xs,
+        marginHorizontal: Theme.spacing.md,
+        marginBottom: Theme.spacing.sm,
         borderRadius: Theme.borderRadius.md,
     },
     searchIcon: {
@@ -283,62 +441,18 @@ const styles = StyleSheet.create({
         color: Theme.colors.font,
         fontSize: Theme.fontSize.md,
     },
-    clearButton: {
-        marginLeft: Theme.spacing.sm,
-        padding: Theme.spacing.xs,
-    },
-    scrollView: {
-        width: '100%',
-    },
-    scrollContent: {
+    pickerListContent: {
+        paddingHorizontal: Theme.spacing.xs,
         paddingBottom: Theme.spacing.xl,
     },
     emptyContainer: {
-        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: Theme.spacing.xl * 2,
     },
     emptyText: {
         color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.semibold,
-        marginTop: Theme.spacing.md,
-    },
-    emptySubtext: {
-        color: Theme.colors.font + '80',
         fontSize: Theme.fontSize.md,
-        marginTop: Theme.spacing.xs,
-        textAlign: 'center',
-    },
-    cardContent: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    cardInfo: {
-        flex: 1,
-    },
-    cardDetails: {
-        flexDirection: 'row',
-        marginTop: Theme.spacing.xs,
-        marginLeft: Theme.spacing.sm,
-        gap: Theme.spacing.md,
-        flexWrap: 'wrap',
-    },
-    detailItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.xs,
-    },
-    detailText: {
-        ...Styles.fontColor,
-        fontSize: Theme.fontSize.sm,
-    },
-    trashButton: {
-        padding: Theme.spacing.xs,
-    },
-    headerButton: {
-        paddingRight: Theme.spacing.md,
+        marginTop: Theme.spacing.md,
     },
 });

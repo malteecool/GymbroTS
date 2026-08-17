@@ -8,7 +8,7 @@ import {
 import { removeWorkoutExercise as removeWorkoutExerciseService } from '../../services/ExerciseService.Service';
 import { getUserDataById } from '../../services/UserService.Service';
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Animated, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
 import Styles from "../../Styles";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
@@ -19,7 +19,8 @@ import { HeaderBackButton } from "@react-navigation/elements";
 
 export default function WorkoutDetails() {
 
-    const { workoutId } = useLocalSearchParams();
+    const { workoutId, autostart } = useLocalSearchParams();
+    const autostartHandled = useRef(false);
     const [running, setRunning] = useState<boolean>(false);
     const [isLoading, setLoading] = useState<boolean>(true);
     const [workout, setWorkout] = useState<Workout>();
@@ -97,6 +98,13 @@ export default function WorkoutDetails() {
         load();
     }, []);
 
+    useEffect(() => {
+        if (workout && autostart === 'true' && !autostartHandled.current) {
+            autostartHandled.current = true;
+            setStartTime(new Date());
+            setRunning(true);
+        }
+    }, [workout, autostart]);
 
     const moveExerciseForward = (exerciseIndex: number) => {
         if (exerciseIndex < data.length - 1) {

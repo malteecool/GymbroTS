@@ -194,7 +194,7 @@ export default function SplitScreen() {
                                                         color={Theme.colors.font}
                                                     />
                                                     <Text style={styles.workoutName}>
-                                                        {dayData.workout!.worName}}
+                                                        {dayData.workout!.worName}
                                                     </Text>
                                                 </View>
                                             ) : (

@@ -107,6 +107,10 @@ function RootLayoutContent() {
                         options={{ headerShown: true }}
                     />
                     <Stack.Screen
+                        name="workout/allWorkouts"
+                        options={{ headerShown: true, title: 'My Workouts' }}
+                    />
+                    <Stack.Screen
                         name="split/createSplit"
                         options={{ headerShown: true }}
                     />

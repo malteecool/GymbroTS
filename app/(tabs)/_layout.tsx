@@ -43,6 +43,7 @@ export default function TabLayout() {
 
     return (
         <Tabs
+            initialRouteName="workoutTab"
             screenOptions={{
                 tabBarActiveBackgroundColor: Theme.colors.dark,
                 tabBarInactiveBackgroundColor: Theme.colors.lessDark,
