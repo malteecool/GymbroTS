@@ -1,106 +1,69 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, ScrollView, ActivityIndicator, StyleSheet, Text, TouchableOpacity, Modal, TextInput, Switch, Alert } from "react-native";
-import { useRouter } from 'expo-router';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import StatsSlider from '../../components/Profile/StatsSlider';
-import ProfileDetailsHeader from '../../components/Profile/ProfileDetailsHeader';
-import { getWorkoutsCount, getWeekNumber } from '../../services/StatsService.Service';
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { Card, Button } from '@rneui/themed';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Divider } from '@rneui/base';
 import emitter from '../../hooks/CustomEventEmitter';
-import { getStordUserData, updateProfile, toggleVisibility } from '../../services/UserService.Service';
-import { User } from '../../interfaces/User.Interface';
-import { Theme } from '../../constants/Theme';
+import { getWorkouts, getWorkoutExercises, getFormattedTime } from '../../services/WorkoutService.Service';
+import { getTodaysSplitWorkout } from '../../services/SplitService.Service';
+import { getWorkoutStreak } from '../../services/StatsService.Service';
+import { Theme, Styles } from '../../constants/Theme';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
-import { useAuthContext } from '../../providers/AuthProvider';
+import { getStordUserData } from '../../services/UserService.Service';
+import { User } from '../../interfaces/User.Interface';
+import { Workout } from '../../interfaces/Workout.Interface';
+import { WorkoutExercise } from '../../interfaces/WorkoutExercise.Interface';
+import { WorkoutListItem } from '../../components/Workout/WorkoutListItem';
+import { router, useNavigation } from 'expo-router';
 
-export interface WeeklyData {
-    title: string;
-    count: number;
-}
-
-interface TrendData {
-    title: string;
-    x: number[];
-    y: number[];
-}
-
-const LoadingSlider = () => {
-    return (
-        <View style={styles.cardContainer}>
-            <View style={styles.loadingCard}>
-                <View style={styles.loadingContent}>
-                    <ActivityIndicator size="large" color={Theme.colors.font} />
-                </View>
-            </View>
-        </View>
-    );
-};
-
-export default function ProfileScreen() {
-    const router = useRouter();
-    const { signOut } = useAuthContext();
-    const [weeklyCountLoading, setWeeklyCountLoading] = useState(true);
-    const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
-    const [trendCountLoading, setTrendCountLoading] = useState(true);
-    const [trendData, setTrendData] = useState<TrendData[]>([]);
+export default function WorkoutScreen() {
+    const navigation = useNavigation();
+    const [isLoading, setLoading] = useState<boolean>(true);
     const [user, setUser] = useState<User | null>(null);
-    const [signingOut, setSigningOut] = useState(false);
-    const [editModalVisible, setEditModalVisible] = useState(false);
-    const [editName, setEditName] = useState('');
-    const [editBio, setEditBio] = useState('');
-    const [editSaving, setEditSaving] = useState(false);
-    const [publicToggleSaving, setPublicToggleSaving] = useState(false);
+    const [dayName, setDayName] = useState<string>('');
+    const [hasSplit, setHasSplit] = useState<boolean>(false);
+    const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
+    const [allWorkouts, setAllWorkouts] = useState<Workout[]>([]);
+    const [pickerVisible, setPickerVisible] = useState<boolean>(false);
+    const [pickerSearch, setPickerSearch] = useState<string>('');
+    const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
+    const [exercisesLoading, setExercisesLoading] = useState<boolean>(false);
+    const [streak, setStreak] = useState<number>(0);
 
-    const createWeeklyData = useCallback((data: { weekly: string[]; lifetime: string[] }) => {
-        setWeeklyData([
-            {
-                title: 'This week',
-                count: data.weekly.length
-            },
-            {
-                title: 'Lifetime',
-                count: data.lifetime.length
-            }
-        ]);
-        setWeeklyCountLoading(false);
-    }, []);
-
-    const createTrendData = useCallback((data: string[]) => {
-        const currentWeek = getWeekNumber(new Date());
-        const groupedDates = data.reduce((result: Record<number, string[]>, date: string) => {
-            const weekNumber = getWeekNumber(new Date(date));
-            if (!result[weekNumber]) {
-                result[weekNumber] = [];
-            }
-            result[weekNumber].push(date);
-            return result;
-        }, {});
-
-        const xArray: number[] = [];
-        const yArray: number[] = [];
-
-        for (let i = 0; i < 5; i++) {
-            let x = currentWeek - i;
-            if (x < 1) {
-                x = 52 - Math.abs(x);
-            }
-            xArray.push(x);
-            yArray.push(groupedDates[x] ? groupedDates[x].length : 0);
-        }
-
-        // Reverse arrays to show 5 weeks ago on the left and current week on the right
-        xArray.reverse();
-        yArray.reverse();
-
-        setTrendData([{
-            title: '5 Week Trend',
-            x: xArray,
-            y: yArray
-        }]);
-        setTrendCountLoading(false);
-    }, []);
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <View style={styles.headerButtons}>
+                    <TouchableOpacity
+                        onPress={() => router.push('/workout/allWorkouts')}
+                        style={styles.headerButton}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons
+                            name="format-list-bulleted"
+                            size={22}
+                            color={Theme.colors.font}
+                        />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => router.push('/workout/addWorkout')}
+                        style={styles.headerButton}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons
+                            name="plus"
+                            size={24}
+                            color={Theme.colors.green}
+                        />
+                    </TouchableOpacity>
+                </View>
+            ),
+        });
+    }, [navigation]);
 
     const load = useCallback(async () => {
         try {
+            setLoading(true);
             const storedUser = await getStordUserData();
             if (!storedUser) {
                 console.error('User not found');
@@ -108,19 +71,23 @@ export default function ProfileScreen() {
             }
 
             setUser(storedUser);
-            setWeeklyCountLoading(true);
-            setTrendCountLoading(true);
+            const [todays, workouts, workoutStreak] = await Promise.all([
+                getTodaysSplitWorkout(storedUser.id),
+                getWorkouts(storedUser.id),
+                getWorkoutStreak(storedUser.id),
+            ]);
 
-            const counts = await getWorkoutsCount(storedUser);
-
-            if (counts) {
-                createWeeklyData(counts);
-                createTrendData(counts.lifetime);
-            }
+            setDayName(todays.dayName);
+            setHasSplit(todays.hasSplit);
+            setSelectedWorkout(todays.workout);
+            setAllWorkouts(workouts);
+            setStreak(workoutStreak);
         } catch (error) {
-            console.error('Error loading profile data:', error);
+            console.error('Error loading today\'s workout:', error);
+        } finally {
+            setLoading(false);
         }
-    }, [createWeeklyData, createTrendData]);
+    }, []);
 
     useEffect(() => {
         load();
@@ -130,189 +97,282 @@ export default function ProfileScreen() {
         const listener = () => {
             load();
         };
-        emitter.on('profileEvent', listener);
+        emitter.on('splitEvent', listener);
+        emitter.on('workoutEvent', listener);
 
         return () => {
-            emitter.off('profileEvent', listener);
+            emitter.off('splitEvent', listener);
+            emitter.off('workoutEvent', listener);
         };
     }, [load]);
 
-    const openEditModal = () => {
-        setEditName(user?.name ?? '');
-        setEditBio(user?.bio ?? '');
-        setEditModalVisible(true);
-    };
-
-    const handleSaveProfile = async () => {
-        if (!user) return;
-        if (!editName.trim()) {
-            Alert.alert('Name required', 'Please enter a display name.');
+    useEffect(() => {
+        if (!selectedWorkout) {
+            setExercises([]);
             return;
         }
-        try {
-            setEditSaving(true);
-            const updated = await updateProfile(user.id, { name: editName.trim(), bio: editBio.trim() || undefined });
-            setUser(updated);
-            setEditModalVisible(false);
-        } catch (e) {
-            Alert.alert('Error', 'Could not save profile. Please try again.');
-        } finally {
-            setEditSaving(false);
-        }
-    };
 
-    const handleToggleVisibility = async (value: boolean) => {
-        if (!user) return;
-        try {
-            setPublicToggleSaving(true);
-            await toggleVisibility(user.id, value);
-            setUser(u => u ? { ...u, isPublic: value } : u);
-        } catch (e) {
-            Alert.alert('Error', 'Could not update visibility. Please try again.');
-        } finally {
-            setPublicToggleSaving(false);
-        }
-    };
+        let cancelled = false;
+        (async () => {
+            try {
+                setExercisesLoading(true);
+                const list = await getWorkoutExercises(selectedWorkout.id);
+                if (!cancelled) setExercises(list);
+            } catch (error) {
+                console.error('Error loading workout exercises:', error);
+                if (!cancelled) setExercises([]);
+            } finally {
+                if (!cancelled) setExercisesLoading(false);
+            }
+        })();
 
-    const handleSignOut = async () => {
-        try {
-            setSigningOut(true);
-            await signOut();
-            router.replace('/(auth)/LoginScreen');
-        } catch (error) {
-            console.error('Error signing out:', error);
-            setSigningOut(false);
-        }
-    };
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedWorkout]);
+
+    const openPicker = useCallback(() => {
+        setPickerSearch('');
+        setPickerVisible(true);
+    }, []);
+
+    const selectWorkout = useCallback((workout: Workout) => {
+        setSelectedWorkout(workout);
+        setPickerVisible(false);
+    }, []);
+
+    const startWorkout = useCallback(() => {
+        if (!selectedWorkout) return;
+        router.push({
+            pathname: '/workout/workoutDetails',
+            params: { workoutId: selectedWorkout.id, autostart: 'true' },
+        });
+    }, [selectedWorkout]);
+
+    const filteredWorkouts = pickerSearch
+        ? allWorkouts.filter((w) => (w.worName || '').toUpperCase().includes(pickerSearch.toUpperCase()))
+        : allWorkouts;
+
+    if (isLoading) {
+        return <LoadingIndicator text='Loading your workout...' />;
+    }
 
     return (
         <View style={styles.container}>
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
-                <ProfileDetailsHeader />
-
-                {weeklyCountLoading ? (
-                    <LoadingSlider />
-                ) : (
-                    <StatsSlider
-                        stats={weeklyData}
-                        sliderComponent={'CounterComponent'}
-                    />
-                )}
-
-                {trendCountLoading ? (
-                    <LoadingSlider />
-                ) : (
-                    <StatsSlider
-                        stats={trendData}
-                        sliderComponent={'BarGraph'}
-                    />
-                )}
-
-                <View style={styles.profileActions}>
-                    <TouchableOpacity style={styles.actionButton} onPress={openEditModal} activeOpacity={0.8}>
-                        <MaterialCommunityIcons name="account-edit-outline" size={20} color={Theme.colors.font} />
-                        <Text style={styles.actionButtonText}>Edit Profile</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.visibilityRow}>
-                        <View style={styles.visibilityInfo}>
-                            <MaterialCommunityIcons
-                                name={user?.isPublic ? 'earth' : 'lock-outline'}
-                                size={20}
-                                color={user?.isPublic ? Theme.colors.yellow : Theme.colors.secondary}
-                            />
-                            <View style={styles.visibilityTextBlock}>
-                                <Text style={styles.visibilityLabel}>
-                                    {user?.isPublic ? 'Public Profile' : 'Private Profile'}
-                                </Text>
-                                <Text style={styles.visibilityHint}>
-                                    {user?.isPublic ? 'Others can find and follow you' : 'Only you can see your profile'}
-                                </Text>
-                            </View>
-                        </View>
-                        {publicToggleSaving ? (
-                            <ActivityIndicator size="small" color={Theme.colors.yellow} />
-                        ) : (
-                            <Switch
-                                value={user?.isPublic ?? false}
-                                onValueChange={handleToggleVisibility}
-                                trackColor={{ false: Theme.colors.border, true: Theme.colors.yellow }}
-                                thumbColor={Theme.colors.white}
-                            />
-                        )}
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+                <View style={styles.dayLabelRow}>
+                    <View style={styles.dayLabelLeft}>
+                        <MaterialCommunityIcons
+                            name="calendar-today"
+                            size={16}
+                            color={Theme.colors.font + '99'}
+                        />
+                        <Text style={styles.dayLabel}>{dayName ? `Today · ${dayName}` : 'Today'}</Text>
                     </View>
+                    {streak > 0 && (
+                        <View style={styles.streakBadge}>
+                            <MaterialCommunityIcons name="fire" size={16} color={Theme.colors.accent} />
+                            <Text style={styles.streakText}>{streak}</Text>
+                        </View>
+                    )}
                 </View>
 
-                <TouchableOpacity
-                    style={[styles.signOutButton, signingOut && styles.signOutButtonDisabled]}
-                    onPress={handleSignOut}
-                    disabled={signingOut}
-                    activeOpacity={0.7}
-                >
-                    {signingOut ? (
-                        <ActivityIndicator size="small" color={Theme.colors.white} />
-                    ) : (
-                        <>
-                            <MaterialCommunityIcons name="logout" size={20} color={Theme.colors.white} />
-                            <Text style={styles.signOutButtonText}>Sign Out</Text>
-                        </>
-                    )}
-                </TouchableOpacity>
+                {selectedWorkout ? (
+                    <>
+                        <Card containerStyle={styles.heroCard}>
+                            <View style={styles.heroHeaderRow}>
+                                <MaterialCommunityIcons
+                                    name="weight-lifter"
+                                    size={30}
+                                    color={Theme.colors.accent}
+                                />
+                                <Text style={styles.heroTitle}>{selectedWorkout.worName}</Text>
+                            </View>
+                            <View style={styles.heroMetaRow}>
+                                <View style={styles.detailItem}>
+                                    <MaterialCommunityIcons
+                                        name='clock-time-four-outline'
+                                        size={16}
+                                        color={Theme.colors.font}
+                                    />
+                                    <Text style={styles.detailText}>
+                                        {getFormattedTime(selectedWorkout.worEstimateTime)}
+                                    </Text>
+                                </View>
+                                <View style={styles.detailItem}>
+                                    <MaterialCommunityIcons
+                                        name='calendar-range'
+                                        size={16}
+                                        color={Theme.colors.font}
+                                    />
+                                    <Text style={styles.detailText}>
+                                        {selectedWorkout.worLastDone
+                                            ? new Date(selectedWorkout.worLastDone).toDateString()
+                                            : 'never'}
+                                    </Text>
+                                </View>
+                                <View style={styles.detailItem}>
+                                    <MaterialCommunityIcons
+                                        name='repeat'
+                                        size={16}
+                                        color={Theme.colors.font}
+                                    />
+                                    <Text style={styles.detailText}>{selectedWorkout.worCompletedCount}x</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.exerciseListWrap}>
+                                <Divider width={1} color={Theme.colors.dark} style={styles.exerciseDivider} />
+                                {exercisesLoading ? (
+                                    <Text style={styles.exerciseEmptyText}>Loading exercises...</Text>
+                                ) : exercises.length === 0 ? (
+                                    <Text style={styles.exerciseEmptyText}>No exercises added yet</Text>
+                                ) : (
+                                    <>
+                                        <View style={styles.exerciseListHeader}>
+                                            <Text style={styles.exerciseListTitle}>Exercises</Text>
+                                            <View style={styles.exerciseCountPill}>
+                                                <Text style={styles.exerciseCountText}>{exercises.length}</Text>
+                                            </View>
+                                        </View>
+                                        {exercises.map((exercise, index) => (
+                                            <View
+                                                key={exercise.woeId}
+                                                style={[
+                                                    styles.exerciseRow,
+                                                    index === exercises.length - 1 && styles.exerciseRowLast,
+                                                ]}
+                                            >
+                                                <View style={styles.exerciseIndexBadge}>
+                                                    <Text style={styles.exerciseIndexText}>{index + 1}</Text>
+                                                </View>
+                                                <Text style={styles.exerciseRowText} numberOfLines={1}>
+                                                    {exercise.exeName}
+                                                </Text>
+                                                {exercise.exeMaxWeight > 0 && (
+                                                    <View style={styles.exerciseWeightPill}>
+                                                        <MaterialCommunityIcons
+                                                            name="weight-kilogram"
+                                                            size={12}
+                                                            color={Theme.colors.font + 'B0'}
+                                                        />
+                                                        <Text style={styles.exerciseWeightText}>
+                                                            {exercise.exeMaxWeight}kg
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        ))}
+                                    </>
+                                )}
+                            </View>
+                        </Card>
+
+                        <TouchableOpacity style={styles.changeRow} onPress={openPicker}>
+                            <MaterialCommunityIcons name="swap-horizontal" size={18} color={Theme.colors.font} />
+                            <Text style={styles.changeText}>Change workout</Text>
+                        </TouchableOpacity>
+                    </>
+                ) : (
+                    <>
+                        <Card containerStyle={styles.heroCard}>
+                            <MaterialCommunityIcons
+                                name={hasSplit ? 'weather-night' : 'calendar-remove'}
+                                size={40}
+                                color={Theme.colors.font + '60'}
+                            />
+                            <Text style={styles.heroTitle}>{hasSplit ? 'Rest day' : 'No split set up'}</Text>
+                            <Text style={styles.heroSubtitle}>
+                                {hasSplit
+                                    ? `Nothing scheduled for ${dayName}. Enjoy the recovery, or start something anyway.`
+                                    : 'Set up a split and your workout will be ready here automatically.'}
+                            </Text>
+                        </Card>
+
+                        {!hasSplit && (
+                            <Button
+                                title="Create a split"
+                                onPress={() => router.push('/split/createSplit')}
+                                buttonStyle={styles.secondaryButton}
+                                titleStyle={styles.secondaryButtonText}
+                            />
+                        )}
+
+                        <TouchableOpacity style={styles.changeRow} onPress={openPicker}>
+                            <MaterialCommunityIcons name="swap-horizontal" size={18} color={Theme.colors.font} />
+                            <Text style={styles.changeText}>
+                                {hasSplit ? 'Pick a workout anyway' : 'Pick a workout to start'}
+                            </Text>
+                        </TouchableOpacity>
+                    </>
+                )}
             </ScrollView>
 
+            {selectedWorkout && (
+                <View style={styles.startButtonWrap}>
+                    <Button
+                        title="Start"
+                        onPress={startWorkout}
+                        buttonStyle={styles.startButton}
+                        titleStyle={styles.startButtonText}
+                        icon={{ name: 'play', type: 'material-community', color: Theme.colors.dark, size: 20 }}
+                    />
+                </View>
+            )}
+
             <Modal
-                visible={editModalVisible}
-                transparent
+                visible={pickerVisible}
                 animationType="slide"
-                onRequestClose={() => setEditModalVisible(false)}
+                presentationStyle="pageSheet"
+                onRequestClose={() => setPickerVisible(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalSheet}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Edit Profile</Text>
-                            <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                                <MaterialCommunityIcons name="close" size={24} color={Theme.colors.font} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={styles.inputLabel}>Display Name</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={editName}
-                            onChangeText={setEditName}
-                            placeholder="Your name"
-                            placeholderTextColor={Theme.colors.placeholder}
-                            maxLength={60}
-                        />
-
-                        <Text style={styles.inputLabel}>Bio</Text>
-                        <TextInput
-                            style={[styles.input, styles.bioInput]}
-                            value={editBio}
-                            onChangeText={setEditBio}
-                            placeholder="Tell people about your training..."
-                            placeholderTextColor={Theme.colors.placeholder}
-                            multiline
-                            maxLength={160}
-                        />
-
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Change workout</Text>
                         <TouchableOpacity
-                            style={[styles.saveButton, editSaving && styles.saveButtonDisabled]}
-                            onPress={handleSaveProfile}
-                            disabled={editSaving}
-                            activeOpacity={0.8}
+                            onPress={() => setPickerVisible(false)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                            {editSaving ? (
-                                <ActivityIndicator size="small" color={Theme.colors.dark} />
-                            ) : (
-                                <Text style={styles.saveButtonText}>Save</Text>
-                            )}
+                            <MaterialCommunityIcons name="close" size={24} color={Theme.colors.font} />
                         </TouchableOpacity>
                     </View>
+                    <View style={styles.searchContainer}>
+                        <MaterialCommunityIcons
+                            name="magnify"
+                            size={20}
+                            color={Theme.colors.font}
+                            style={styles.searchIcon}
+                        />
+                        <TextInput
+                            onChangeText={setPickerSearch}
+                            value={pickerSearch}
+                            style={styles.searchBar}
+                            placeholder='Search workouts...'
+                            placeholderTextColor={Theme.colors.font + '80'}
+                        />
+                    </View>
+                    <ScrollView contentContainerStyle={styles.pickerListContent}>
+                        {filteredWorkouts.length === 0 ? (
+                            <View style={styles.emptyContainer}>
+                                <MaterialCommunityIcons
+                                    name="weight-lifter"
+                                    size={48}
+                                    color={Theme.colors.font + '40'}
+                                />
+                                <Text style={styles.emptyText}>
+                                    {pickerSearch ? 'No workouts found' : 'No workouts yet'}
+                                </Text>
+                            </View>
+                        ) : (
+                            filteredWorkouts.map((item) => (
+                                <WorkoutListItem
+                                    key={item.id}
+                                    workout={item}
+                                    onPress={() => selectWorkout(item)}
+                                />
+                            ))
+                        )}
+                    </ScrollView>
                 </View>
             </Modal>
         </View>
@@ -324,157 +384,265 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Theme.colors.dark,
     },
-    scrollView: {
-        flex: 1,
-    },
     scrollContent: {
-        paddingBottom: Theme.spacing.xl,
+        padding: Theme.spacing.md,
+        paddingBottom: Theme.spacing.xl * 3,
     },
-    cardContainer: {
-        backgroundColor: Theme.colors.dark,
-        height: 250,
-        marginHorizontal: Theme.spacing.xs,
-        marginBottom: Theme.spacing.md,
-        ...Theme.shadows.small,
-    },
-    loadingCard: {
-        flex: 1,
-        margin: Theme.spacing.sm,
-    },
-    loadingContent: {
-        flex: 1,
-        justifyContent: 'center',
-        alignContent: 'center',
-        marginTop: -20,
-    },
-    signOutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginHorizontal: Theme.spacing.md,
-        marginTop: Theme.spacing.md,
-        paddingVertical: Theme.spacing.md,
-        backgroundColor: Theme.colors.danger,
-        borderRadius: Theme.spacing.sm,
-        ...Theme.shadows.small,
-    },
-    signOutButtonDisabled: {
-        opacity: 0.6,
-    },
-    signOutButtonText: {
-        color: Theme.colors.white,
-        fontSize: 16,
-        fontWeight: '600',
-        marginLeft: Theme.spacing.sm,
-    },
-    profileActions: {
-        marginHorizontal: Theme.spacing.md,
-        marginTop: Theme.spacing.lg,
-        gap: Theme.spacing.sm,
-    },
-    actionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.sm,
-        backgroundColor: Theme.colors.lessDark,
-        paddingVertical: Theme.spacing.md,
-        paddingHorizontal: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.md,
-        ...Theme.shadows.small,
-    },
-    actionButtonText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.medium,
-    },
-    visibilityRow: {
+    dayLabelRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: Theme.colors.lessDark,
-        paddingVertical: Theme.spacing.md,
-        paddingHorizontal: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.md,
-        ...Theme.shadows.small,
+        marginBottom: Theme.spacing.md,
     },
-    visibilityInfo: {
+    dayLabelLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+    },
+    streakBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+        backgroundColor: Theme.colors.accent + '1A',
+        paddingHorizontal: Theme.spacing.sm,
+        paddingVertical: 4,
+        borderRadius: Theme.borderRadius.round,
+    },
+    streakText: {
+        color: Theme.colors.accent,
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.bold,
+    },
+    dayLabel: {
+        color: Theme.colors.font + '99',
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.semibold,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    heroCard: {
+        borderRadius: Theme.borderRadius.lg,
+        borderWidth: 0,
+        marginHorizontal: 0,
+        marginBottom: Theme.spacing.md,
+        paddingVertical: Theme.spacing.xl,
+        alignItems: 'center',
+        backgroundColor: Theme.colors.lessDark,
+        ...Theme.shadows.medium,
+    },
+    heroHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Theme.spacing.sm,
+        marginBottom: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.lg,
+    },
+    heroTitle: {
+        color: Theme.colors.font,
+        fontSize: 30,//Theme.fontSize.xxl,
+        fontWeight: Theme.fontWeight.bold,
+        textAlign: 'center',
+        flexShrink: 1,
+    },
+    heroSubtitle: {
+        color: Theme.colors.font + '99',
+        fontSize: Theme.fontSize.md,
+        textAlign: 'center',
+        marginTop: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.md,
+        lineHeight: Theme.lineHeight.md,
+    },
+    heroMetaRow: {
+        flexDirection: 'row',
+        gap: Theme.spacing.md,
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+    },
+    detailItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+    },
+    detailText: {
+        ...Styles.fontColor,
+        fontSize: Theme.fontSize.sm,
+    },
+    exerciseListWrap: {
+        alignSelf: 'stretch',
+        marginTop: Theme.spacing.lg,
+        paddingHorizontal: Theme.spacing.xs,
+    },
+    exerciseDivider: {
+        marginBottom: Theme.spacing.md,
+    },
+    exerciseListHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Theme.spacing.sm,
-        flex: 1,
+        marginBottom: Theme.spacing.xs,
     },
-    visibilityTextBlock: {
-        flex: 1,
+    exerciseListTitle: {
+        color: Theme.colors.font + 'B0',
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.semibold,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
-    visibilityLabel: {
+    exerciseCountPill: {
+        minWidth: 18,
+        height: 18,
+        paddingHorizontal: 5,
+        borderRadius: Theme.borderRadius.round,
+        backgroundColor: Theme.colors.font + '1A',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    exerciseCountText: {
+        color: Theme.colors.font + 'B0',
+        fontSize: Theme.fontSize.xs,
+        fontWeight: Theme.fontWeight.bold,
+    },
+    exerciseRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.sm,
+        paddingVertical: Theme.spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: Theme.colors.dark,
+    },
+    exerciseRowLast: {
+        borderBottomWidth: 0,
+    },
+    exerciseIndexBadge: {
+        width: 22,
+        height: 22,
+        borderRadius: Theme.borderRadius.round,
+        backgroundColor: Theme.colors.accent + '26',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    exerciseIndexText: {
+        color: Theme.colors.accent,
+        fontSize: Theme.fontSize.xs,
+        fontWeight: Theme.fontWeight.bold,
+    },
+    exerciseRowText: {
+        flex: 1,
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.md,
+    },
+    exerciseWeightPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+    },
+    exerciseWeightText: {
+        color: Theme.colors.font + 'B0',
+        fontSize: Theme.fontSize.xs,
+    },
+    exerciseEmptyText: {
+        color: Theme.colors.font + '80',
+        fontSize: Theme.fontSize.sm,
+        fontStyle: 'italic',
+        textAlign: 'center',
+    },
+    changeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Theme.spacing.xs,
+        paddingVertical: Theme.spacing.md,
+    },
+    changeText: {
         color: Theme.colors.font,
         fontSize: Theme.fontSize.md,
         fontWeight: Theme.fontWeight.medium,
     },
-    visibilityHint: {
-        color: Theme.colors.secondary,
-        fontSize: Theme.fontSize.xs,
-        marginTop: 2,
+    secondaryButton: {
+        backgroundColor: Theme.colors.green,
+        borderRadius: Theme.borderRadius.md,
+        paddingVertical: Theme.spacing.md,
     },
-    modalOverlay: {
+    secondaryButtonText: {
+        fontSize: Theme.fontSize.md,
+        fontWeight: Theme.fontWeight.semibold,
+    },
+    startButtonWrap: {
+        position: 'absolute',
+        left: Theme.spacing.md,
+        right: Theme.spacing.md,
+        bottom: Theme.spacing.lg,
+    },
+    startButton: {
+        backgroundColor: Theme.colors.accent,
+        borderRadius: Theme.borderRadius.xl,
+        paddingVertical: Theme.spacing.md,
+        ...Theme.shadows.large,
+    },
+    startButtonText: {
+        color: Theme.colors.dark,
+        fontSize: Theme.fontSize.lg,
+        fontWeight: Theme.fontWeight.bold,
+        marginLeft: Theme.spacing.xs,
+    },
+    headerButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.md,
+        paddingRight: Theme.spacing.md,
+    },
+    headerButton: {
+        padding: Theme.spacing.xs,
+    },
+    modalContainer: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'flex-end',
-    },
-    modalSheet: {
-        backgroundColor: Theme.colors.lessDark,
-        borderTopLeftRadius: Theme.borderRadius.xl,
-        borderTopRightRadius: Theme.borderRadius.xl,
-        padding: Theme.spacing.lg,
-        paddingBottom: Theme.spacing.xl,
+        backgroundColor: Theme.colors.dark,
     },
     modalHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: Theme.spacing.lg,
+        justifyContent: 'space-between',
+        paddingHorizontal: Theme.spacing.md,
+        paddingTop: Theme.spacing.lg,
+        paddingBottom: Theme.spacing.md,
     },
     modalTitle: {
         color: Theme.colors.font,
         fontSize: Theme.fontSize.xl,
         fontWeight: Theme.fontWeight.bold,
     },
-    inputLabel: {
-        color: Theme.colors.secondary,
-        fontSize: Theme.fontSize.sm,
-        fontWeight: Theme.fontWeight.medium,
-        marginBottom: Theme.spacing.xs,
-        marginLeft: Theme.spacing.xs,
-    },
-    input: {
-        backgroundColor: Theme.colors.dark,
-        color: Theme.colors.font,
-        borderRadius: Theme.borderRadius.md,
-        paddingHorizontal: Theme.spacing.md,
-        paddingVertical: Theme.spacing.md,
-        fontSize: Theme.fontSize.md,
-        marginBottom: Theme.spacing.md,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    bioInput: {
-        height: 90,
-        textAlignVertical: 'top',
-    },
-    saveButton: {
-        backgroundColor: Theme.colors.yellow,
-        paddingVertical: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.md,
+    searchContainer: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginTop: Theme.spacing.sm,
-        ...Theme.shadows.small,
+        backgroundColor: Theme.colors.lessDark,
+        paddingHorizontal: Theme.spacing.md,
+        paddingVertical: Theme.spacing.sm,
+        marginHorizontal: Theme.spacing.md,
+        marginBottom: Theme.spacing.sm,
+        borderRadius: Theme.borderRadius.md,
     },
-    saveButtonDisabled: {
-        opacity: 0.6,
+    searchIcon: {
+        marginRight: Theme.spacing.sm,
     },
-    saveButtonText: {
-        color: Theme.colors.dark,
+    searchBar: {
+        flex: 1,
+        height: 40,
+        color: Theme.colors.font,
         fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.bold,
+    },
+    pickerListContent: {
+        paddingHorizontal: Theme.spacing.xs,
+        paddingBottom: Theme.spacing.xl,
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: Theme.spacing.xl * 2,
+    },
+    emptyText: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.md,
+        marginTop: Theme.spacing.md,
     },
 });

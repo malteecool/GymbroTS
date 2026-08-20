@@ -100,6 +100,7 @@ export default function AddSetScreen() {
                         title='Complete'
                         onPress={onAddHistory}
                         buttonStyle={styles.button}
+                        titleStyle={styles.buttonText}
                         loading={isSubmitting}
                         disabled={isSubmitting}
                     />
@@ -129,9 +130,15 @@ const styles = StyleSheet.create({
         ...Theme.shadows.medium,
     },
     button: {
-        height: 50,
-        borderRadius: Theme.borderRadius.md,
-        backgroundColor: Theme.colors.green,
+        height: 54,
+        borderRadius: Theme.borderRadius.xl,
+        backgroundColor: Theme.colors.accent,
+        ...Theme.shadows.large,
+    },
+    buttonText: {
+        color: Theme.colors.dark,
+        fontSize: Theme.fontSize.lg,
+        fontWeight: Theme.fontWeight.bold,
     },
     errorText: {
         color: Theme.colors.font,

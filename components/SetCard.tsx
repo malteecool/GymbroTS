@@ -1,15 +1,13 @@
 import React, { useEffect, useImperativeHandle, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native';
-import { Card, Divider } from '@rneui/themed';
+import { Card } from '@rneui/themed';
 import { Theme, Styles } from '../constants/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Exercise } from '../interfaces/Exercise.Interface';
 import { Set } from '../interfaces/Set.Interface';
 import { ExerciseHistory } from '../interfaces/ExerciseHistory.Interface';
 import { LoadingIndicator } from './ui/LoadingIndicator';
-
-const LABEL_WEIGHT = "WEIGHT";
-const LABEL_REPS = "REPS";
+import { NumberStepper } from './ui/NumberStepper';
 
 export interface SetsRef {
     getSets: () => Set[];
@@ -34,34 +32,19 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
             getComment: () => comment
         }));
 
-        const handleChangeWeight = (i: number, value: string) => {
-            setSets(prevSets => {
-                const updated = [...prevSets];
-                updated[i] = {
-                    ...updated[i],
-                    setWeight: parseInt(value) || 0
-                };
-                return updated;
-            });
-        };
-
-        const handleChangeReps = (i: number, value: string) => {
-            setSets(prevSets => {
-                const updated = [...prevSets];
-                updated[i] = {
-                    ...updated[i],
-                    setReps: parseInt(value) || 0
-                };
-                return updated;
-            });
+        const updateSet = (index: number, field: 'setWeight' | 'setReps', value: number) => {
+            setSets((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
         };
 
         const onAddSet = () => {
-            setSets([...sets, {
-                setWeight: 0,
-                setReps: 0,
-                setOrder: sets.length + 1
-            }]);
+            setSets((prev) => {
+                const last = prev[prev.length - 1];
+                return [...prev, {
+                    setWeight: last?.setWeight ?? 0,
+                    setReps: last?.setReps ?? 0,
+                    setOrder: prev.length + 1,
+                }];
+            });
         };
 
         const onRemoveSet = (index: number) => {
@@ -73,7 +56,6 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
             if (exerciseHistory) {
                 setDate(new Date(exerciseHistory.exhDate).toDateString());
                 setSets(exerciseHistory.exhSets);
-                console.log(exerciseHistory.exhSets);
                 setComment(exerciseHistory.exhComment || "");
             } else {
                 setSets([{ setWeight: 0, setReps: 0, setOrder: 1 }]);
@@ -91,60 +73,46 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
 
         return (
             <View style={styles.container}>
-                <Card
-                    containerStyle={styles.card}
-                >
-                    <Card.Title style={styles.cardTitle}>
+                <Card containerStyle={Styles.card}>
+                    <View style={styles.dateRow}>
+                        <MaterialCommunityIcons name="calendar" size={16} color={Theme.colors.font + '80'} />
                         <Text style={styles.dateText}>{date}</Text>
-                    </Card.Title>
-                    <View style={styles.headerRow}>
-                        <Text style={styles.headerText}>{LABEL_WEIGHT}</Text>
-                        <Text style={styles.headerText}>{LABEL_REPS}</Text>
-                        {editable && <View style={{width: '10%'}} />}
                     </View>
-                    {sets.map((set, i) => {
-                        return (
-                            <View key={i} style={styles.setRow}>
-                                <Divider width={1} color={Theme.colors.lessDark} />
-                                <View style={styles.setContent}>
-                                    <View style={editable ? {...styles.inputContainer} : {...styles.inputContainer, width: '50%'}}>
-                                        <TextInput
-                                            keyboardType='number-pad'
-                                            onChangeText={value => handleChangeWeight(i, value)}
-                                            style={styles.input}
-                                            placeholder={String(set.setWeight)}
-                                            placeholderTextColor={Theme.colors.dark + '80'}
-                                            editable={editable}
-                                            defaultValue={set.setWeight > 0 ? String(set.setWeight) : ''}
-                                        />
+
+                    <View style={styles.headerRow}>
+                        <Text style={[styles.colLabel, styles.setIndexCol]}>SET</Text>
+                        <Text style={styles.colLabel}>WEIGHT</Text>
+                        <Text style={styles.colLabel}>REPS</Text>
+                        {editable && <View style={styles.removeCol} />}
+                    </View>
+
+                    {sets.map((set, i) => (
+                        <View key={i} style={styles.setRow}>
+                            <Text style={[styles.setIndex, styles.setIndexCol]}>{i + 1}</Text>
+                            {editable ? (
+                                <>
+                                    <View style={styles.stepperCol}>
+                                        <NumberStepper value={set.setWeight} step={2.5} onChange={(v) => updateSet(i, 'setWeight', v)} />
                                     </View>
-                                    <View style={editable ? styles.inputContainer : {width: '50%'}}>
-                                        <TextInput
-                                            keyboardType='number-pad'
-                                            onChangeText={value => handleChangeReps(i, value)}
-                                            style={styles.input}
-                                            placeholder={String(set.setReps)}
-                                            placeholderTextColor={Theme.colors.dark + '80'}
-                                            editable={editable}
-                                            defaultValue={set.setReps > 0 ? String(set.setReps) : ''}
-                                        />
+                                    <View style={styles.stepperCol}>
+                                        <NumberStepper value={set.setReps} step={1} onChange={(v) => updateSet(i, 'setReps', v)} />
                                     </View>
-                                    {editable && sets.length > 0 && (
-                                        <TouchableOpacity
-                                            onPress={() => onRemoveSet(i)}
-                                            style={styles.removeButton}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name="trash-can"
-                                                size={20}
-                                                color={'#123'}
-                                            />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            </View>
-                        );
-                    })}
+                                    <TouchableOpacity
+                                        onPress={() => onRemoveSet(i)}
+                                        style={styles.removeCol}
+                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    >
+                                        <MaterialCommunityIcons name="close" size={16} color={Theme.colors.font + '80'} />
+                                    </TouchableOpacity>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.valueText}>{set.setWeight}kg</Text>
+                                    <Text style={styles.valueText}>{set.setReps}</Text>
+                                </>
+                            )}
+                        </View>
+                    ))}
 
                     {editable && (
                         <TouchableOpacity
@@ -152,11 +120,7 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                             onPress={onAddSet}
                             activeOpacity={0.7}
                         >
-                            <MaterialCommunityIcons
-                                name="plus-circle"
-                                size={20}
-                                color={Theme.colors.font}
-                            />
+                            <MaterialCommunityIcons name="plus" size={16} color={Theme.colors.font} />
                             <Text style={styles.addButtonText}>Add set</Text>
                         </TouchableOpacity>
                     )}
@@ -164,15 +128,15 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
                 {(editable || exerciseHistory?.exhComment) && (
                     <View style={styles.commentContainer}>
                         <MaterialCommunityIcons
-                            size={22}
-                            color={Theme.colors.font}
-                            name="comment"
+                            size={18}
+                            color={Theme.colors.font + '80'}
+                            name="comment-outline"
                         />
                         <TextInput
                             style={styles.commentInput}
                             onChangeText={(text) => setComment(text)}
-                            placeholder={exerciseHistory?.exhComment || "Comment"}
-                            placeholderTextColor={Theme.colors.font + '80'}
+                            placeholder={exerciseHistory?.exhComment || "Add a note (optional)"}
+                            placeholderTextColor={Theme.colors.font + '60'}
                             editable={editable}
                             defaultValue={exerciseHistory?.exhComment || ''}
                             multiline
@@ -190,102 +154,99 @@ const styles = StyleSheet.create({
     container: {
         backgroundColor: Theme.colors.dark,
     },
-    card: {
-        ...Styles.setCard,
-        paddingHorizontal: 0,
-        paddingBottom: 0,
-    },
-    cardTitle: {
-        ...Styles.cardTitle,
-        color: Theme.colors.font,
-        alignSelf: 'flex-start',
-        paddingHorizontal: Theme.spacing.md,
-        fontSize: Theme.fontSize.xl,
-        backgroundColor: Theme.colors.green,
-        marginLeft: 0,
-        marginBottom: Theme.spacing.xs,
+    dateRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+        marginBottom: Theme.spacing.md,
+        paddingBottom: Theme.spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: Theme.colors.dark,
     },
     dateText: {
-        fontSize: Theme.fontSize.xl,
         color: Theme.colors.font,
-        fontWeight: Theme.fontWeight.bold,
+        fontSize: Theme.fontSize.md,
+        fontWeight: Theme.fontWeight.semibold,
     },
     headerRow: {
         flexDirection: 'row',
-        justifyContent: 'space-evenly',
         alignItems: 'center',
-        width: '100%',
-        paddingHorizontal: Theme.spacing.xs,
+        gap: Theme.spacing.sm,
+        marginBottom: Theme.spacing.xs,
     },
-    headerText: {
-        ...Styles.detailText,
-        fontWeight: Theme.fontWeight.bold,
-        width: '40%',
+    colLabel: {
+        flex: 1,
+        color: Theme.colors.font + '80',
+        fontSize: Theme.fontSize.xs,
+        fontWeight: Theme.fontWeight.semibold,
         textAlign: 'center',
+    },
+    setIndexCol: {
+        flex: 0,
+        width: 24,
+        textAlign: 'center',
+    },
+    removeCol: {
+        flex: 0,
+        width: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    stepperCol: {
+        flex: 1,
     },
     setRow: {
-        backgroundColor: Theme.colors.font,
-    },
-    setContent: {
         flexDirection: 'row',
-        justifyContent: 'space-evenly',
         alignItems: 'center',
-        width: '100%',
-        paddingHorizontal: Theme.spacing.xs,
+        gap: Theme.spacing.sm,
+        marginBottom: Theme.spacing.sm,
     },
-    inputContainer: {
-        width: '40%',
-        borderRightWidth: 1,
-        borderColor: Theme.colors.lessDark,
-        alignItems: 'center',
-        paddingVertical: Theme.spacing.xs,
+    setIndex: {
+        color: Theme.colors.font + '80',
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.semibold,
     },
-    input: {
-        ...Styles.detailText,
-        color: Theme.colors.dark,
-        textAlign: 'center',
-        width: '100%',
+    valueText: {
+        flex: 1,
+        color: Theme.colors.font,
         fontSize: Theme.fontSize.md,
-    },
-    removeButton: {
-        padding: Theme.spacing.xs,
-        width: '10%',
-        alignItems: 'center',
+        fontWeight: Theme.fontWeight.semibold,
+        textAlign: 'center',
     },
     addButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Theme.colors.green,
-        padding: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-        margin: Theme.spacing.xs,
-        marginTop: Theme.spacing.sm,
         gap: Theme.spacing.xs,
+        paddingVertical: Theme.spacing.sm,
+        borderRadius: Theme.borderRadius.md,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        marginTop: Theme.spacing.xs,
     },
     addButtonText: {
-        ...Styles.detailText,
-        paddingVertical: 0,
-        marginBottom: 0,
-        textAlign: 'center',
-        fontWeight: Theme.fontWeight.semibold,
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.medium,
     },
     commentContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Theme.colors.lessDark,
         borderRadius: Theme.borderRadius.md,
-        paddingHorizontal: Theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        paddingHorizontal: Theme.spacing.md,
         paddingVertical: Theme.spacing.xs,
+        marginTop: Theme.spacing.sm,
         marginHorizontal: Theme.spacing.xs,
-        marginTop: Theme.spacing.xs,
+        gap: Theme.spacing.sm,
     },
     commentInput: {
         flex: 1,
-        marginLeft: Theme.spacing.sm,
         color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
+        fontSize: Theme.fontSize.sm,
         paddingVertical: Theme.spacing.xs,
-        minHeight: 40,
+        minHeight: 36,
     },
 });

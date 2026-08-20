@@ -1,8 +1,8 @@
 import CustomExerciseView from "../../components/CustomExerciseView";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
 import emitter from "../../hooks/CustomEventEmitter";
-import { Exercise } from "../../interfaces/Exercise.Interface";
 import { User } from "../../interfaces/User.Interface";
+import { Workout } from "../../interfaces/Workout.Interface";
 import { WorkoutExercise } from "../../interfaces/WorkoutExercise.Interface";
 import { getStordUserData } from "../../services/UserService.Service";
 import { addWorkout, addWorkoutWithExercises, getDefaultWorkouts } from "../../services/WorkoutService.Service";
@@ -19,8 +19,8 @@ export default function AddWorkout() {
 
     const [isLoading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
-    const [filteredDataSource, setFilteredDataSource] = useState<Exercise[]>([]);
-    const [masterDataSource, setMasterDataSource] = useState<Exercise[]>([]);
+    const [filteredDataSource, setFilteredDataSource] = useState<Workout[]>([]);
+    const [masterDataSource, setMasterDataSource] = useState<Workout[]>([]);
     const [index, setIndex] = useState(0);
     const [workoutName, setWorkoutName] = useState('');
     const [workoutTimeEstimate, setWorkoutTimeEstimate] = useState(null);
@@ -75,9 +75,9 @@ export default function AddWorkout() {
     const searchFilterFunction = (text: string) => {
         if (text) {
             const newData = masterDataSource.filter(
-                function (item: any /*default exericse*/) {
-                    const itemData = item.def_name
-                        ? item.def_name.toUpperCase()
+                function (item: Workout) {
+                    const itemData = item.worName
+                        ? item.worName.toUpperCase()
                         : ''.toUpperCase();
                     const textData = text.toUpperCase();
                     return itemData.indexOf(textData) > -1;
@@ -130,11 +130,11 @@ export default function AddWorkout() {
                     contentContainerStyle={styles.scrollContent}
                 >
                     {filteredDataSource.length > 0 ? (
-                        filteredDataSource.map((item: any /*default workout*/, i) => {
+                        filteredDataSource.map((item: Workout, i) => {
                             return (
                                 <TouchableOpacity
                                     key={i}
-                                    onPress={() => onAddWorkout(item.def_name)}
+                                    onPress={() => onAddWorkout(item.worName)}
                                     activeOpacity={0.7}
                                 >
                                     <Card containerStyle={styles.workoutCard}>
@@ -144,7 +144,7 @@ export default function AddWorkout() {
                                                 size={24}
                                                 color={Theme.colors.font}
                                             />
-                                            <Text style={styles.workoutText}>{item.def_name}</Text>
+                                            <Text style={styles.workoutText}>{item.worName}</Text>
                                             <MaterialCommunityIcons
                                                 name="chevron-right"
                                                 size={20}

@@ -43,7 +43,6 @@ export default function TabLayout() {
 
     return (
         <Tabs
-            initialRouteName="workoutTab"
             screenOptions={{
                 tabBarActiveBackgroundColor: Theme.colors.dark,
                 tabBarInactiveBackgroundColor: Theme.colors.lessDark,
@@ -57,7 +56,7 @@ export default function TabLayout() {
             }}
         >
             <Tabs.Screen
-                name="index"
+                name="profile"
                 options={{
                     title: 'Profile',
                     tabBarIcon: ({ color, size }) => (
@@ -87,7 +86,7 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="workoutTab"
+                name="index"
                 options={{
                     title: 'Workout',
                     headerShown: true,

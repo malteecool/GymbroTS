@@ -78,6 +78,37 @@ export async function getSetByHistoryId(exerciseHistoryId: string): Promise<{ ex
     }
 }
 
+/**
+ * Fetch just the single most recent logged session for an exercise, optionally
+ * skipping any row dated today. Much cheaper than getHistory() when only the
+ * latest session is needed (e.g. for an inline "last time" reference).
+ */
+export async function getLastLoggedSession(exerciseId: string, excludeDateKey?: string): Promise<ExerciseHistory | null> {
+    try {
+        const { data, error } = await supabase
+            .from('exercise_history')
+            .select('*')
+            .eq('exercise_id', exerciseId)
+            .order('exh_date', { ascending: false })
+            .limit(5);
+
+        if (error) throw error;
+        if (!data || data.length === 0) return null;
+
+        const record = excludeDateKey
+            ? data.find((r) => new Date(r.exh_date).toDateString() !== excludeDateKey)
+            : data[0];
+
+        if (!record) return null;
+
+        const setsData = await getSetByHistoryId(record.id);
+        return ExerciseHistoryMapper.toDomain(record, setsData.exhSets);
+    } catch (error) {
+        console.error('Error getting last logged session:', error);
+        return null;
+    }
+}
+
 export async function getHistory(exerciseId: string, date?: Date): Promise<ExerciseHistory[]> {
     try {
         const { data, error } = await supabase
@@ -230,6 +261,39 @@ export async function addExerciseHistory(
     } catch (error) {
         console.error('Error adding exercise history:', error);
         return false;
+    }
+}
+
+/**
+ * Given a list of exercise IDs, returns the subset that have a logged
+ * exercise_history entry (i.e. at least one set) on the given date.
+ * Date-based, not session-based: logging the same exercise elsewhere on the
+ * same day would also count.
+ */
+export async function getCompletedExerciseIdsForDate(exerciseIds: string[], date: Date): Promise<string[]> {
+    if (exerciseIds.length === 0) return [];
+
+    try {
+        const { data, error } = await supabase
+            .from('exercise_history')
+            .select('exercise_id, exh_date')
+            .in('exercise_id', exerciseIds);
+
+        if (error) throw error;
+
+        const targetDateKey = date.toISOString().split('T')[0];
+        const completed = new Set<string>();
+        for (const row of data || []) {
+            const rowDateKey = new Date(row.exh_date).toISOString().split('T')[0];
+            if (rowDateKey === targetDateKey) {
+                completed.add(row.exercise_id);
+            }
+        }
+
+        return Array.from(completed);
+    } catch (error) {
+        console.error('Error getting completed exercise ids:', error);
+        return [];
     }
 }
 

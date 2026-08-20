@@ -5,17 +5,21 @@ import {
     getFormattedTime, getWorkoutById, getWorkoutExercises, updateWorkout, updateWorkoutExerciseOrdinal,
     toggleWorkoutVisibility, syncLinkedWorkout, unlinkWorkout,
 } from "../../services/WorkoutService.Service";
-import { removeWorkoutExercise as removeWorkoutExerciseService } from '../../services/ExerciseService.Service';
-import { getUserDataById } from '../../services/UserService.Service';
+import {
+    removeWorkoutExercise as removeWorkoutExerciseService, getCompletedExerciseIdsForDate,
+} from '../../services/ExerciseService.Service';
+import { getUserDataById, getStordUserData } from '../../services/UserService.Service';
+import { markTodayCompletedIfAssigned } from '../../services/SplitService.Service';
 import { router, Stack, useLocalSearchParams, useNavigation } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Animated, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
-import Styles from "../../Styles";
+import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { Theme } from "../../constants/Theme";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
-import { Button, Card } from "@rneui/themed";
+import { Button } from "@rneui/themed";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { WorkoutExercise } from "../../interfaces/WorkoutExercise.Interface";
 import { HeaderBackButton } from "@react-navigation/elements";
+import { ActiveExerciseCard } from "../../components/Workout/ActiveExerciseCard";
 
 export default function WorkoutDetails() {
 
@@ -31,6 +35,9 @@ export default function WorkoutDetails() {
     const [edit, setEdit] = useState<boolean>(false);
     const [linkedOwnerName, setLinkedOwnerName] = useState<string | null>(null);
     const [publicToggleLoading, setPublicToggleLoading] = useState<boolean>(false);
+    const [bottomBarHeight, setBottomBarHeight] = useState<number>(140);
+    const [completedTodayIds, setCompletedTodayIds] = useState<string[]>([]);
+    const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
 
     const navigation = useNavigation();
 
@@ -61,6 +68,10 @@ export default function WorkoutDetails() {
                 setWorkout(tempWorkout!);
                 const workoutExercises = await getWorkoutExercises(workoutId as string);
                 setData(workoutExercises);
+                const completedIds = await getCompletedExerciseIdsForDate(
+                    workoutExercises.map((e) => e.id), new Date()
+                );
+                setCompletedTodayIds(completedIds);
                 updateHeader(tempWorkout!.worName);
             }
         });
@@ -137,10 +148,18 @@ export default function WorkoutDetails() {
         await withLoading(async () => {
             if (workout) {
                 await updateWorkout(workout, time);
+                const storedUser = await getStordUserData();
+                if (storedUser) {
+                    await markTodayCompletedIfAssigned(storedUser.id, workout.id);
+                }
             }
         }).then(() => {
             emitter.emit('workoutEvent');
-            router.back();
+            emitter.emit('splitEvent');
+            router.replace({
+                pathname: '/workout/workoutComplete',
+                params: { workoutId: workout!.id, time: String(time) },
+            });
         });
     }
 
@@ -150,6 +169,13 @@ export default function WorkoutDetails() {
         }).then(() => {
             load();
         });
+    };
+
+    const handleExerciseLogged = (exerciseId: string) => {
+        emitter.emit('setEvent', 0);
+        emitter.emit('workoutEvent', 0);
+        setCompletedTodayIds((prev) => (prev.includes(exerciseId) ? prev : [...prev, exerciseId]));
+        setExpandedExerciseId((prev) => (prev === exerciseId ? null : prev));
     };
 
     const warnUser = (exercise: Exercise) => {
@@ -174,13 +200,6 @@ export default function WorkoutDetails() {
 
     }, []);
 
-    const HeaderTextComponent = (props: { text: string }) => {
-        const { text } = props;
-        return (
-            <Text style={{ fontSize: 18, color: 'gray', textAlign: 'center' }}>{text}</Text>
-        )
-    }
-
     useEffect(() => {
         let intervalId: NodeJS.Timeout;
         if (running) {
@@ -192,24 +211,37 @@ export default function WorkoutDetails() {
         }
 
         if (workout) {
-            updateHeader(workout?.worName);
+            updateHeader(workout.worName);
         }
 
         return () => clearInterval(intervalId);
-    }, [running, time]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [running, time, edit]);
 
     const updateHeader = (text: string) => {
         navigation.setOptions({
             header: () => (
-                <View style={Styles.headerContainer}>
-                    <HeaderBackButton tintColor={Styles.fontColor.color}
-                        style={Styles.backButton}
-                        onPress={() => router.back()} />
-                    <View>
-                        <Text style={Styles.headerTitle}>{text}</Text>
-                        <HeaderTextComponent text={time ? getFormattedTime(time) : '00:00:00'} />
+                <View style={styles.header}>
+                    <HeaderBackButton
+                        tintColor={Theme.colors.font}
+                        style={styles.headerBackButton}
+                        onPress={() => router.back()}
+                    />
+                    <View style={styles.headerCenter}>
+                        <Text style={styles.headerTitle} numberOfLines={1}>{text}</Text>
+                        <Text style={styles.headerTimer}>{time ? getFormattedTime(time) : '00:00:00'}</Text>
                     </View>
-
+                    <TouchableOpacity
+                        onPress={openEdit}
+                        style={styles.headerEditButton}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons
+                            name={edit ? 'check' : 'pencil-outline'}
+                            size={22}
+                            color={edit ? Theme.colors.accent : Theme.colors.font}
+                        />
+                    </TouchableOpacity>
                 </View>
             ),
         });
@@ -226,28 +258,9 @@ export default function WorkoutDetails() {
 
     };
 
-    const opacity = useState(new Animated.Value(0))[0];
-
     const openEdit = () => {
-        if (!edit) {
-            Animated.timing(opacity, {
-                toValue: 1,
-                duration: 200,
-                useNativeDriver: false,
-            }).start(() => setEdit(!edit));
-        } else {
-            Animated.timing(opacity, {
-                toValue: 0,
-                duration: 200,
-                useNativeDriver: false,
-            }).start(() => setEdit(!edit));
-        }
+        setEdit((prev) => !prev);
     };
-
-    const size = opacity.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 80],
-    });
 
     if (isLoading) {
         return (
@@ -256,99 +269,220 @@ export default function WorkoutDetails() {
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#121111' }}>
+        <View style={styles.container}>
             <Stack.Screen
                 options={{
                     title: workout?.worName
                 }}
             />
-            <View style={{ flex: 1 }}>
-                {linkedOwnerName && (
-                    <View style={{
-                        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                        backgroundColor: 'rgba(28, 26, 26, 0.7)', marginHorizontal: 10, marginTop: 10,
-                        paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10,
-                    }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <MaterialCommunityIcons name='link-variant' size={16} style={Styles.icon} />
-                            <Text style={{ ...Styles.fontColor, marginLeft: 6 }}>{'Linked from ' + linkedOwnerName}</Text>
-                        </View>
-                        <TouchableOpacity onPress={handleUnlink}>
-                            <Text style={{ color: '#CDCD55' }}>Unlink</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-                <View style={{
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                    marginHorizontal: 10, marginTop: 10, paddingHorizontal: 12,
-                }}>
-                    <Text style={Styles.fontColor}>Public (visible on your profile)</Text>
-                    <Switch
-                        value={workout?.isPublic ?? false}
-                        onValueChange={handleTogglePublic}
-                        disabled={publicToggleLoading}
-                        trackColor={{ false: '#3A3A3A', true: '#CDCD55' }}
-                    />
-                </View>
-                <View>
-                    <ScrollView style={{ width: '100%' }} contentContainerStyle={{ paddingBottom: 100 }}>{
-                        data.map((workoutExercise, i) => {
-                            var exerciseDate = new Date(workoutExercise.exeDate).toDateString();
-                            return (
-                                <TouchableOpacity key={workoutExercise.exeName} onPress={() => { router.push({ pathname: '/exercise/exerciseDetails', params: { 'exerciseId': workoutExercise.id } }) }}>
-                                    <Card key={i} containerStyle={Styles.card}>
 
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <View>
-                                                <Text style={Styles.cardTitle}>
-                                                    {workoutExercise.exeName}
-                                                </Text>
-                                                <Text style={{ ...Styles.fontColor, marginLeft: 10 }}>
-                                                    <MaterialCommunityIcons name='weight-kilogram' size={16} style={Styles.icon} />{' ' + (workoutExercise.exeMaxWeight !== null ? workoutExercise.exeMaxWeight : "0") + '  '}
-                                                    <MaterialCommunityIcons name='calendar-range' size={16} style={Styles.icon} />{' ' + (workoutExercise.exeDate !== null ? exerciseDate : 'never')}
-                                                </Text>
-                                            </View>
-                                            <View style={{ flex: 1, alignItems: 'flex-end', marginRight: 15 }}>
-                                                <View style={{ flexDirection: 'row', backgroundColor: 'rgba(28, 26, 26, 0.7)', height: 50, alignItems: 'center' }}>
-                                                    <Animated.View style={{
-                                                        opacity,
-                                                        width: size,
-                                                        flexDirection: 'row'
-                                                    }}>
-                                                        <TouchableOpacity style={{ paddingRight: 10 }} onPress={() => { moveExerciseBackwards(i) }}><MaterialCommunityIcons name='arrow-up' size={24} style={Styles.icon} /></TouchableOpacity>
-                                                        <TouchableOpacity style={{ paddingRight: 0 }} onPress={() => { moveExerciseForward(i) }}><MaterialCommunityIcons name='arrow-down' size={24} style={Styles.icon} /></TouchableOpacity>
-                                                    </Animated.View>
-                                                    <TouchableOpacity style={{ paddingLeft: 0 }} onPress={() => { warnUser(workoutExercise) }}><MaterialCommunityIcons name='trash-can-outline' size={24} style={Styles.icon} /></TouchableOpacity>
-                                                </View>
-                                            </View>
+            {linkedOwnerName && (
+                <View style={styles.linkedBanner}>
+                    <View style={styles.linkedBannerLeft}>
+                        <MaterialCommunityIcons name='link-variant' size={16} color={Theme.colors.accent} />
+                        <Text style={styles.linkedBannerText}>{'Linked from ' + linkedOwnerName}</Text>
+                    </View>
+                    <TouchableOpacity onPress={handleUnlink}>
+                        <Text style={styles.linkedBannerAction}>Unlink</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
-                                        </View>
-                                    </Card>
-                                </TouchableOpacity>)
-                        })
-                    }
-                    </ScrollView>
-                </View>
-                <View style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                    position: 'absolute',
-                    bottom: 45
-                }}>
-                    <View style={{ flex: 1, margin: 10, marginRight: 2 }}>{
-                        !edit ? <Button buttonStyle={Styles.green} title={running ? 'Stop' : 'Start'} onPress={() => { startAndStop() }} /> :
-                            <Button buttonStyle={Styles.green} title='Add exercise' onPress={() => { router.push({ pathname: '/exercise/addExercise', params: { workoutId: workout!.id } }) }} />
-                    }
-                    </View>
-                    <View style={{ flex: 1, margin: 10, marginLeft: 2 }}>
-                        <Button buttonStyle={Styles.green} onPress={() => { openEdit() }} title={!edit ? 'Edit' : 'Done'} />
-                    </View>
-                </View>
-                <View style={{ position: 'absolute', width: '100%', bottom: 0 }}>
-                    <Button disabled={time <= 0} title='Complete' buttonStyle={{ margin: 10, ...Styles.green }} onPress={() => { saveWorkout() }} />
-                </View>
+            <View style={styles.publicRow}>
+                <Text style={styles.publicRowText}>Public (visible on your profile)</Text>
+                <Switch
+                    value={workout?.isPublic ?? false}
+                    onValueChange={handleTogglePublic}
+                    disabled={publicToggleLoading}
+                    trackColor={{ false: Theme.colors.border, true: Theme.colors.accent }}
+                />
             </View>
-        </View >
+
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarHeight + Theme.spacing.md }]}
+            >
+                {data.map((workoutExercise, i) => (
+                    <ActiveExerciseCard
+                        key={workoutExercise.woeId}
+                        exercise={workoutExercise}
+                        isFirst={i === 0}
+                        isLast={i === data.length - 1}
+                        editMode={edit}
+                        expanded={expandedExerciseId === workoutExercise.id}
+                        alreadyLoggedToday={completedTodayIds.includes(workoutExercise.id)}
+                        onToggleExpand={() => setExpandedExerciseId(
+                            (prev) => (prev === workoutExercise.id ? null : workoutExercise.id)
+                        )}
+                        onMoveUp={() => moveExerciseBackwards(i)}
+                        onMoveDown={() => moveExerciseForward(i)}
+                        onDelete={() => warnUser(workoutExercise)}
+                        onLogged={() => handleExerciseLogged(workoutExercise.id)}
+                    />
+                ))}
+            </ScrollView>
+
+            <View
+                style={styles.bottomBar}
+                onLayout={(e) => setBottomBarHeight(e.nativeEvent.layout.height)}
+            >
+                {edit ? (
+                    <Button
+                        title='Add exercise'
+                        onPress={() => { router.push({ pathname: '/exercise/addExercise', params: { workoutId: workout!.id } }) }}
+                        buttonStyle={styles.primaryButton}
+                        titleStyle={styles.primaryButtonText}
+                        icon={{ name: 'plus', type: 'material-community', color: Theme.colors.dark, size: 20 }}
+                    />
+                ) : (
+                    <Button
+                        title={running ? 'Pause' : 'Resume'}
+                        onPress={() => { startAndStop() }}
+                        buttonStyle={styles.primaryButton}
+                        titleStyle={styles.primaryButtonText}
+                        icon={{ name: running ? 'pause' : 'play', type: 'material-community', color: Theme.colors.dark, size: 20 }}
+                    />
+                )}
+                <Button
+                    title='Complete workout'
+                    disabled={time <= 0}
+                    onPress={() => { saveWorkout() }}
+                    buttonStyle={styles.secondaryButton}
+                    disabledStyle={styles.secondaryButtonDisabled}
+                    titleStyle={styles.secondaryButtonText}
+                    disabledTitleStyle={styles.secondaryButtonTextDisabled}
+                    icon={{
+                        name: 'check-circle-outline', type: 'material-community',
+                        color: time > 0 ? Theme.colors.font : Theme.colors.font + '60', size: 18,
+                    }}
+                />
+            </View>
+        </View>
     )
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: Theme.colors.dark,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 56,
+        paddingHorizontal: Theme.spacing.sm,
+        position: 'relative',
+        backgroundColor: Theme.colors.lessDark,
+        borderBottomWidth: 1,
+        borderBottomColor: Theme.colors.border,
+    },
+    headerBackButton: {
+        position: 'absolute',
+        left: Theme.spacing.sm,
+    },
+    headerCenter: {
+        alignItems: 'center',
+    },
+    headerTitle: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.lg,
+        fontWeight: Theme.fontWeight.semibold,
+        maxWidth: 220,
+    },
+    headerTimer: {
+        color: Theme.colors.font + '99',
+        fontSize: Theme.fontSize.sm,
+        marginTop: 2,
+    },
+    headerEditButton: {
+        position: 'absolute',
+        right: Theme.spacing.md,
+    },
+    linkedBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Theme.colors.accent + '1A',
+        marginHorizontal: Theme.spacing.md,
+        marginTop: Theme.spacing.md,
+        paddingVertical: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.md,
+    },
+    linkedBannerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+    },
+    linkedBannerText: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.sm,
+    },
+    linkedBannerAction: {
+        color: Theme.colors.accent,
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.semibold,
+    },
+    publicRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginHorizontal: Theme.spacing.md,
+        marginTop: Theme.spacing.md,
+        paddingHorizontal: Theme.spacing.md,
+        paddingVertical: Theme.spacing.sm,
+        backgroundColor: Theme.colors.lessDark,
+        borderRadius: Theme.borderRadius.md,
+    },
+    publicRowText: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.sm,
+    },
+    scrollView: {
+        width: '100%',
+    },
+    scrollContent: {
+        paddingTop: Theme.spacing.md,
+    },
+    bottomBar: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        padding: Theme.spacing.md,
+        gap: Theme.spacing.sm,
+        backgroundColor: Theme.colors.dark,
+        borderTopWidth: 1,
+        borderTopColor: Theme.colors.border,
+    },
+    primaryButton: {
+        backgroundColor: Theme.colors.accent,
+        borderRadius: Theme.borderRadius.xl,
+        paddingVertical: Theme.spacing.md,
+        ...Theme.shadows.large,
+    },
+    primaryButtonText: {
+        color: Theme.colors.dark,
+        fontSize: Theme.fontSize.lg,
+        fontWeight: Theme.fontWeight.bold,
+        marginLeft: Theme.spacing.xs,
+    },
+    secondaryButton: {
+        backgroundColor: Theme.colors.green,
+        borderRadius: Theme.borderRadius.md,
+        paddingVertical: Theme.spacing.sm,
+    },
+    secondaryButtonDisabled: {
+        backgroundColor: Theme.colors.lessDark,
+    },
+    secondaryButtonText: {
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.md,
+        fontWeight: Theme.fontWeight.semibold,
+        marginLeft: Theme.spacing.xs,
+    },
+    secondaryButtonTextDisabled: {
+        color: Theme.colors.font + '60',
+    },
+});

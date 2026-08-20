@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Card, Button } from '@rneui/themed';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import { Theme, Styles } from '../../constants/Theme';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
+import { DayWorkoutPicker } from '../../components/Split/DayWorkoutPicker';
 import { getStordUserData } from '../../services/UserService.Service';
 import { getWorkouts } from '../../services/WorkoutService.Service';
 import { addReferenceWeek, SplitWeek } from '../../services/SplitService.Service';
@@ -13,18 +14,6 @@ import { User } from '../../interfaces/User.Interface';
 import emitter from '../../hooks/CustomEventEmitter';
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
-
-// Special "Rest day" workout identifier
-const REST_DAY_ID = 'REST_DAY';
-
-const REST_DAY_WORKOUT: Workout = {
-    id: '-1',
-    worName: 'Rest Day',
-    worUserId: '',
-    worCompletedCount: 0,
-    worEstimateTime: 0,
-    worLastDone: ''
-};
 
 export default function CreateSplitScreen() {
     const [isLoading, setLoading] = useState(true);
@@ -41,8 +30,6 @@ export default function CreateSplitScreen() {
         Sunday: { workout: null, completed: false, day: 'Sunday' }
     });
     const [selectedDay, setSelectedDay] = useState<typeof WEEK_DAYS[number] | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filteredWorkouts, setFilteredWorkouts] = useState<Workout[]>([]);
 
     const load = useCallback(async () => {
         try {
@@ -57,7 +44,6 @@ export default function CreateSplitScreen() {
             setUser(storedUser);
             const userWorkouts = await getWorkouts(storedUser.id);
             setWorkouts(userWorkouts);
-            setFilteredWorkouts(userWorkouts);
         } catch (error) {
             console.error('Error loading data:', error);
             Alert.alert('Error', 'Failed to load workouts');
@@ -70,36 +56,16 @@ export default function CreateSplitScreen() {
         load();
     }, [load]);
 
-    useEffect(() => {
-        if (searchQuery.trim() === '') {
-            setFilteredWorkouts(workouts);
-        } else {
-            const filtered = workouts.filter(workout =>
-                workout.worName.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-            setFilteredWorkouts(filtered);
-        }
-    }, [searchQuery, workouts]);
-
-    const openWorkoutSelector = (day: typeof WEEK_DAYS[number]) => {
-        setSelectedDay(day);
-        setSearchQuery('');
-    };
-
-    const closeWorkoutSelector = () => {
-        setSelectedDay(null);
-        setSearchQuery('');
-    };
-
-    const selectWorkout = (day: typeof WEEK_DAYS[number], workout: Workout | null) => {
+    const selectWorkout = (workout: Workout | null) => {
+        if (!selectedDay) return;
         setSplitWeek(prev => ({
             ...prev,
-            [day]: {
-                ...prev[day],
-                workout: workout
+            [selectedDay]: {
+                ...prev[selectedDay],
+                workout
             }
         }));
-        closeWorkoutSelector();
+        setSelectedDay(null);
     };
 
     const saveSplit = async () => {
@@ -108,14 +74,11 @@ export default function CreateSplitScreen() {
             return;
         }
 
-        // Check if at least one workout is assigned
         const hasWorkout = WEEK_DAYS.some(day => splitWeek[day].workout !== null);
         if (!hasWorkout) {
             Alert.alert('Error', 'Please assign at least one workout to a day');
             return;
         }
-
-        console.log('splitWeek', splitWeek);
 
         try {
             setIsSaving(true);
@@ -133,14 +96,6 @@ export default function CreateSplitScreen() {
         } finally {
             setIsSaving(false);
         }
-    };
-
-    const getWorkoutDisplayText = (day: typeof WEEK_DAYS[number]) => {
-        const workout = splitWeek[day].workout;
-        if (!workout) {
-            return 'No workout assigned';
-        }
-        return workout.worName;
     };
 
     if (isLoading) {
@@ -165,8 +120,8 @@ export default function CreateSplitScreen() {
                         color={Theme.colors.font}
                     />
                     <Text style={styles.infoText}>
-                        Assign workouts to each day. The system will automatically generate
-                        the following weeks by rotating through your assigned workouts.
+                        Assign workouts to each day. The system will remember this schedule and
+                        repeat it every week until you change it.
                     </Text>
                 </View>
 
@@ -188,7 +143,7 @@ export default function CreateSplitScreen() {
                                     </View>
                                     {hasWorkout && (
                                         <TouchableOpacity
-                                            onPress={() => selectWorkout(day, null)}
+                                            onPress={() => setSplitWeek(prev => ({ ...prev, [day]: { ...prev[day], workout: null } }))}
                                             style={styles.removeButton}
                                         >
                                             <MaterialCommunityIcons
@@ -201,7 +156,7 @@ export default function CreateSplitScreen() {
                                 </View>
 
                                 <TouchableOpacity
-                                    onPress={() => openWorkoutSelector(day)}
+                                    onPress={() => setSelectedDay(day)}
                                     style={[
                                         styles.workoutButton,
                                         hasWorkout && styles.workoutButtonSelected
@@ -241,8 +196,6 @@ export default function CreateSplitScreen() {
                         </View>
                     );
                 })}
-
-
             </ScrollView>
 
             <View style={styles.buttonContainer}>
@@ -255,146 +208,16 @@ export default function CreateSplitScreen() {
                 />
             </View>
 
-            {/* Workout Selection Modal */}
-            <Modal
-                visible={selectedDay !== null}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={closeWorkoutSelector}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>
-                                Select Workout for {selectedDay}
-                            </Text>
-                            <TouchableOpacity
-                                onPress={closeWorkoutSelector}
-                                style={styles.modalCloseButton}
-                            >
-                                <MaterialCommunityIcons
-                                    name="close"
-                                    size={24}
-                                    color={Theme.colors.font}
-                                />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.searchContainer}>
-                            <MaterialCommunityIcons
-                                name="magnify"
-                                size={20}
-                                color={Theme.colors.font + '80'}
-                                style={styles.searchIcon}
-                            />
-                            <TextInput
-                                style={styles.searchInput}
-                                placeholder="Search workouts..."
-                                placeholderTextColor={Theme.colors.font + '60'}
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                                autoCapitalize="none"
-                            />
-                            {searchQuery.length > 0 && (
-                                <TouchableOpacity
-                                    onPress={() => setSearchQuery('')}
-                                    style={styles.searchClearButton}
-                                >
-                                    <MaterialCommunityIcons
-                                        name="close-circle"
-                                        size={20}
-                                        color={Theme.colors.font + '80'}
-                                    />
-                                </TouchableOpacity>
-                            )}
-                        </View>
-
-                        <ScrollView
-                            style={styles.modalContent}
-                            contentContainerStyle={styles.modalContentContainer}
-                        >
-                            {/* Rest Day Option */}
-                            <TouchableOpacity
-                                onPress={() => selectWorkout(selectedDay!, REST_DAY_WORKOUT)}
-                                style={[
-                                    styles.workoutOption,
-                                    splitWeek[selectedDay!]?.workout === REST_DAY_WORKOUT && styles.workoutOptionSelected
-                                ]}
-                                activeOpacity={0.7}
-                            >
-                                <MaterialCommunityIcons
-                                    name="sleep"
-                                    size={24}
-                                    color={Theme.colors.font + '80'}
-                                />
-                                <Text style={styles.workoutOptionText}>Rest Day</Text>
-                                {splitWeek[selectedDay!]?.workout === REST_DAY_WORKOUT && (
-                                    <MaterialCommunityIcons
-                                        name="check-circle"
-                                        size={24}
-                                        color={Theme.colors.green}
-                                    />
-                                )}
-                            </TouchableOpacity>
-
-                            {/* Workout List */}
-                            {filteredWorkouts.length === 0 ? (
-                                <View style={styles.emptyWorkoutsContainer}>
-                                    <MaterialCommunityIcons
-                                        name="weight-lifter"
-                                        size={48}
-                                        color={Theme.colors.font + '40'}
-                                    />
-                                    <Text style={styles.emptyWorkoutsText}>
-                                        {searchQuery ? 'No workouts found' : 'No workouts available'}
-                                    </Text>
-                                    <Text style={styles.emptyWorkoutsSubtext}>
-                                        {searchQuery
-                                            ? 'Try a different search term'
-                                            : 'Create workouts first to add them to your split'}
-                                    </Text>
-                                </View>
-                            ) : (
-                                filteredWorkouts.map((workout) => {
-                                    const isSelected = splitWeek[selectedDay!]?.workout?.id === workout.id;
-                                    return (
-                                        <TouchableOpacity
-                                            key={workout.id}
-                                            onPress={() => selectWorkout(selectedDay!, workout)}
-                                            style={[
-                                                styles.workoutOption,
-                                                isSelected && styles.workoutOptionSelected
-                                            ]}
-                                            activeOpacity={0.7}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name="weight-lifter"
-                                                size={24}
-                                                color={isSelected ? Theme.colors.green : Theme.colors.font}
-                                            />
-                                            <Text
-                                                style={[
-                                                    styles.workoutOptionText,
-                                                    isSelected && styles.workoutOptionTextSelected
-                                                ]}
-                                            >
-                                                {workout.worName}
-                                            </Text>
-                                            {isSelected && (
-                                                <MaterialCommunityIcons
-                                                    name="check-circle"
-                                                    size={24}
-                                                    color={Theme.colors.green}
-                                                />
-                                            )}
-                                        </TouchableOpacity>
-                                    );
-                                })
-                            )}
-                        </ScrollView>
-                    </View>
-                </View>
-            </Modal>
+            {selectedDay && (
+                <DayWorkoutPicker
+                    visible={!!selectedDay}
+                    dayLabel={selectedDay}
+                    workouts={workouts}
+                    selectedWorkoutId={splitWeek[selectedDay]?.workout?.id ?? null}
+                    onSelect={selectWorkout}
+                    onClose={() => setSelectedDay(null)}
+                />
+            )}
         </View>
     );
 }
@@ -478,7 +301,6 @@ const styles = StyleSheet.create({
         fontSize: Theme.fontSize.md,
         fontStyle: 'italic',
     },
-
     buttonContainer: {
         position: 'absolute',
         bottom: 0,
@@ -492,106 +314,5 @@ const styles = StyleSheet.create({
         height: 50,
         borderRadius: Theme.borderRadius.md,
         backgroundColor: Theme.colors.green,
-    },
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        justifyContent: 'flex-end',
-    },
-    modalContainer: {
-        flex:1,
-        backgroundColor: Theme.colors.dark,
-        borderTopLeftRadius: Theme.borderRadius.lg,
-        borderTopRightRadius: Theme.borderRadius.lg,
-        maxHeight: '80%',
-        ...Theme.shadows.large,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: Theme.spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.lessDark,
-    },
-    modalTitle: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.bold,
-        flex: 1,
-    },
-    modalCloseButton: {
-        padding: Theme.spacing.xs,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
-        margin: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
-        paddingHorizontal: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.md,
-        gap: Theme.spacing.sm,
-    },
-    searchIcon: {
-        marginRight: Theme.spacing.xs,
-    },
-    searchInput: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        paddingVertical: Theme.spacing.sm,
-    },
-    searchClearButton: {
-        padding: Theme.spacing.xs,
-    },
-    modalContent: {
-        flex: 1,
-    },
-    modalContentContainer: {
-        padding: Theme.spacing.sm,
-        paddingBottom: Theme.spacing.xl,
-    },
-    workoutOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: Theme.spacing.md,
-        backgroundColor: Theme.colors.lessDark,
-        borderRadius: Theme.borderRadius.md,
-        marginBottom: Theme.spacing.sm,
-        gap: Theme.spacing.md,
-        borderWidth: 2,
-        borderColor: 'transparent',
-    },
-    workoutOptionSelected: {
-        backgroundColor: Theme.colors.green + '20',
-        borderColor: Theme.colors.green,
-    },
-    workoutOptionText: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-    },
-    workoutOptionTextSelected: {
-        color: Theme.colors.font,
-        fontWeight: Theme.fontWeight.semibold,
-    },
-    emptyWorkoutsContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: Theme.spacing.xl * 2,
-    },
-    emptyWorkoutsText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.semibold,
-        marginTop: Theme.spacing.md,
-    },
-    emptyWorkoutsSubtext: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.sm,
-        marginTop: Theme.spacing.xs,
-        textAlign: 'center',
     },
 });

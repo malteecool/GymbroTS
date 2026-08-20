@@ -103,6 +103,10 @@ function RootLayoutContent() {
                         options={{ headerShown: true }}
                     />
                     <Stack.Screen
+                        name="workout/workoutComplete"
+                        options={{ headerShown: false, gestureEnabled: false }}
+                    />
+                    <Stack.Screen
                         name="workout/addWorkout"
                         options={{ headerShown: true }}
                     />

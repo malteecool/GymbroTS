@@ -201,6 +201,61 @@ export async function getTodaysSplitWorkout(usr_id: string): Promise<TodaysWorko
     }
 }
 
+/**
+ * If the workout just completed matches the split's assignment for today,
+ * mark today as completed in the current week automatically. No-op otherwise
+ * (e.g. the user swapped to a different workout for the day, or has no split).
+ */
+export async function markTodayCompletedIfAssigned(usr_id: string, workoutId: string): Promise<void> {
+    try {
+        const splitId = await getSplitIdByUser(usr_id);
+        if (!splitId) return;
+
+        const todayIndex = new Date().getDay();
+        const { data: dayRow, error: dayError } = await supabase
+            .from('split_day')
+            .select('workout_id')
+            .eq('split_id', splitId)
+            .eq('day_of_week', todayIndex)
+            .single();
+
+        if (dayError || !dayRow || dayRow.workout_id !== workoutId) return;
+
+        const currentWeekNumber = getWeekNumber(new Date());
+        const weekId = await getOrCreateSplitWeek(splitId, currentWeekNumber);
+        await markDayAsCompleted(weekId, DAY_NAMES_BY_JS_INDEX[todayIndex], true);
+    } catch (error) {
+        console.error('Error auto-marking split day complete:', error);
+    }
+}
+
+/**
+ * Update the workout (or rest day, via null) assigned to a single day in the
+ * user's split template, without touching the other days or completion history.
+ */
+export async function updateSplitDayWorkout(usr_id: string, dayName: string, workout: Workout | null): Promise<void> {
+    try {
+        const splitId = await getSplitIdByUser(usr_id);
+        if (!splitId) throw new Error('No split found for user');
+
+        const dayIndex = WEEK_DAYS.indexOf(dayName as any);
+        if (dayIndex === -1) throw new Error('Invalid day name');
+
+        const dayOfWeek = DAY_INDICES[dayIndex];
+
+        const { error } = await supabase
+            .from('split_day')
+            .update({ workout_id: workout?.id || null })
+            .eq('split_id', splitId)
+            .eq('day_of_week', dayOfWeek);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error updating split day workout:', error);
+        throw error;
+    }
+}
+
 export async function markDayAsCompleted(weekId: string, day: string, completed: boolean): Promise<void> {
     try {
         const dayIndex = WEEK_DAYS.indexOf(day as any);

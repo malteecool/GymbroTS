@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Dimensions, Text, StyleSheet } from 'react-native';
-import Carousel, { Pagination } from "react-native-snap-carousel";
+import Carousel from "react-native-reanimated-carousel";
 import CounterComponent from '../AnimateNumber';
 import BarGraph from '../BarGraph';
 
@@ -27,9 +27,7 @@ const StatsSlider = (props: { sliderComponent: string, stats: { title: string, c
     const [activeIndex, setActiveIndex] = useState(0);
     const sliderWidth = Dimensions.get('window').width;
 
-    const _renderItem = (props: { item: { title: string, count: number } | { title: string, x: number[], y: number[] }, index: number }) => {
-
-        const { item, index } = props;
+    const _renderItem = ({ item }: { item: { title: string, count: number } | { title: string, x: number[], y: number[] } }) => {
 
         return (
             <View style={styles.cardContainer}>
@@ -58,38 +56,33 @@ const StatsSlider = (props: { sliderComponent: string, stats: { title: string, c
         );
     }
 
+    const dotsLength = stats.length > 1 ? stats.length : 3;
+    const dotsVisible = stats.length > 1;
+
     return (
         <View>
             <Carousel
-                layout={'default'}
+                loop={false}
+                width={sliderWidth}
+                height={250}
                 data={stats}
-                sliderWidth={sliderWidth}
-                itemWidth={sliderWidth}
                 renderItem={_renderItem}
                 onSnapToItem={(index) => setActiveIndex(index)}
             />
-            <Pagination
-                dotsLength={stats.length > 1 ? stats.length : 3}
-                activeDotIndex={stats.length > 1 ? activeIndex : 1}
-                inactiveDotOpacity={stats.length > 1 ? 0.5 : 0}
-                containerStyle={{
-                    width: 50,
-                    height: 10,
-                    padding: 0,
-                    justifyContent: 'center',
-                    alignSelf: 'center',
-                    marginTop: -10,
-                    marginBottom: -10
-                }}
-                dotStyle={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
-                    backgroundColor: 'white'
-                }}
-
-                inactiveDotScale={0.6}
-            />
+            <View style={styles.paginationContainer}>
+                {Array.from({ length: dotsLength }).map((_, index) => (
+                    <View
+                        key={index}
+                        style={[
+                            styles.dot,
+                            {
+                                opacity: dotsVisible ? (index === activeIndex ? 1 : 0.5) : 0,
+                                transform: [{ scale: dotsVisible && index === activeIndex ? 1 : 0.6 }],
+                            },
+                        ]}
+                    />
+                ))}
+            </View>
         </View>
 
     );
@@ -119,6 +112,20 @@ const styles = StyleSheet.create({
         fontSize: 30,
         fontWeight: 'bold',
         color: '#3498db',
+    },
+    paginationContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: -10,
+        marginBottom: -10,
+    },
+    dot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: 'white',
     },
 });
 
