@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, ActivityIndicator,
+    View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Alert, BackHandler,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
 import { createPost } from '../../services/PostService.Service';
+import { getStordUserData } from '../../services/UserService.Service';
+import { pickImage, uploadPostPhoto } from '../../services/ImageUploadService.Service';
+import { useImagePickerHost } from '../../providers/ImagePickerHostProvider';
 
 interface WorkoutSharePromptProps {
     visible: boolean;
@@ -17,12 +20,33 @@ interface WorkoutSharePromptProps {
 export function WorkoutSharePrompt({ visible, workoutName, workoutId, onClose, onShared }: WorkoutSharePromptProps) {
     const [caption, setCaption] = useState('');
     const [sharing, setSharing] = useState(false);
+    const [photoUri, setPhotoUri] = useState<string | null>(null);
+    const { requestImageSource } = useImagePickerHost();
+
+    const handlePickPhoto = async () => {
+        try {
+            const source = await requestImageSource();
+            if (!source) return;
+            const uri = await pickImage(source);
+            if (uri) setPhotoUri(uri);
+        } catch (e: any) {
+            Alert.alert('Error', e?.message ?? 'Could not pick a photo. Please try again.');
+        }
+    };
 
     const handleShare = async () => {
         try {
             setSharing(true);
-            await createPost({ workoutId, postType: 'workout_complete', caption: caption.trim() || undefined });
+            let imageUrl: string | undefined;
+            if (photoUri) {
+                const user = await getStordUserData();
+                if (user) {
+                    imageUrl = await uploadPostPhoto(user.id, photoUri);
+                }
+            }
+            await createPost({ workoutId, postType: 'workout_complete', caption: caption.trim() || undefined, imageUrl });
             setCaption('');
+            setPhotoUri(null);
             onShared();
         } catch (e) {
             console.error('Error sharing post:', e);
@@ -33,11 +57,24 @@ export function WorkoutSharePrompt({ visible, workoutName, workoutId, onClose, o
 
     const handleSkip = () => {
         setCaption('');
+        setPhotoUri(null);
         onClose();
     };
 
+    useEffect(() => {
+        if (!visible) return;
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+            handleSkip();
+            return true;
+        });
+        return () => sub.remove();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visible]);
+
+    if (!visible) return null;
+
     return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={handleSkip}>
+        <View style={styles.root} pointerEvents="box-none">
             <View style={styles.overlay}>
                 <View style={styles.sheet}>
                     <View style={styles.headerRow}>
@@ -57,6 +94,28 @@ export function WorkoutSharePrompt({ visible, workoutName, workoutId, onClose, o
                         multiline
                         maxLength={200}
                     />
+
+                    {photoUri ? (
+                        <View style={styles.photoPreviewWrap}>
+                            <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                            <TouchableOpacity
+                                style={styles.photoRemoveBtn}
+                                onPress={() => setPhotoUri(null)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                                <MaterialCommunityIcons name="close-circle" size={22} color={Theme.colors.font} />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.addPhotoBtn}
+                            onPress={handlePickPhoto}
+                            activeOpacity={0.8}
+                        >
+                            <MaterialCommunityIcons name="camera-plus-outline" size={20} color={Theme.colors.secondary} />
+                            <Text style={styles.addPhotoText}>Add Photo</Text>
+                        </TouchableOpacity>
+                    )}
 
                     <View style={styles.actions}>
                         <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} activeOpacity={0.8}>
@@ -81,11 +140,16 @@ export function WorkoutSharePrompt({ visible, workoutName, workoutId, onClose, o
                     </View>
                 </View>
             </View>
-        </Modal>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
+    root: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 500,
+        elevation: 500,
+    },
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.6)',
@@ -131,6 +195,38 @@ const styles = StyleSheet.create({
         fontSize: Theme.fontSize.md,
         height: 80,
         textAlignVertical: 'top',
+    },
+    addPhotoBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: Theme.spacing.xs,
+        paddingVertical: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.md,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderStyle: 'dashed',
+    },
+    addPhotoText: {
+        color: Theme.colors.secondary,
+        fontSize: Theme.fontSize.md,
+        fontWeight: Theme.fontWeight.medium,
+    },
+    photoPreviewWrap: {
+        position: 'relative',
+    },
+    photoPreview: {
+        width: '100%',
+        height: 160,
+        borderRadius: Theme.borderRadius.md,
+        backgroundColor: Theme.colors.dark,
+    },
+    photoRemoveBtn: {
+        position: 'absolute',
+        top: Theme.spacing.xs,
+        right: Theme.spacing.xs,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: Theme.borderRadius.round,
     },
     actions: {
         flexDirection: 'row',

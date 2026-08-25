@@ -20,6 +20,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { WorkoutExercise } from "../../interfaces/WorkoutExercise.Interface";
 import { HeaderBackButton } from "@react-navigation/elements";
 import { ActiveExerciseCard } from "../../components/Workout/ActiveExerciseCard";
+import { StarRating } from "../../components/ui/StarRating";
 
 export default function WorkoutDetails() {
 
@@ -34,12 +35,14 @@ export default function WorkoutDetails() {
     const [intervalTime, setIntervalTime] = useState<number>(0);
     const [edit, setEdit] = useState<boolean>(false);
     const [linkedOwnerName, setLinkedOwnerName] = useState<string | null>(null);
+    const [sourceRating, setSourceRating] = useState<{ avgRating: number | null; ratingCount: number } | null>(null);
     const [publicToggleLoading, setPublicToggleLoading] = useState<boolean>(false);
     const [bottomBarHeight, setBottomBarHeight] = useState<number>(140);
     const [completedTodayIds, setCompletedTodayIds] = useState<string[]>([]);
     const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
 
     const navigation = useNavigation();
+    const bypassLeaveGuardRef = useRef(false);
 
     const withLoading = async (action: () => Promise<void>) => {
         try {
@@ -62,8 +65,14 @@ export default function WorkoutDetails() {
                     const sourceWorkout = await getWorkoutById(tempWorkout!.sourceWorkoutId!);
                     const owner = sourceWorkout ? await getUserDataById(sourceWorkout.worUserId) : null;
                     setLinkedOwnerName(owner?.name ?? null);
+                    setSourceRating(sourceWorkout ? { avgRating: sourceWorkout.avgRating ?? null, ratingCount: sourceWorkout.ratingCount ?? 0 } : null);
+                } else if (tempWorkout.sourceWorkoutId) {
+                    setLinkedOwnerName(null);
+                    const sourceWorkout = await getWorkoutById(tempWorkout.sourceWorkoutId);
+                    setSourceRating(sourceWorkout ? { avgRating: sourceWorkout.avgRating ?? null, ratingCount: sourceWorkout.ratingCount ?? 0 } : null);
                 } else {
                     setLinkedOwnerName(null);
+                    setSourceRating(null);
                 }
                 setWorkout(tempWorkout!);
                 const workoutExercises = await getWorkoutExercises(workoutId as string);
@@ -117,6 +126,35 @@ export default function WorkoutDetails() {
         }
     }, [workout, autostart]);
 
+    useEffect(() => {
+        const hasActiveSession = running || time > 0;
+        navigation.setOptions({ gestureEnabled: !hasActiveSession });
+
+        const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+            if (!hasActiveSession || bypassLeaveGuardRef.current) {
+                return;
+            }
+            e.preventDefault();
+            Alert.alert(
+                'Workout in progress',
+                'You have an active workout timer running. Save it as complete or discard it before leaving.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Discard', style: 'destructive', onPress: () => {
+                            bypassLeaveGuardRef.current = true;
+                            navigation.dispatch(e.data.action);
+                        },
+                    },
+                    { text: 'Save & finish', onPress: () => saveWorkout() },
+                ],
+            );
+        });
+
+        return unsubscribe;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navigation, running, time]);
+
     const moveExerciseForward = (exerciseIndex: number) => {
         if (exerciseIndex < data.length - 1) {
             const exerciseList = [...data];
@@ -145,6 +183,7 @@ export default function WorkoutDetails() {
     }
 
     const saveWorkout = async () => {
+        bypassLeaveGuardRef.current = true;
         await withLoading(async () => {
             if (workout) {
                 await updateWorkout(workout, time);
@@ -288,20 +327,37 @@ export default function WorkoutDetails() {
                 </View>
             )}
 
-            <View style={styles.publicRow}>
-                <Text style={styles.publicRowText}>Public (visible on your profile)</Text>
-                <Switch
-                    value={workout?.isPublic ?? false}
-                    onValueChange={handleTogglePublic}
-                    disabled={publicToggleLoading}
-                    trackColor={{ false: Theme.colors.border, true: Theme.colors.accent }}
-                />
-            </View>
+            {sourceRating && (
+                <View style={styles.sourceRatingRow}>
+                    {sourceRating.ratingCount > 0 ? (
+                        <View style={styles.sourceRatingInner}>
+                            <StarRating rating={sourceRating.avgRating ?? 0} size={14} />
+                            <Text style={styles.sourceRatingText}>
+                                {sourceRating.avgRating?.toFixed(1)} ({sourceRating.ratingCount} rating{sourceRating.ratingCount !== 1 ? 's' : ''})
+                            </Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.sourceRatingText}>No ratings yet on the original workout</Text>
+                    )}
+                </View>
+            )}
 
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarHeight + Theme.spacing.md }]}
             >
+                {edit && (
+                    <View style={styles.publicRow}>
+                        <Text style={styles.publicRowText}>Public (visible on your profile)</Text>
+                        <Switch
+                            value={workout?.isPublic ?? false}
+                            onValueChange={handleTogglePublic}
+                            disabled={publicToggleLoading}
+                            trackColor={{ false: Theme.colors.border, true: Theme.colors.accent }}
+                        />
+                    </View>
+                )}
+
                 {data.map((workoutExercise, i) => (
                     <ActiveExerciseCard
                         key={workoutExercise.woeId}
@@ -335,27 +391,34 @@ export default function WorkoutDetails() {
                         icon={{ name: 'plus', type: 'material-community', color: Theme.colors.dark, size: 20 }}
                     />
                 ) : (
-                    <Button
-                        title={running ? 'Pause' : 'Resume'}
-                        onPress={() => { startAndStop() }}
-                        buttonStyle={styles.primaryButton}
-                        titleStyle={styles.primaryButtonText}
-                        icon={{ name: running ? 'pause' : 'play', type: 'material-community', color: Theme.colors.dark, size: 20 }}
-                    />
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            onPress={() => { startAndStop() }}
+                            style={styles.roundButton}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <MaterialCommunityIcons
+                                name={running ? 'pause' : 'play'}
+                                size={26}
+                                color={Theme.colors.dark}
+                            />
+                        </TouchableOpacity>
+                        <Button
+                            title='Complete workout'
+                            disabled={time <= 0}
+                            onPress={() => { saveWorkout() }}
+                            buttonStyle={styles.secondaryButton}
+                            containerStyle={styles.completeButtonContainer}
+                            disabledStyle={styles.secondaryButtonDisabled}
+                            titleStyle={styles.secondaryButtonText}
+                            disabledTitleStyle={styles.secondaryButtonTextDisabled}
+                            icon={{
+                                name: 'check-circle-outline', type: 'material-community',
+                                color: time > 0 ? Theme.colors.font : Theme.colors.font + '60', size: 18,
+                            }}
+                        />
+                    </View>
                 )}
-                <Button
-                    title='Complete workout'
-                    disabled={time <= 0}
-                    onPress={() => { saveWorkout() }}
-                    buttonStyle={styles.secondaryButton}
-                    disabledStyle={styles.secondaryButtonDisabled}
-                    titleStyle={styles.secondaryButtonText}
-                    disabledTitleStyle={styles.secondaryButtonTextDisabled}
-                    icon={{
-                        name: 'check-circle-outline', type: 'material-community',
-                        color: time > 0 ? Theme.colors.font : Theme.colors.font + '60', size: 18,
-                    }}
-                />
             </View>
         </View>
     )
@@ -424,6 +487,20 @@ const styles = StyleSheet.create({
         fontSize: Theme.fontSize.sm,
         fontWeight: Theme.fontWeight.semibold,
     },
+    sourceRatingRow: {
+        marginHorizontal: Theme.spacing.md,
+        marginTop: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.md,
+    },
+    sourceRatingInner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+    },
+    sourceRatingText: {
+        color: Theme.colors.font + '80',
+        fontSize: Theme.fontSize.sm,
+    },
     publicRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -468,10 +545,27 @@ const styles = StyleSheet.create({
         fontWeight: Theme.fontWeight.bold,
         marginLeft: Theme.spacing.xs,
     },
+    actionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.sm,
+    },
+    roundButton: {
+        width: 56,
+        height: 56,
+        borderRadius: Theme.borderRadius.round,
+        backgroundColor: Theme.colors.accent,
+        justifyContent: 'center',
+        alignItems: 'center',
+        ...Theme.shadows.large,
+    },
+    completeButtonContainer: {
+        flex: 1,
+    },
     secondaryButton: {
         backgroundColor: Theme.colors.green,
-        borderRadius: Theme.borderRadius.md,
-        paddingVertical: Theme.spacing.sm,
+        borderRadius: Theme.borderRadius.xl,
+        paddingVertical: Theme.spacing.md,
     },
     secondaryButtonDisabled: {
         backgroundColor: Theme.colors.lessDark,

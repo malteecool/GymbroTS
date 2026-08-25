@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Theme } from '../../constants/Theme';
 import { Post } from '../../interfaces/Post.Interface';
+import { Avatar } from '../ui/Avatar';
 
 interface PostCardProps {
     post: Post;
@@ -53,9 +54,7 @@ export function PostCard({ post, onLikeToggle, onDelete, currentUserId }: PostCa
                     onPress={() => router.push({ pathname: '/profile/[userId]', params: { userId: post.userId } })}
                     activeOpacity={0.7}
                 >
-                    <View style={styles.avatar}>
-                        <MaterialCommunityIcons name="account" size={22} color={Theme.colors.dark} />
-                    </View>
+                    <Avatar uri={post.authorAvatarUrl} size={40} />
                     <View>
                         <Text style={styles.authorName}>{post.authorName}</Text>
                         <Text style={styles.timestamp}>{timeAgo(post.createdAt)}</Text>
@@ -81,6 +80,11 @@ export function PostCard({ post, onLikeToggle, onDelete, currentUserId }: PostCa
                     <Text style={styles.workoutName}> · {post.workoutName}</Text>
                 )}
             </View>
+
+            {/* Photo */}
+            {post.imageUrl ? (
+                <Image source={{ uri: post.imageUrl }} style={styles.postImage} />
+            ) : null}
 
             {/* Caption */}
             {post.caption ? (
@@ -131,14 +135,6 @@ const styles = StyleSheet.create({
         gap: Theme.spacing.sm,
         flex: 1,
     },
-    avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: Theme.colors.yellow,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
     authorName: {
         color: Theme.colors.font,
         fontSize: Theme.fontSize.md,
@@ -163,6 +159,13 @@ const styles = StyleSheet.create({
         color: Theme.colors.font,
         fontSize: Theme.fontSize.sm,
         fontWeight: Theme.fontWeight.medium,
+    },
+    postImage: {
+        width: '100%',
+        aspectRatio: 4 / 3,
+        borderRadius: Theme.borderRadius.md,
+        backgroundColor: Theme.colors.dark,
+        marginBottom: Theme.spacing.sm,
     },
     caption: {
         color: Theme.colors.font,

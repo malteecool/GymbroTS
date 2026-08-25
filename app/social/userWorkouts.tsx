@@ -8,6 +8,7 @@ import { Theme } from '../../constants/Theme';
 import { Workout } from '../../interfaces/Workout.Interface';
 import { getPublicWorkouts, getWorkoutExercises, copyWorkout, linkWorkout } from '../../services/WorkoutService.Service';
 import { getStordUserData } from '../../services/UserService.Service';
+import { StarRating } from '../../components/ui/StarRating';
 
 interface WorkoutRow {
     workout: Workout;
@@ -104,6 +105,22 @@ export default function UserWorkoutsScreen() {
                                     <MaterialCommunityIcons name="content-copy" size={12} color={Theme.colors.secondary} />
                                     <Text style={styles.copyBadgeText}>{item.workout.copyCount}</Text>
                                 </View>
+                            )}
+                        </View>
+                        <View style={styles.statsRow}>
+                            <View style={styles.statItem}>
+                                <MaterialCommunityIcons name="account-heart" size={14} color={Theme.colors.secondary} />
+                                <Text style={styles.statText}>{item.workout.followerCount ?? 0}</Text>
+                            </View>
+                            {(item.workout.ratingCount ?? 0) > 0 ? (
+                                <View style={styles.statItem}>
+                                    <StarRating rating={item.workout.avgRating ?? 0} size={14} />
+                                    <Text style={styles.statText}>
+                                        {item.workout.avgRating?.toFixed(1)} ({item.workout.ratingCount})
+                                    </Text>
+                                </View>
+                            ) : (
+                                <Text style={styles.noRatingsText}>No ratings yet</Text>
                             )}
                         </View>
                         {item.exerciseNames.length > 0 ? (
@@ -203,6 +220,26 @@ const styles = StyleSheet.create({
     copyBadgeText: {
         color: Theme.colors.secondary,
         fontSize: Theme.fontSize.xs,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.md,
+        marginBottom: Theme.spacing.xs,
+    },
+    statItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+    },
+    statText: {
+        color: Theme.colors.secondary,
+        fontSize: Theme.fontSize.xs,
+    },
+    noRatingsText: {
+        color: Theme.colors.placeholder,
+        fontSize: Theme.fontSize.xs,
+        fontStyle: 'italic',
     },
     exercisePreview: {
         color: Theme.colors.secondary,

@@ -23,7 +23,7 @@ export async function getUserDataById(id: string): Promise<User | null> {
         }
 
         // Map the database row to domain User object
-        const user = UserMapper.toDomain(data);
+        const user = UserMapper.toDomainFromRow(data);
         return user;
     } catch (error) {
         console.error('2 Error fetching user data by id:', error);

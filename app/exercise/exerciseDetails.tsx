@@ -1,14 +1,13 @@
 import { SetCard } from "../../components/SetCard";
-import { AddButton } from "../../components/ui/AddButton";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
 import emitter from "../../hooks/CustomEventEmitter";
 import { Exercise } from "../../interfaces/Exercise.Interface";
 import { ExerciseHistory } from "../../interfaces/ExerciseHistory.Interface";
 import { getExerciseById, getHistory } from "../../services/ExerciseService.Service";
 import { Theme } from "../../constants/Theme";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState, useCallback } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function ExerciseDetails() {
@@ -76,6 +75,21 @@ export default function ExerciseDetails() {
             <Stack.Screen
                 options={{
                     title: exercise.exeName,
+                    headerRight: () => (
+                        <TouchableOpacity
+                            onPress={() => router.push({
+                                pathname: '/exercise/addSet',
+                                params: { exerciseId: exerciseId as string }
+                            })}
+                            style={styles.headerButton}
+                        >
+                            <MaterialCommunityIcons
+                                name="plus"
+                                size={24}
+                                color={Theme.colors.green}
+                            />
+                        </TouchableOpacity>
+                    ),
                 }}
             />
             <View style={styles.content}>
@@ -111,12 +125,6 @@ export default function ExerciseDetails() {
                     </ScrollView>
                 )}
             </View>
-            <AddButton
-                navigation={{
-                    pathname: '/exercise/addSet',
-                    params: { exerciseId: exerciseId as string }
-                }}
-            />
         </View>
     );
 }
@@ -159,5 +167,8 @@ const styles = StyleSheet.create({
         fontSize: Theme.fontSize.lg,
         textAlign: 'center',
         marginTop: Theme.spacing.xl,
+    },
+    headerButton: {
+        paddingRight: Theme.spacing.md,
     },
 });

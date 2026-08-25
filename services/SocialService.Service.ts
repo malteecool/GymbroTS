@@ -165,6 +165,20 @@ export async function getPublicProfile(userId: string): Promise<PublicProfile | 
     };
 }
 
+export async function getOwnProfileStats(userId: string): Promise<{ followerCount: number; followingCount: number; workoutCount: number }> {
+    const [followerRes, followingRes, workoutRes] = await Promise.all([
+        supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', userId),
+        supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', userId),
+        supabase.from('workout').select('id', { count: 'exact', head: true }).eq('wor_user_id', userId),
+    ]);
+
+    return {
+        followerCount: followerRes.count ?? 0,
+        followingCount: followingRes.count ?? 0,
+        workoutCount: workoutRes.count ?? 0,
+    };
+}
+
 async function getFollowingIds(userId: string): Promise<Set<string>> {
     const { data } = await supabase
         .from('follows')

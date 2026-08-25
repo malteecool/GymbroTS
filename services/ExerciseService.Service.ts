@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseConfig';
 import { Exercise } from '../interfaces/Exercise.Interface';
 import { ExerciseHistory } from '../interfaces/ExerciseHistory.Interface';
-import { Set } from '../interfaces/Set.Interface';
+import { Set as WorkoutSet } from '../interfaces/Set.Interface';
 import { ExerciseMapper, ExerciseHistoryMapper, SetMapper, WorkoutExerciseMapper } from './mappers';
 
 export async function getExercises(usr_id: string): Promise<Exercise[]> {
@@ -61,7 +61,7 @@ export async function getDefaultExercises(): Promise<Exercise[]> {
     }
 }
 
-export async function getSetByHistoryId(exerciseHistoryId: string): Promise<{ exhSets: Set[] }> {
+export async function getSetByHistoryId(exerciseHistoryId: string): Promise<{ exhSets: WorkoutSet[] }> {
     try {
         const { data, error } = await supabase
             .from('set')
@@ -222,8 +222,8 @@ export async function addExercise(name: string, usr_id: string): Promise<string>
 }
 
 export async function addExerciseHistory(
-    exercise: Exercise, 
-    sets: Set[], 
+    exercise: Exercise,
+    sets: WorkoutSet[],
     comment: string
 ): Promise<boolean> {
     try {

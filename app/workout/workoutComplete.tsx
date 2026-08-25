@@ -5,9 +5,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Theme } from '../../constants/Theme';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
 import { WorkoutSharePrompt } from '../../components/Social/WorkoutSharePrompt';
+import { RatingPrompt } from '../../components/Workout/RatingPrompt';
 import { getWorkoutById, getWorkoutExercises, getFormattedTime } from '../../services/WorkoutService.Service';
 import { getCompletedExerciseIdsForDate } from '../../services/ExerciseService.Service';
 import { getWorkoutStreak } from '../../services/StatsService.Service';
+import { rateWorkout, getUserRatingForWorkout } from '../../services/WorkoutRatingService.Service';
 import { getStordUserData } from '../../services/UserService.Service';
 import { Workout } from '../../interfaces/Workout.Interface';
 import { WorkoutExercise } from '../../interfaces/WorkoutExercise.Interface';
@@ -22,6 +24,10 @@ export default function WorkoutComplete() {
     const [streak, setStreak] = useState<number>(0);
     const [sharePromptVisible, setSharePromptVisible] = useState<boolean>(false);
     const [shared, setShared] = useState<boolean>(false);
+    const [currentUserId, setCurrentUserId] = useState<string>('');
+    const [ratingSourceWorkout, setRatingSourceWorkout] = useState<Workout | null>(null);
+    const [ratingPromptVisible, setRatingPromptVisible] = useState<boolean>(false);
+    const [rated, setRated] = useState<boolean>(false);
 
     const elapsedSeconds = Number(time) || 0;
 
@@ -29,6 +35,8 @@ export default function WorkoutComplete() {
         try {
             setLoading(true);
             const storedUser = await getStordUserData();
+            if (storedUser) setCurrentUserId(storedUser.id);
+
             const [loadedWorkout, exercises, workoutStreak] = await Promise.all([
                 getWorkoutById(workoutId as string),
                 getWorkoutExercises(workoutId as string),
@@ -42,6 +50,19 @@ export default function WorkoutComplete() {
             const completedIds = await getCompletedExerciseIdsForDate(exercises.map((e) => e.id), new Date());
             setCompletedCount(completedIds.length);
             setSkippedExercises(exercises.filter((e) => !completedIds.includes(e.id)));
+
+            // Offer a rating if this workout was copied/followed from someone else,
+            // we're not the original author, and we haven't rated it yet.
+            if (loadedWorkout?.sourceWorkoutId && storedUser) {
+                const source = await getWorkoutById(loadedWorkout.sourceWorkoutId);
+                if (source && source.worUserId !== storedUser.id) {
+                    const existingRating = await getUserRatingForWorkout(source.id, storedUser.id);
+                    if (existingRating === null) {
+                        setRatingSourceWorkout(source);
+                        setRatingPromptVisible(true);
+                    }
+                }
+            }
         } catch (error) {
             console.error('Error loading workout summary:', error);
         } finally {
@@ -60,6 +81,22 @@ export default function WorkoutComplete() {
     const handleShared = () => {
         setSharePromptVisible(false);
         setShared(true);
+    };
+
+    const handleSkipRating = () => {
+        setRatingPromptVisible(false);
+    };
+
+    const handleSubmitRating = async (rating: number) => {
+        if (!ratingSourceWorkout || !currentUserId) return;
+        try {
+            await rateWorkout(ratingSourceWorkout.id, currentUserId, rating);
+        } catch (error) {
+            console.error('Error submitting rating:', error);
+        } finally {
+            setRatingPromptVisible(false);
+            setRated(true);
+        }
     };
 
     if (isLoading) {
@@ -120,6 +157,13 @@ export default function WorkoutComplete() {
                         <Text style={styles.shareButtonText}>Share to feed</Text>
                     </TouchableOpacity>
                 )}
+
+                {rated && (
+                    <View style={styles.sharedBadge}>
+                        <MaterialCommunityIcons name="star" size={18} color={Theme.colors.accent} />
+                        <Text style={styles.ratedText}>Thanks for rating!</Text>
+                    </View>
+                )}
             </View>
 
             <TouchableOpacity style={styles.doneButton} onPress={handleDone} activeOpacity={0.8}>
@@ -133,6 +177,15 @@ export default function WorkoutComplete() {
                     workoutName={workout.worName}
                     onClose={() => setSharePromptVisible(false)}
                     onShared={handleShared}
+                />
+            )}
+
+            {ratingSourceWorkout && (
+                <RatingPrompt
+                    visible={ratingPromptVisible}
+                    workoutName={ratingSourceWorkout.worName}
+                    onSubmit={handleSubmitRating}
+                    onSkip={handleSkipRating}
                 />
             )}
         </View>
@@ -239,6 +292,11 @@ const styles = StyleSheet.create({
     },
     sharedBadgeText: {
         color: Theme.colors.green,
+        fontSize: Theme.fontSize.md,
+        fontWeight: Theme.fontWeight.semibold,
+    },
+    ratedText: {
+        color: Theme.colors.accent,
         fontSize: Theme.fontSize.md,
         fontWeight: Theme.fontWeight.semibold,
     },

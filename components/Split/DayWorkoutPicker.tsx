@@ -25,7 +25,7 @@ export function DayWorkoutPicker({ visible, dayLabel, workouts, selectedWorkoutI
         : workouts;
 
     return (
-        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+        <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onClose}>
             <View style={styles.overlay}>
                 <View style={styles.container}>
                     <View style={styles.header}>

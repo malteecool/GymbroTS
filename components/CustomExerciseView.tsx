@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, memo } from "react";
 import { getExercises } from "../services/ExerciseService.Service";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { Card } from '@rneui/themed';
+import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Card, Divider } from '@rneui/themed';
 import { Theme } from "../constants/Theme";
 import { LoadingIndicator } from "./ui/LoadingIndicator";
 import { Exercise } from "../interfaces/Exercise.Interface";
@@ -9,9 +9,13 @@ import { WorkoutExercise } from "../interfaces/WorkoutExercise.Interface";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 
-export function CustomExerciseView(props: { userId: string, childToParent: (selectedExercises: WorkoutExercise[]) => void }) {
+export function CustomExerciseView(props: {
+    userId: string,
+    childToParent: (selectedExercises: WorkoutExercise[]) => void,
+    headerContent?: React.ReactNode,
+}) {
 
-    const { userId, childToParent } = props;
+    const { userId, childToParent, headerContent } = props;
 
     const [data, setData] = useState<Exercise[]>([]);
     const [isLoading, setLoading] = useState(false);
@@ -54,48 +58,53 @@ export function CustomExerciseView(props: { userId: string, childToParent: (sele
         });
     }, [childToParent]);
 
-    if (isLoading) {
-        return (
-            <LoadingIndicator text='Loading exercises...' />
-        )
-    }
-
     return (
-        <View style={styles.container}>
-            <View style={styles.searchContainer}>
-                <MaterialCommunityIcons
-                    name="magnify"
-                    size={20}
-                    color={Theme.colors.font + '80'}
-                    style={styles.searchIcon}
-                />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search exercises..."
-                    placeholderTextColor={Theme.colors.font + '60'}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoCapitalize="none"
-                />
-                {searchQuery.length > 0 && (
-                    <TouchableOpacity
-                        onPress={() => setSearchQuery('')}
-                        style={styles.searchClearButton}
-                    >
+        <FlatList
+            style={styles.container}
+            contentContainerStyle={styles.scrollContent}
+            data={filteredData}
+            keyExtractor={(item, i) => item.id || String(i)}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={
+                <View>
+                    {headerContent}
+                    {headerContent && <Divider style={styles.headerDivider} color={Theme.colors.border} />}
+                    <View style={styles.searchContainer}>
                         <MaterialCommunityIcons
-                            name="close-circle"
+                            name="magnify"
                             size={20}
                             color={Theme.colors.font + '80'}
+                            style={styles.searchIcon}
                         />
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-            >
-                {filteredData.length === 0 ? (
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search exercises..."
+                            placeholderTextColor={Theme.colors.font + '60'}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            autoCapitalize="none"
+                        />
+                        {searchQuery.length > 0 && (
+                            <TouchableOpacity
+                                onPress={() => setSearchQuery('')}
+                                style={styles.searchClearButton}
+                            >
+                                <MaterialCommunityIcons
+                                    name="close-circle"
+                                    size={20}
+                                    color={Theme.colors.font + '80'}
+                                />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+            }
+            ListEmptyComponent={
+                isLoading ? (
+                    <View style={styles.emptyContainer}>
+                        <LoadingIndicator text='Loading exercises...' />
+                    </View>
+                ) : (
                     <View style={styles.emptyContainer}>
                         <MaterialCommunityIcons
                             name="dumbbell"
@@ -111,46 +120,44 @@ export function CustomExerciseView(props: { userId: string, childToParent: (sele
                                 : 'Create exercises first to add them to your workout'}
                         </Text>
                     </View>
-                ) : (
-                    filteredData.map((item: Exercise, i: number) => {
-                        const isSelected = selectedExercises.map(x => x.id).includes(item.id);
-                        return (
-                            <TouchableOpacity
-                                key={item.id || i}
-                                onPress={() => addSelectedExercise(item)}
-                                activeOpacity={0.7}
-                            >
-                                <Card containerStyle={[
-                                    styles.exerciseCard,
-                                    isSelected && styles.exerciseCardSelected
+                )
+            }
+            renderItem={({ item }) => {
+                const isSelected = selectedExercises.map(x => x.id).includes(item.id);
+                return (
+                    <TouchableOpacity
+                        onPress={() => addSelectedExercise(item)}
+                        activeOpacity={0.7}
+                    >
+                        <Card containerStyle={[
+                            styles.exerciseCard,
+                            isSelected && styles.exerciseCardSelected
+                        ]}>
+                            <View style={styles.exerciseContent}>
+                                <MaterialCommunityIcons
+                                    name="dumbbell"
+                                    size={24}
+                                    color={isSelected ? Theme.colors.green : Theme.colors.font}
+                                />
+                                <Text style={[
+                                    styles.exerciseText,
+                                    isSelected && styles.exerciseTextSelected
                                 ]}>
-                                    <View style={styles.exerciseContent}>
-                                        <MaterialCommunityIcons
-                                            name="dumbbell"
-                                            size={24}
-                                            color={isSelected ? Theme.colors.green : Theme.colors.font}
-                                        />
-                                        <Text style={[
-                                            styles.exerciseText,
-                                            isSelected && styles.exerciseTextSelected
-                                        ]}>
-                                            {item.exeName}
-                                        </Text>
-                                        {isSelected && (
-                                            <MaterialCommunityIcons
-                                                name="check-circle"
-                                                size={24}
-                                                color={Theme.colors.green}
-                                            />
-                                        )}
-                                    </View>
-                                </Card>
-                            </TouchableOpacity>
-                        );
-                    })
-                )}
-            </ScrollView>
-        </View>
+                                    {item.exeName}
+                                </Text>
+                                {isSelected && (
+                                    <MaterialCommunityIcons
+                                        name="check-circle"
+                                        size={24}
+                                        color={Theme.colors.green}
+                                    />
+                                )}
+                            </View>
+                        </Card>
+                    </TouchableOpacity>
+                );
+            }}
+        />
     )
 }
 
@@ -158,6 +165,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Theme.colors.dark,
+    },
+    headerDivider: {
+        marginTop: Theme.spacing.sm,
+        marginHorizontal: Theme.spacing.md,
     },
     searchContainer: {
         flexDirection: 'row',
@@ -181,15 +192,12 @@ const styles = StyleSheet.create({
     searchClearButton: {
         padding: Theme.spacing.xs,
     },
-    scrollView: {
-        flex: 1,
-    },
     scrollContent: {
         paddingBottom: Theme.spacing.xl,
     },
     exerciseCard: {
         marginHorizontal: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
+        marginBottom: 2,
         borderRadius: Theme.borderRadius.md,
         backgroundColor: Theme.colors.lessDark,
         borderWidth: 2,

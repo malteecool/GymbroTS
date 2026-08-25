@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Theme } from '../constants/Theme';
 
 const BarGraph = (props: { data: number[], labels: string[] }) => {
 
@@ -46,23 +47,27 @@ const styles = StyleSheet.create({
         flexDirection: 'column-reverse',
     },
     bar: {
-        backgroundColor: '#0C7C59',
-        marginHorizontal: 2,
-        width: 50,
+        backgroundColor: Theme.colors.green,
+        borderRadius: Theme.borderRadius.sm,
+        marginHorizontal: 4,
+        width: 36,
+        minHeight: 4,
         justifyContent: 'flex-end',
         alignItems: 'center',
         flexDirection: 'column-reverse',
     },
     barText: {
-        color: 'white',
+        color: Theme.colors.white,
         marginBottom: 5,
-        fontWeight: 'bold'
+        fontWeight: 'bold',
+        fontSize: Theme.fontSize.xs,
     },
     label: {
         marginTop: 3,
         marginBottom: 5,
-        color: '#CDCD55',
+        color: Theme.colors.yellow,
         fontWeight: 'bold',
+        fontSize: Theme.fontSize.xs,
     },
 });
 

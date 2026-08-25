@@ -29,6 +29,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#1c1a1a"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Gymbro to access your photos to set a profile picture or attach a photo to a post.",
+          "cameraPermission": "Allow Gymbro to access your camera to take a profile picture or a post photo."
+        }
       ]
     ],
     "experiments": {

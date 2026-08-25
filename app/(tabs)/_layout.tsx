@@ -38,6 +38,20 @@ function NotificationBellButton() {
     );
 }
 
+function ProfileSettingsButton() {
+    const router = useRouter();
+
+    return (
+        <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push('/profile/settings')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+            <MaterialCommunityIcons name="cog-outline" size={24} color={Theme.colors.font} />
+        </TouchableOpacity>
+    );
+}
+
 export default function TabLayout() {
     const { unreadCount } = useNotificationContext();
 
@@ -59,6 +73,19 @@ export default function TabLayout() {
                 name="profile"
                 options={{
                     title: 'Profile',
+                    headerShown: true,
+                    headerTitleAlign: 'center',
+                    headerStatusBarHeight: 0,
+                    headerStyle: {
+                        backgroundColor: Theme.colors.lessDark,
+                        borderBottomWidth: 1,
+                        borderBottomColor: Theme.colors.dark,
+                    },
+                    headerTitleStyle: {
+                        color: Theme.colors.font,
+                        fontWeight: '600',
+                    },
+                    headerRight: () => <ProfileSettingsButton />,
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name='account' color={color} size={size || 26} />
                     ),

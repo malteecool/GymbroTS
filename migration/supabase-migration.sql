@@ -169,6 +169,73 @@ ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS link_type TEXT CHECK (link_type IN 
 ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS copy_count INTEGER NOT NULL DEFAULT 0;
 
 -- -----------------------------------------------------------------------------
+-- Workout discovery: follower counts + ratings (workout-rework-plan.md Phase A)
+-- -----------------------------------------------------------------------------
+
+ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS follower_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS avg_rating NUMERIC(3,2);
+ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS rating_count INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS workout_rating (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workout_id UUID NOT NULL REFERENCES WORKOUT(ID) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    rating SMALLINT NOT NULL CHECK (rating BETWEEN 0 AND 5),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (workout_id, user_id)
+);
+
+-- -----------------------------------------------------------------------------
+-- Images: post photo column + Storage bucket/policies (image-upload-plan.md Phase A/D)
+-- -----------------------------------------------------------------------------
+
+ALTER TABLE post ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- Public-read bucket for avatars (avatars/{userId}/avatar.jpg) and post photos
+-- (posts/{userId}/{timestamp}.jpg). userId must be an actual folder segment (not
+-- baked into the filename) in both cases, since the policies below key off
+-- (storage.foldername(name))[2], and storage.foldername() only returns folder
+-- segments, not the filename. Writes are restricted to a user's own folder.
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('user-content', 'user-content', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Users can upload their own content" ON storage.objects;
+CREATE POLICY "Users can upload their own content"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+    bucket_id = 'user-content'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Users can update their own content" ON storage.objects;
+CREATE POLICY "Users can update their own content"
+ON storage.objects FOR UPDATE TO authenticated
+USING (
+    bucket_id = 'user-content'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Users can delete their own content" ON storage.objects;
+CREATE POLICY "Users can delete their own content"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+    bucket_id = 'user-content'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+-- Required even though the bucket is public: storage-js always uploads via
+-- INSERT ... ON CONFLICT ... RETURNING *, and under RLS a RETURNING clause needs
+-- a satisfying SELECT policy on the row, not just the INSERT/UPDATE policy - without
+-- this, every upload fails with "new row violates row-level security policy" even
+-- when the INSERT's own WITH CHECK passes.
+DROP POLICY IF EXISTS "Public read access to user content" ON storage.objects;
+CREATE POLICY "Public read access to user content"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'user-content');
+
+-- -----------------------------------------------------------------------------
 -- Indexes
 -- -----------------------------------------------------------------------------
 
@@ -194,6 +261,10 @@ CREATE INDEX IF NOT EXISTS IDX_NOTIFICATION_RECIPIENT_UNREAD ON notification(rec
 CREATE INDEX IF NOT EXISTS IDX_NOTIFICATION_CREATED_AT ON notification(created_at DESC);
 CREATE INDEX IF NOT EXISTS IDX_WORKOUT_SOURCE_WORKOUT_ID ON WORKOUT(source_workout_id);
 CREATE INDEX IF NOT EXISTS IDX_WORKOUT_IS_PUBLIC ON WORKOUT(is_public) WHERE is_public = true;
+CREATE INDEX IF NOT EXISTS IDX_WORKOUT_FOLLOWER_COUNT ON WORKOUT(follower_count DESC) WHERE is_public = true;
+CREATE INDEX IF NOT EXISTS IDX_WORKOUT_AVG_RATING ON WORKOUT(avg_rating DESC) WHERE is_public = true;
+CREATE INDEX IF NOT EXISTS IDX_WORKOUT_RATING_WORKOUT_ID ON workout_rating(workout_id);
+CREATE INDEX IF NOT EXISTS IDX_WORKOUT_RATING_USER_ID ON workout_rating(user_id);
 
 -- -----------------------------------------------------------------------------
 -- Realtime: notification table (Phase 3 unread badge)

@@ -324,6 +324,7 @@ export default function WorkoutScreen() {
                 visible={pickerVisible}
                 animationType="slide"
                 presentationStyle="pageSheet"
+                statusBarTranslucent
                 onRequestClose={() => setPickerVisible(false)}
             >
                 <View style={styles.modalContainer}>

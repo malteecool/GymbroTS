@@ -11,6 +11,7 @@ function rowToPost(row: any): Post {
         workoutId: row.workout_id ?? null,
         postType: row.post_type as PostType,
         caption: row.caption ?? null,
+        imageUrl: row.image_url ?? null,
         isPublic: row.is_public,
         createdAt: row.created_at,
         authorName: row.app_user?.name ?? '',
@@ -25,6 +26,7 @@ export async function createPost(params: {
     workoutId: string | null;
     postType: PostType;
     caption?: string;
+    imageUrl?: string;
 }): Promise<Post> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
@@ -36,6 +38,7 @@ export async function createPost(params: {
             workout_id: params.workoutId,
             post_type: params.postType,
             caption: params.caption ?? null,
+            image_url: params.imageUrl ?? null,
             is_public: true,
         })
         .select(`
@@ -86,6 +89,32 @@ export async function getFeedForUser(userId: string, offset: number = 0): Promis
         ...rowToPost(row),
         likeCount: row.reaction?.length ?? 0,
         likedByMe: (row.reaction ?? []).some((r: any) => r.user_id === userId),
+    }));
+}
+
+export async function getPostsForUser(userId: string, offset: number = 0): Promise<Post[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase
+        .from('post')
+        .select(`
+            *,
+            app_user ( name, avatar_url ),
+            workout ( wor_name ),
+            reaction ( id, user_id )
+        `)
+        .eq('user_id', userId)
+        .eq('is_public', true)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) throw error;
+    if (!data) return [];
+
+    return data.map((row: any) => ({
+        ...rowToPost(row),
+        likeCount: row.reaction?.length ?? 0,
+        likedByMe: (row.reaction ?? []).some((r: any) => r.user_id === user?.id),
     }));
 }
 

@@ -1,39 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text } from 'react-native';
+import { Text, StyleProp, TextStyle } from 'react-native';
 
-const CounterComponent = (props: { targetValue: number }) => {
+interface CounterComponentProps {
+    targetValue: number;
+    style?: StyleProp<TextStyle>;
+    duration?: number;
+}
+
+const CounterComponent = ({ targetValue, style, duration = 800 }: CounterComponentProps) => {
     const [counter, setCounter] = useState(0);
 
-    const { targetValue } = props;
-
     useEffect(() => {
-        const incrementCounter = () => {
-            setCounter(prevCounter => prevCounter + 1);
+        if (targetValue <= 0) {
+            setCounter(0);
+            return;
+        }
+
+        const startTime = Date.now();
+        let frameId: number;
+
+        const tick = () => {
+            const progress = Math.min((Date.now() - startTime) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setCounter(Math.round(eased * targetValue));
+
+            if (progress < 1) {
+                frameId = requestAnimationFrame(tick);
+            }
         };
 
-        const intervalDuration = 1000 / Math.sqrt(counter + 100);
+        frameId = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(frameId);
+    }, [targetValue, duration]);
 
-        if (counter < targetValue) {
-            const timerId = setInterval(incrementCounter, intervalDuration);
-            return () => clearInterval(timerId);
-        }
-    }, [counter]);
-
-    return (
-        <View style={{
-            flex: 1,
-            justifyContent: 'center',
-            alignContent: 'center',
-            marginTop: -20
-        }}>
-            <Text style={{
-                fontSize: 60,
-                textAlign: 'center',
-                fontWeight: 'bold',
-                color: '#0C7C59',
-            }}>{counter}</Text>
-        </View>
-    );
+    return <Text style={style}>{counter}</Text>;
 };
 
 export default CounterComponent;

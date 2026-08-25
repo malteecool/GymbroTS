@@ -6,6 +6,7 @@ export interface Post {
     workoutId: string | null;
     postType: PostType;
     caption: string | null;
+    imageUrl: string | null;
     isPublic: boolean;
     createdAt: string;
     // Joined fields from feed query
