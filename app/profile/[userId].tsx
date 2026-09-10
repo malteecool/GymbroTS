@@ -6,10 +6,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
 import { PublicProfile } from '../../interfaces/User.Interface';
-import { Post } from '../../interfaces/Post.Interface';
+import { Post, PostCommentCountChange, POST_COMMENT_COUNT_EVENT } from '../../interfaces/Post.Interface';
 import { getPublicProfile, followUser, unfollowUser } from '../../services/SocialService.Service';
-import { getPostsForUser, likePost, unlikePost, deletePost } from '../../services/PostService.Service';
+import { getPostsForUser, likePost, unlikePost, deletePost, appendPostPage } from '../../services/PostService.Service';
 import { getStordUserData } from '../../services/UserService.Service';
+import emitter from '../../hooks/CustomEventEmitter';
 import { PostCard } from '../../components/Social/PostCard';
 import { ProfileHeader } from '../../components/Profile/ProfileHeader';
 
@@ -65,19 +66,33 @@ export default function PublicProfileScreen() {
         loadPosts();
     }, [load, loadPosts]);
 
+    useEffect(() => {
+        const onCommentCount = ({ postId, commentCount }: PostCommentCountChange) => {
+            setPosts(prev => prev.map(p => (p.id === postId ? { ...p, commentCount } : p)));
+        };
+        emitter.on(POST_COMMENT_COUNT_EVENT, onCommentCount);
+
+        return () => {
+            emitter.off(POST_COMMENT_COUNT_EVENT, onCommentCount);
+        };
+    }, []);
+
     const loadMorePosts = useCallback(async () => {
-        if (!userId || loadingMore || !hasMore) return;
+        // `posts.length === 0` keeps this from fetching page 0: the list renders
+        // empty while the initial load is still in flight, and an empty FlatList
+        // fires onEndReached, which would append the page being loaded.
+        if (!userId || loadingMore || !hasMore || postsLoading || posts.length === 0) return;
         try {
             setLoadingMore(true);
             const data = await getPostsForUser(userId, posts.length);
-            setPosts(prev => [...prev, ...data]);
+            setPosts(prev => appendPostPage(prev, data));
             setHasMore(data.length === PAGE_SIZE);
         } catch (e) {
             console.error('Error loading more posts:', e);
         } finally {
             setLoadingMore(false);
         }
-    }, [userId, loadingMore, hasMore, posts.length]);
+    }, [userId, loadingMore, hasMore, postsLoading, posts.length]);
 
     const handleLikeToggle = useCallback(async (post: Post) => {
         setPosts(prev => prev.map(p => p.id === post.id ? {
@@ -237,7 +252,7 @@ export default function PublicProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     content: {
         paddingBottom: Theme.spacing.xl,
@@ -278,7 +293,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         gap: Theme.spacing.md,
     },
     followBtn: {
@@ -294,9 +309,9 @@ const styles = StyleSheet.create({
         ...Theme.shadows.small,
     },
     followingBtn: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     followBtnText: {
         color: Theme.colors.dark,

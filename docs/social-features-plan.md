@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS follows (
 - ✅ `app/profile/[userId].tsx` — public profile view with follow/unfollow, stats, link to followers
 - ✅ `app/social/followers.tsx` — tabbed followers/following list with inline follow actions
 - ✅ `app/social/discover.tsx` — debounced user search with inline follow actions
+- ✅ `app/(tabs)/_layout.tsx` — search button in the Social header. Discover was
+  originally reachable only from the empty-feed state, so it disappeared as soon
+  as the user followed anyone
 
 ### Service Changes
 - ✅ `services/SocialService.Service.ts` — `followUser`, `unfollowUser`, `isFollowing`, `getFollowers`, `getFollowing`, `searchUsers`, `getPublicProfile`
@@ -163,12 +166,26 @@ CREATE TABLE IF NOT EXISTS notification (
 - ✅ `app/(tabs)/_layout.tsx` — badge on Social tab icon, bell button in Social header
 - ✅ `app/_layout.tsx` — `social/notifications` stack screen registered, tree wrapped in `NotificationProvider`
 
+### Follow-up (delivered after the initial pass)
+- ✅ `interfaces/Post.Interface.ts` — `commentCount` on `Post`, populated by every
+  query that builds one via a `comment ( id )` embed. Row embed rather than a
+  PostgREST `comment(count)` aggregate, to match the existing `reaction` embed
+  and stay independent of the PostgREST version
+- ✅ `components/Social/PostCard.tsx` — comment button + count next to the like.
+  Previously the count was invisible from the feed and there was no comment
+  affordance at all; a `variant` prop makes the card inert on the post detail
+  screen, where tapping it used to push a second copy of the same screen
+- ✅ `components/Social/CommentSection.tsx` — reports its count to the card above
+  it, and emits `postCommentCountChanged` on the app event bus so the feed and
+  profile timelines patch that post in place instead of going stale
+
 ### Acceptance Criteria
 - [x] User can comment on any visible post
 - [x] Post author sees a notification for new likes and comments
 - [x] New follower triggers a follow notification
 - [x] Notification badge shows unread count
 - [x] Notifications link back to the relevant post or profile
+- [x] Comment count is visible on the post card without opening the post
 
 ---
 
@@ -225,45 +242,79 @@ re-synced against the source on open.
 
 ---
 
-## Phase 5 — Progress Milestones & Gamification
+## Phase 5 — Progress Milestones & Gamification (partial) ✅
 
-Automatic celebration of achievements that give users reasons to keep logging.
+Automatic recognition of achievements that give users reasons to keep logging.
 
 ### Goals
-- System detects and celebrates personal records and milestones
-- Milestone posts can be auto-shared to feed
-- Streak tracking visible on profile
+- ✅ System detects personal records (weight and reps) and milestones
+- ✅ PR and milestone posts reach the feed — **via a prompt, never auto-posted**
+  (deliberate: the user decides what their followers see, matching the existing
+  `WorkoutSharePrompt` pattern)
+- Not built: celebration animation on PR, streak on the public profile
 
-### Milestones to Detect
-| Trigger | Message |
-|---|---|
-| New max weight on exercise | "New PR: 100kg Bench Press" |
-| New max reps on exercise | "New PR: 20 reps Pull-up" |
-| 10th / 50th / 100th workout | "100th workout completed" |
-| 7 / 30 / 90-day streak | "30-day streak" |
-| First time completing a full split week | "First full week completed" |
+### Milestones Detected
+| Trigger | Where detected | Shown as |
+|---|---|---|
+| New max weight on exercise | `ExerciseService.updatePersonalRecords`, at save time | "New PR! Bench Press — 100 kg" |
+| New max reps on exercise | same | "New PR! Pull-up — 20 reps" |
+| 10 / 25 / 50 / 100 / 250 / 500 / 1000 workouts | `AchievementService.detectMilestone`, on workout complete | "Milestone reached! 100 workouts" |
+| 7 / 14 / 30 / 60 / 90 / 180 / 365 day streak | same | "Milestone reached! 30 day streak" |
+
+Weight and reps records from the same session are announced together as one post.
+At most one milestone is offered per workout, so finishing a session never
+produces a queue of sheets.
 
 ### Database Changes
+**None.** `EXE_MAX_REPS` already existed in the schema and was mapped both ways in
+`ExerciseMapper` — it was simply never written to. The originally-sketched
+`milestone` table was not created:
+
 ```sql
-CREATE TABLE milestone (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES app_user(id) ON DELETE CASCADE,
-  milestone_type TEXT NOT NULL,
-  exercise_id UUID REFERENCES exercise(id) ON DELETE SET NULL,
-  value NUMERIC,
-  achieved_at TIMESTAMPTZ DEFAULT now()
-);
+-- NOT created — see "already-offered" note below
+CREATE TABLE milestone (...);
 ```
 
+### New Files
+- ✅ `interfaces/Achievement.Interface.ts` — `PersonalRecord`, `Milestone`
+- ✅ `services/AchievementService.Service.ts` — milestone thresholds, detection,
+  already-offered bookkeeping, and the label/caption formatters
+- ✅ `components/Social/SharePrompt.tsx` — the generic share sheet, extracted from
+  `WorkoutSharePrompt` (which is now a thin config over it)
+- ✅ `components/Social/AchievementSharePrompt.tsx` — `PersonalRecordSharePrompt`
+  and `MilestoneSharePrompt`
+
+### Service Changes
+- ✅ `services/ExerciseService.Service.ts` — `updateExerciseMaxWeight` replaced by
+  `updatePersonalRecords`, which checks weight *and* reps and returns what was
+  beaten. `addExerciseHistory` now returns `{ success, personalRecords }` rather
+  than a bare boolean
+- ✅ `app/exercise/addSet.tsx`, `app/workout/workoutDetails.tsx` — PR sheet after
+  logging sets. `ActiveExerciseCard` raises `onPersonalRecords` rather than
+  rendering the sheet itself: it sits inside a card with `overflow: 'hidden'`, so
+  a full-screen overlay mounted from there would be clipped to the card
+- ✅ `app/workout/workoutComplete.tsx` — milestone sheet, gated behind the workout
+  share and rating prompts so the three never stack
+
 ### Implementation Notes
-- PR detection: compare new set weight/reps against `exercise.exe_max_weight` / `exe_max_reps` at save time in `ExerciseService`
-- Workout count milestones: check total in `StatsService` after each completion
-- Streak: computed from split completion history
+- **PR dedupe is free.** The maxima write is the source of truth: once raised, the
+  same session cannot beat it, so a record can never be announced twice.
+- **Milestone dedupe is local.** `AsyncStorage` keys
+  (`milestoneOffered:<userId>:<kind>:<value>`) record that we asked, so skipping a
+  milestone does not bring it back after the next workout. Chosen over the
+  `milestone` table to keep the feature free of a schema migration — the cost is
+  that a reinstall may re-offer one milestone once. `hasBeenOffered` /
+  `markMilestoneOffered` are the two functions to swap if milestone history ever
+  needs to be queryable server-side.
+- **PR and milestone posts carry no `workoutId`**, so the feed card would render
+  only "Set a new PR" with no detail. Both prompts pre-fill an editable caption
+  carrying the specifics.
 
 ### Acceptance Criteria
-- [ ] New PRs are detected when logging sets
+- [x] New PRs are detected when logging sets (weight and reps)
+- [x] User is asked before a PR or milestone reaches the feed — nothing auto-posts
+- [x] Milestone posts appear on the user's profile timeline
 - [ ] A celebration animation plays on PR
-- [ ] Milestone posts appear on the user's profile timeline
 - [ ] Streak visible on public profile
 
 ---
@@ -284,13 +335,14 @@ CREATE TABLE milestone (
 ### Schema Additions Summary (all phases)
 ```
 app_user          ← is_public, bio, avatar_url
-workout           ← is_public, copied_from, copy_count
+workout           ← is_public, source_workout_id, link_type, copy_count
 follows           (new)
 post              (new)
 reaction          (new)
 comment           (new)
 notification      (new)
-milestone         (new)
+milestone         (not created — Phase 5 dedupes in AsyncStorage instead)
+block             (not created — see Privacy & Safety)
 ```
 
 ---
@@ -298,9 +350,52 @@ milestone         (new)
 ## Implementation Order
 
 ```
-Phase 1  →  Phase 2  →  Phase 3  →  Phase 4  →  Phase 5
-Profiles     Feed         Comments    Templates    Milestones
-& Follows    & Likes      & Notifs    Sharing      & Gamification
+Phase 1  →  Phase 2  →  Phase 3  →  Phase 4  →  Phase 5  →  Phase 6
+Profiles     Feed         Comments    Templates    Milestones   Discovery
+& Follows    & Likes      & Notifs    Sharing      & PRs        & Safety
 ```
 
 Each phase is independently shippable. Phase 1 and 2 together form the "social MVP" worth getting in front of users for feedback before building further.
+
+---
+
+## Phase 6 — Discovery & Safety (in progress)
+
+Phases 1–5 built the loop but not the way in. A new account follows nobody, so
+`getFeedForUser` — which queries posts from `[following, self]` — returned an empty
+feed with no path out of it except manual search.
+
+### Delivered
+- ✅ `services/PostService.Service.ts` — `getExploreFeed`, recent public posts from
+  **public profiles**, newest first, excluding the viewer's own. The author's
+  `is_public` check matters: unlike the following-feed this list is visible to
+  people with no relationship to the author, so `app_user!inner` +
+  `.eq('app_user.is_public', true)` keeps private profiles out of it
+- ✅ `components/ui/SegmentedTabs.tsx` — extracted from the followers/following
+  screen, which now uses it too
+- ✅ `app/(tabs)/social.tsx` — Following / Explore tabs. Chosen over a separate
+  `explore.tsx` route so the way out of an empty feed is visible on the tab the
+  user already lands on; the empty following-feed also links straight into Explore
+- Ordered by recency, not popularity: on a small corpus a popularity sort shows
+  the same handful of posts indefinitely. Worth revisiting once volume justifies it
+
+### Open items, roughly in priority order
+1. **Block / report.** No `block` table exists (see Privacy & Safety below). Close
+   to table stakes for shipped user-generated content, and both app stores expect
+   report + block for UGC.
+2. **Unique handles.** `app_user.name` is not unique and search is
+   `ilike '%query%'` against it, so two users with the same name are
+   indistinguishable. Needs `handle TEXT UNIQUE`.
+3. **Social proof on search results.** `searchUsers` returns hardcoded
+   `followerCount: 0` / `workoutCount: 0` stubs, so results show a bare name with
+   nothing to judge by. No "people you may know" or mutual-follow hints either.
+
+### Smaller gaps noted but not scheduled
+- No standalone posting — a post is only ever a by-product of finishing a workout
+  or beating a record. Possibly deliberate; worth an explicit decision.
+- Can't see who liked a post, though the `reaction` rows are already there.
+- Flat comments: no replies, no comment likes.
+- No edit for posts or comments, only delete.
+- No push notifications — `expo-notifications` is not a dependency, so the
+  realtime badge only updates while the app is open.
+- No @mentions, hashtags, or outward share / deep links.

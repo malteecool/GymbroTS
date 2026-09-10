@@ -1,16 +1,17 @@
-import { Text, View, TouchableOpacity, ScrollView, TextInput, StyleSheet, RefreshControl, Alert } from 'react-native';
+import { View, TouchableOpacity, ScrollView, StyleSheet, RefreshControl, Alert } from 'react-native';
 import React, { useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getExercises, removeExercise as removeExerciseService } from '../../services/ExerciseService.Service';
 import { Theme, Styles } from '../../constants/Theme';
-import { Card } from '@rneui/themed';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ListCard } from '../../components/ui/ListCard';
+import { SearchBar } from '../../components/ui/SearchBar';
 import { Exercise } from '../../interfaces/Exercise.Interface';
 import { User } from '../../interfaces/User.Interface';
 import { getStordUserData } from '../../services/UserService.Service';
 import { router, useNavigation } from 'expo-router';
 import emitter from '../../hooks/CustomEventEmitter';
-import { Divider } from '@rneui/base';
 
 export default function ExerciseScreen() {
     const navigation = useNavigation();
@@ -132,114 +133,42 @@ export default function ExerciseScreen() {
     }
 
     return (
-        <View style={styles.container}>
-            <View style={styles.searchContainer}>
-                <MaterialCommunityIcons
-                    name="magnify"
-                    size={20}
-                    color={Theme.colors.font}
-                    style={styles.searchIcon}
-                />
-                <TextInput
-                    onChangeText={searchFilterFunction}
-                    value={search}
-                    style={styles.searchBar}
-                    placeholder='Search exercises...'
-                    placeholderTextColor={Theme.colors.font + '80'}
-                />
-                {search.length > 0 && (
-                    <TouchableOpacity
-                        onPress={() => searchFilterFunction('')}
-                        style={styles.clearButton}
-                    >
-                        <MaterialCommunityIcons
-                            name="close-circle"
-                            size={20}
-                            color={Theme.colors.font}
-                        />
-                    </TouchableOpacity>
-                )}
-            </View>
-            <Divider width={1} color={Theme.colors.dark} />
+        <View style={Styles.screen}>
+            <SearchBar
+                value={search}
+                onChangeText={searchFilterFunction}
+                placeholder='Search exercises...'
+            />
             <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={Styles.listContent}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
                 {filteredDataSource.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <MaterialCommunityIcons
-                            name="dumbbell"
-                            size={64}
-                            color={Theme.colors.font + '40'}
-                        />
-                        <Text style={styles.emptyText}>
-                            {search ? 'No exercises found' : 'No exercises yet'}
-                        </Text>
-                        <Text style={styles.emptySubtext}>
-                            {search ? 'Try a different search term' : 'Tap the + button to add an exercise'}
-                        </Text>
-                    </View>
+                    <EmptyState
+                        icon="dumbbell"
+                        title={search ? 'No exercises found' : 'No exercises yet'}
+                        subtitle={search
+                            ? 'Try a different search term'
+                            : 'Tap the + button to add an exercise'}
+                    />
                 ) : (
-                    filteredDataSource.map((item: Exercise, i: number) => {
-                        const exerciseDate = new Date(item.exeDate).toDateString();
-
-                        return (
-                            <TouchableOpacity
-                                key={item.id || i}
-                                onPress={() =>
-                                    router.push({
-                                        pathname: '/exercise/exerciseDetails',
-                                        params: { exerciseId: item.id, workoutId: undefined }
-                                    })
-                                }
-                                activeOpacity={0.7}
-                            >
-                                <Card containerStyle={Styles.card}>
-                                    <View style={styles.cardContent}>
-                                        <View style={styles.cardInfo}>
-                                            <Text style={Styles.cardTitle}>
-                                                {item.exeName}
-                                            </Text>
-                                            <View style={styles.cardDetails}>
-                                                <View style={styles.detailItem}>
-                                                    <MaterialCommunityIcons
-                                                        name='weight-kilogram'
-                                                        size={16}
-                                                        color={Theme.colors.font}
-                                                    />
-                                                    <Text style={styles.detailText}>
-                                                        {item.exeMaxWeight} kg
-                                                    </Text>
-                                                </View>
-                                                <View style={styles.detailItem}>
-                                                    <MaterialCommunityIcons
-                                                        name='calendar-range'
-                                                        size={16}
-                                                        color={Theme.colors.font}
-                                                    />
-                                                    <Text style={styles.detailText}>
-                                                        {exerciseDate}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                        </View>
-                                        <TouchableOpacity
-                                            onPress={() => warnUser(item)}
-                                            style={styles.trashButton}
-                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name="trash-can-outline"
-                                                size={20}
-                                                color={Theme.colors.font}
-                                            />
-                                        </TouchableOpacity>
-                                    </View>
-                                </Card>
-                            </TouchableOpacity>
-                        );
-                    })
+                    filteredDataSource.map((item: Exercise, i: number) => (
+                        <ListCard
+                            key={item.id || i}
+                            title={item.exeName}
+                            onPress={() =>
+                                router.push({
+                                    pathname: '/exercise/exerciseDetails',
+                                    params: { exerciseId: item.id, workoutId: undefined }
+                                })
+                            }
+                            onDelete={() => warnUser(item)}
+                            meta={[
+                                { icon: 'weight-kilogram', label: `${item.exeMaxWeight} kg` },
+                                { icon: 'calendar-range', label: new Date(item.exeDate).toDateString() },
+                            ]}
+                        />
+                    ))
                 )}
             </ScrollView>
         </View>
@@ -247,83 +176,6 @@ export default function ExerciseScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
-        paddingHorizontal: Theme.spacing.md,
-        paddingVertical: Theme.spacing.sm,
-        marginHorizontal: Theme.spacing.xs,
-        marginTop: Theme.spacing.xs,
-        borderRadius: Theme.borderRadius.md,
-    },
-    searchIcon: {
-        marginRight: Theme.spacing.sm,
-    },
-    searchBar: {
-        flex: 1,
-        height: 40,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-    },
-    clearButton: {
-        marginLeft: Theme.spacing.sm,
-        padding: Theme.spacing.xs,
-    },
-    scrollView: {
-        width: '100%',
-    },
-    scrollContent: {
-        paddingBottom: Theme.spacing.xl,
-    },
-    emptyContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: Theme.spacing.xl * 2,
-    },
-    emptyText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.semibold,
-        marginTop: Theme.spacing.md,
-    },
-    emptySubtext: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.md,
-        marginTop: Theme.spacing.xs,
-        textAlign: 'center',
-    },
-    cardContent: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    cardInfo: {
-        flex: 1,
-    },
-    cardDetails: {
-        flexDirection: 'row',
-        marginTop: Theme.spacing.xs,
-        marginLeft: Theme.spacing.sm,
-        gap: Theme.spacing.md,
-    },
-    detailItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.xs,
-    },
-    detailText: {
-        ...Styles.fontColor,
-        fontSize: Theme.fontSize.sm,
-    },
-    trashButton: {
-        padding: Theme.spacing.xs,
-    },
     headerButton: {
         paddingRight: Theme.spacing.md,
     },

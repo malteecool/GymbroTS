@@ -1,13 +1,12 @@
 import React, { useEffect, useImperativeHandle, useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native';
-import { Card } from '@rneui/themed';
+import { Text, TextInput, View, StyleSheet } from 'react-native';
 import { Theme, Styles } from '../constants/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Exercise } from '../interfaces/Exercise.Interface';
 import { Set } from '../interfaces/Set.Interface';
 import { ExerciseHistory } from '../interfaces/ExerciseHistory.Interface';
 import { LoadingIndicator } from './ui/LoadingIndicator';
-import { NumberStepper } from './ui/NumberStepper';
+import { SetField, SetTable } from './Workout/SetTable';
 
 export interface SetsRef {
     getSets: () => Set[];
@@ -32,7 +31,7 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
             getComment: () => comment
         }));
 
-        const updateSet = (index: number, field: 'setWeight' | 'setReps', value: number) => {
+        const updateSet = (index: number, field: SetField, value: number) => {
             setSets((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
         };
 
@@ -73,70 +72,40 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
 
         return (
             <View style={styles.container}>
-                <Card containerStyle={Styles.card}>
+                <View style={Styles.card}>
                     <View style={styles.dateRow}>
-                        <MaterialCommunityIcons name="calendar" size={16} color={Theme.colors.font + '80'} />
-                        <Text style={styles.dateText}>{date}</Text>
-                    </View>
-
-                    <View style={styles.headerRow}>
-                        <Text style={[styles.colLabel, styles.setIndexCol]}>SET</Text>
-                        <Text style={styles.colLabel}>WEIGHT</Text>
-                        <Text style={styles.colLabel}>REPS</Text>
-                        {editable && <View style={styles.removeCol} />}
-                    </View>
-
-                    {sets.map((set, i) => (
-                        <View key={i} style={styles.setRow}>
-                            <Text style={[styles.setIndex, styles.setIndexCol]}>{i + 1}</Text>
-                            {editable ? (
-                                <>
-                                    <View style={styles.stepperCol}>
-                                        <NumberStepper value={set.setWeight} step={2.5} onChange={(v) => updateSet(i, 'setWeight', v)} />
-                                    </View>
-                                    <View style={styles.stepperCol}>
-                                        <NumberStepper value={set.setReps} step={1} onChange={(v) => updateSet(i, 'setReps', v)} />
-                                    </View>
-                                    <TouchableOpacity
-                                        onPress={() => onRemoveSet(i)}
-                                        style={styles.removeCol}
-                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                    >
-                                        <MaterialCommunityIcons name="close" size={16} color={Theme.colors.font + '80'} />
-                                    </TouchableOpacity>
-                                </>
-                            ) : (
-                                <>
-                                    <Text style={styles.valueText}>{set.setWeight}kg</Text>
-                                    <Text style={styles.valueText}>{set.setReps}</Text>
-                                </>
-                            )}
+                        <View style={styles.dateGroup}>
+                            <MaterialCommunityIcons name="calendar" size={14} color={Theme.colors.textMuted} />
+                            <Text style={styles.dateText}>{date}</Text>
                         </View>
-                    ))}
+                        <View style={styles.countPill}>
+                            <Text style={styles.countText}>
+                                {sets.length} {sets.length === 1 ? 'set' : 'sets'}
+                            </Text>
+                        </View>
+                    </View>
 
-                    {editable && (
-                        <TouchableOpacity
-                            style={styles.addButton}
-                            onPress={onAddSet}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons name="plus" size={16} color={Theme.colors.font} />
-                            <Text style={styles.addButtonText}>Add set</Text>
-                        </TouchableOpacity>
-                    )}
-                </Card>
+                    <SetTable
+                        sets={sets}
+                        editable={editable}
+                        onChange={updateSet}
+                        onRemove={onRemoveSet}
+                        onAdd={onAddSet}
+                    />
+                </View>
+
                 {(editable || exerciseHistory?.exhComment) && (
                     <View style={styles.commentContainer}>
                         <MaterialCommunityIcons
-                            size={18}
-                            color={Theme.colors.font + '80'}
+                            size={16}
+                            color={Theme.colors.textMuted}
                             name="comment-outline"
                         />
                         <TextInput
                             style={styles.commentInput}
                             onChangeText={(text) => setComment(text)}
                             placeholder={exerciseHistory?.exhComment || "Add a note (optional)"}
-                            placeholderTextColor={Theme.colors.font + '60'}
+                            placeholderTextColor={Theme.colors.textMuted}
                             editable={editable}
                             defaultValue={exerciseHistory?.exhComment || ''}
                             multiline
@@ -152,99 +121,55 @@ SetCard.displayName = 'SetCard';
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     dateRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Theme.spacing.xs,
+        justifyContent: 'space-between',
+        gap: Theme.spacing.sm,
         marginBottom: Theme.spacing.md,
-        paddingBottom: Theme.spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.dark,
+        paddingBottom: Theme.spacing.sm,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: Theme.colors.divider,
+    },
+    dateGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+        flexShrink: 1,
     },
     dateText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.semibold,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.sm,
-        marginBottom: Theme.spacing.xs,
-    },
-    colLabel: {
-        flex: 1,
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.xs,
-        fontWeight: Theme.fontWeight.semibold,
-        textAlign: 'center',
-    },
-    setIndexCol: {
-        flex: 0,
-        width: 24,
-        textAlign: 'center',
-    },
-    removeCol: {
-        flex: 0,
-        width: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    stepperCol: {
-        flex: 1,
-    },
-    setRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.sm,
-        marginBottom: Theme.spacing.sm,
-    },
-    setIndex: {
-        color: Theme.colors.font + '80',
+        ...Theme.typography.bodyStrong,
         fontSize: Theme.fontSize.sm,
+    },
+    countPill: {
+        paddingHorizontal: Theme.spacing.sm,
+        paddingVertical: 2,
+        borderRadius: Theme.borderRadius.round,
+        backgroundColor: Theme.colors.neutralSoft,
+    },
+    countText: {
+        ...Theme.typography.caption,
+        color: Theme.colors.textSecondary,
         fontWeight: Theme.fontWeight.semibold,
-    },
-    valueText: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.semibold,
-        textAlign: 'center',
-    },
-    addButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: Theme.spacing.xs,
-        paddingVertical: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        marginTop: Theme.spacing.xs,
-    },
-    addButtonText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.sm,
-        fontWeight: Theme.fontWeight.medium,
     },
     commentContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
         paddingHorizontal: Theme.spacing.md,
         paddingVertical: Theme.spacing.xs,
-        marginTop: Theme.spacing.sm,
-        marginHorizontal: Theme.spacing.xs,
+        marginTop: Theme.spacing.xs,
+        marginHorizontal: Theme.spacing.sm,
         gap: Theme.spacing.sm,
     },
     commentInput: {
         flex: 1,
-        color: Theme.colors.font,
+        color: Theme.colors.textPrimary,
         fontSize: Theme.fontSize.sm,
         paddingVertical: Theme.spacing.xs,
         minHeight: 36,

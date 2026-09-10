@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet, Alert } from "react-native";
-import { Card, Button } from '@rneui/themed';
+import { Button } from '@rneui/themed';
 import {
     getReferenceWeek, markDayAsCompleted, updateSplitDayWorkout, SplitWeek,
 } from '../../services/SplitService.Service';
@@ -10,6 +10,7 @@ import { DayWorkoutPicker } from '../../components/Split/DayWorkoutPicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme, Styles } from "../../constants/Theme";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
+import { EmptyState } from "../../components/ui/EmptyState";
 import emitter from "../../hooks/CustomEventEmitter";
 import { getStordUserData } from "../../services/UserService.Service";
 import { User } from "../../interfaces/User.Interface";
@@ -139,23 +140,6 @@ export default function SplitScreen() {
     const snapToPrev = () => setWeekOffset((prev) => Math.max(0, prev - 1));
     const snapToNext = () => setWeekOffset((prev) => Math.min(MAX_WEEK_OFFSET, prev + 1));
 
-    const EmptyState = () => (
-        <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="calendar-plus" size={80} color={Theme.colors.font + '40'} />
-            <Text style={styles.emptyTitle}>No Split Created</Text>
-            <Text style={styles.emptyText}>
-                Create a workout split to automatically generate your weekly training schedule.
-                Assign workouts to each day and the system will remember it every week.
-            </Text>
-            <Button
-                title="Create Split"
-                onPress={() => router.push('/split/createSplit')}
-                buttonStyle={styles.createButton}
-                titleStyle={styles.createButtonText}
-            />
-        </View>
-    );
-
     if (isLoading) {
         return <LoadingIndicator text='Loading split...' />;
     }
@@ -163,7 +147,20 @@ export default function SplitScreen() {
     if (weekData.length === 0) {
         return (
             <View style={styles.container}>
-                <EmptyState />
+                <EmptyState
+                    icon="calendar-plus"
+                    title="No split created"
+                    subtitle="Assign a workout to each day and Gymbro will keep the schedule going week after week."
+                    style={styles.emptyState}
+                    action={
+                        <Button
+                            title="Create split"
+                            onPress={() => router.push('/split/createSplit')}
+                            buttonStyle={styles.createButton}
+                            titleStyle={styles.createButtonText}
+                        />
+                    }
+                />
             </View>
         );
     }
@@ -183,7 +180,7 @@ export default function SplitScreen() {
                     <MaterialCommunityIcons
                         name='chevron-left'
                         size={32}
-                        color={weekOffset === 0 ? Theme.colors.font + '40' : Theme.colors.font}
+                        color={weekOffset === 0 ? Theme.colors.textDisabled : Theme.colors.textPrimary}
                     />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{getWeekLabel(weekOffset)}</Text>
@@ -195,7 +192,7 @@ export default function SplitScreen() {
                     <MaterialCommunityIcons
                         name='chevron-right'
                         size={32}
-                        color={weekOffset === MAX_WEEK_OFFSET ? Theme.colors.font + '40' : Theme.colors.font}
+                        color={weekOffset === MAX_WEEK_OFFSET ? Theme.colors.textDisabled : Theme.colors.textPrimary}
                     />
                 </TouchableOpacity>
             </View>
@@ -211,9 +208,9 @@ export default function SplitScreen() {
                     const isToday = date.toDateString() === todayKey;
 
                     return (
-                        <Card
+                        <View
                             key={day}
-                            containerStyle={[
+                            style={[
                                 Styles.card,
                                 dayData.completed && styles.completedCard,
                                 !hasWorkout && styles.emptyDayCard,
@@ -246,7 +243,7 @@ export default function SplitScreen() {
                                     </View>
                                     {hasWorkout ? (
                                         <View style={styles.workoutInfo}>
-                                            <MaterialCommunityIcons name="weight-lifter" size={18} color={Theme.colors.font} />
+                                            <MaterialCommunityIcons name="weight-lifter" size={16} color={Theme.colors.textSecondary} />
                                             <Text style={styles.workoutName}>{dayData.workout!.worName}</Text>
                                         </View>
                                     ) : (
@@ -260,7 +257,7 @@ export default function SplitScreen() {
                                         style={styles.editButton}
                                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                     >
-                                        <MaterialCommunityIcons name="pencil-outline" size={20} color={Theme.colors.font + '80'} />
+                                        <MaterialCommunityIcons name="pencil-outline" size={20} color={Theme.colors.textMuted} />
                                     </TouchableOpacity>
                                     {hasWorkout && (
                                         <TouchableOpacity
@@ -271,13 +268,13 @@ export default function SplitScreen() {
                                             <MaterialCommunityIcons
                                                 name={dayData.completed ? "check-circle" : "circle-outline"}
                                                 size={32}
-                                                color={dayData.completed ? Theme.colors.green : Theme.colors.font + '60'}
+                                                color={dayData.completed ? Theme.colors.green : Theme.colors.textMuted}
                                             />
                                         </TouchableOpacity>
                                     )}
                                 </View>
                             </View>
-                        </Card>
+                        </View>
                     );
                 })}
             </ScrollView>
@@ -307,16 +304,13 @@ export default function SplitScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
+    container: Styles.screen,
     header: {
         height: 60,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         paddingHorizontal: Theme.spacing.md,
         ...Theme.shadows.small,
     },
@@ -326,11 +320,7 @@ const styles = StyleSheet.create({
     navButtonDisabled: {
         opacity: 0.3,
     },
-    headerTitle: {
-        ...Styles.headerTitle,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.bold,
-    },
+    headerTitle: Styles.headerTitle,
     daysList: {
         padding: Theme.spacing.xs,
         paddingBottom: Theme.spacing.xl,
@@ -349,16 +339,8 @@ const styles = StyleSheet.create({
         gap: Theme.spacing.xs,
         marginBottom: Theme.spacing.xs,
     },
-    dayName: {
-        ...Styles.cardTitle,
-        marginLeft: 0,
-        marginBottom: 0,
-        fontSize: Theme.fontSize.lg,
-    },
-    dayDate: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.sm,
-    },
+    dayName: Styles.cardTitle,
+    dayDate: Theme.typography.meta,
     todayBadge: {
         backgroundColor: Theme.colors.accent,
         borderRadius: Theme.borderRadius.round,
@@ -367,7 +349,7 @@ const styles = StyleSheet.create({
         marginLeft: Theme.spacing.xs,
     },
     todayBadgeText: {
-        color: Theme.colors.dark,
+        color: Theme.colors.textOnAccent,
         fontSize: 10,
         fontWeight: Theme.fontWeight.bold,
     },
@@ -375,18 +357,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: Theme.spacing.xs,
-        marginLeft: Theme.spacing.sm,
     },
-    workoutName: {
-        ...Styles.fontColor,
-        fontSize: Theme.fontSize.md,
-    },
+    workoutName: Theme.typography.body,
     restDayText: {
-        ...Styles.fontColor,
-        fontSize: Theme.fontSize.sm,
+        ...Theme.typography.meta,
+        color: Theme.colors.textMuted,
         fontStyle: 'italic',
-        marginLeft: Theme.spacing.sm,
-        opacity: 0.6,
+        marginTop: Theme.spacing.xs,
     },
     dayActions: {
         flexDirection: 'row',
@@ -400,36 +377,19 @@ const styles = StyleSheet.create({
         padding: Theme.spacing.xs,
     },
     completedCard: {
-        backgroundColor: Theme.colors.green + '30',
+        backgroundColor: Theme.colors.successSoft,
         borderColor: Theme.colors.green,
-        borderWidth: 2,
+        borderWidth: 1,
     },
     emptyDayCard: {
         opacity: 0.6,
     },
     todayCard: {
         borderColor: Theme.colors.accent,
-        borderWidth: 2,
+        borderWidth: 1,
     },
-    emptyContainer: {
+    emptyState: {
         flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: Theme.spacing.xl,
-    },
-    emptyTitle: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.xl,
-        fontWeight: Theme.fontWeight.bold,
-        marginTop: Theme.spacing.lg,
-        marginBottom: Theme.spacing.md,
-    },
-    emptyText: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.md,
-        textAlign: 'center',
-        marginBottom: Theme.spacing.xl,
-        lineHeight: 22,
     },
     createButton: {
         backgroundColor: Theme.colors.green,

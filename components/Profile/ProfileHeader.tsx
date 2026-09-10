@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     statsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         paddingVertical: Theme.spacing.md,
         paddingHorizontal: Theme.spacing.lg,

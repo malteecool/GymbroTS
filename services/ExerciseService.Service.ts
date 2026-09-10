@@ -2,6 +2,7 @@ import { supabase } from '../supabaseConfig';
 import { Exercise } from '../interfaces/Exercise.Interface';
 import { ExerciseHistory } from '../interfaces/ExerciseHistory.Interface';
 import { Set as WorkoutSet } from '../interfaces/Set.Interface';
+import { PersonalRecord } from '../interfaces/Achievement.Interface';
 import { ExerciseMapper, ExerciseHistoryMapper, SetMapper, WorkoutExerciseMapper } from './mappers';
 
 export async function getExercises(usr_id: string): Promise<Exercise[]> {
@@ -221,11 +222,19 @@ export async function addExercise(name: string, usr_id: string): Promise<string>
     }
 }
 
+export interface AddExerciseHistoryResult {
+    success: boolean;
+    /** Records beaten by this session, in the order weight then reps. */
+    personalRecords: PersonalRecord[];
+}
+
 export async function addExerciseHistory(
     exercise: Exercise,
     sets: WorkoutSet[],
     comment: string
-): Promise<boolean> {
+): Promise<AddExerciseHistoryResult> {
+    let personalRecords: PersonalRecord[] = [];
+
     try {
         // Create exercise history record
         const { data: historyData, error: historyError } = await supabase
@@ -252,15 +261,83 @@ export async function addExerciseHistory(
             // Update exercise date
             await updateExerciseDate(exercise.id);
 
-            // Update max weight
-            const maxWeight = Math.max(...sets.map(o => o.setWeight));
-            await updateExerciseMaxWeight(exercise.id, maxWeight);
+            // Bump the stored maxima, and report anything this session beat
+            personalRecords = await updatePersonalRecords(exercise, sets);
         }
 
-        return true;
+        return { success: true, personalRecords };
     } catch (error) {
         console.error('Error adding exercise history:', error);
-        return false;
+        return { success: false, personalRecords: [] };
+    }
+}
+
+/**
+ * Compares a logged session against the exercise's stored maxima, writes back
+ * any that were beaten, and returns them as personal records.
+ *
+ * The write is the source of truth for "is this a PR": once the maximum has
+ * been raised, the same session logged again cannot beat it, so callers do not
+ * need to guard against announcing the same record twice.
+ */
+export async function updatePersonalRecords(
+    exercise: Exercise,
+    sets: WorkoutSet[]
+): Promise<PersonalRecord[]> {
+    if (sets.length === 0) return [];
+
+    try {
+        const { data, error: fetchError } = await supabase
+            .from('exercise')
+            .select('exe_max_weight, exe_max_reps')
+            .eq('id', exercise.id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        const previousWeight = data?.exe_max_weight ?? 0;
+        const previousReps = data?.exe_max_reps ?? 0;
+        const sessionWeight = Math.max(...sets.map(s => s.setWeight));
+        const sessionReps = Math.max(...sets.map(s => s.setReps));
+
+        const records: PersonalRecord[] = [];
+        const update: Partial<Exercise> = {};
+
+        if (sessionWeight > previousWeight) {
+            update.exeMaxWeight = sessionWeight;
+            records.push({
+                exerciseId: exercise.id,
+                exerciseName: exercise.exeName,
+                kind: 'weight',
+                value: sessionWeight,
+                previousValue: previousWeight,
+            });
+        }
+
+        if (sessionReps > previousReps) {
+            update.exeMaxReps = sessionReps;
+            records.push({
+                exerciseId: exercise.id,
+                exerciseName: exercise.exeName,
+                kind: 'reps',
+                value: sessionReps,
+                previousValue: previousReps,
+            });
+        }
+
+        if (records.length > 0) {
+            const { error: updateError } = await supabase
+                .from('exercise')
+                .update(ExerciseMapper.toSupabaseUpdate(update))
+                .eq('id', exercise.id);
+
+            if (updateError) throw updateError;
+        }
+
+        return records;
+    } catch (error) {
+        console.error('Error updating personal records:', error);
+        return [];
     }
 }
 

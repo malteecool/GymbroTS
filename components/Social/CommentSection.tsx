@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet,
     ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
@@ -8,10 +8,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
 import { Comment } from '../../interfaces/Comment.Interface';
 import { getComments, addComment, deleteComment } from '../../services/CommentService.Service';
+import emitter from '../../hooks/CustomEventEmitter';
+import { POST_COMMENT_COUNT_EVENT } from '../../interfaces/Post.Interface';
 
 interface CommentSectionProps {
     postId: string;
     currentUserId: string;
+    /** Reports the live comment count so the post card above can stay in sync. */
+    onCountChange?: (count: number) => void;
 }
 
 function timeAgo(dateStr: string): string {
@@ -25,24 +29,39 @@ function timeAgo(dateStr: string): string {
     return `${days}d`;
 }
 
-export function CommentSection({ postId, currentUserId }: CommentSectionProps) {
+export function CommentSection({ postId, currentUserId, onCountChange }: CommentSectionProps) {
     const router = useRouter();
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
     const [text, setText] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    // Held in a ref so `load` stays stable even when a caller passes an inline
+    // arrow, which would otherwise re-trigger the fetch effect every render.
+    const onCountChangeRef = useRef(onCountChange);
+    useEffect(() => { onCountChangeRef.current = onCountChange; }, [onCountChange]);
+
+    // Tells the parent card directly, and any other mounted screen showing this
+    // post (feed, profile timeline) over the app event bus.
+    const publishCount = useCallback((count: number, broadcast: boolean) => {
+        onCountChangeRef.current?.(count);
+        if (broadcast) {
+            emitter.emit(POST_COMMENT_COUNT_EVENT, { postId, commentCount: count });
+        }
+    }, [postId]);
+
     const load = useCallback(async () => {
         try {
             setLoading(true);
             const data = await getComments(postId);
             setComments(data);
+            publishCount(data.length, false);
         } catch (e) {
             console.error('Error loading comments:', e);
         } finally {
             setLoading(false);
         }
-    }, [postId]);
+    }, [postId, publishCount]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -52,14 +71,18 @@ export function CommentSection({ postId, currentUserId }: CommentSectionProps) {
         try {
             setSubmitting(true);
             const created = await addComment(postId, body);
-            setComments(prev => [...prev, created]);
+            setComments(prev => {
+                const next = [...prev, created];
+                publishCount(next.length, true);
+                return next;
+            });
             setText('');
         } catch {
             Alert.alert('Error', 'Could not post comment. Please try again.');
         } finally {
             setSubmitting(false);
         }
-    }, [postId, text, submitting]);
+    }, [postId, text, submitting, publishCount]);
 
     const handleDelete = useCallback((comment: Comment) => {
         Alert.alert('Delete comment', 'Are you sure?', [
@@ -68,14 +91,18 @@ export function CommentSection({ postId, currentUserId }: CommentSectionProps) {
                 text: 'Delete', style: 'destructive', onPress: async () => {
                     try {
                         await deleteComment(comment.id);
-                        setComments(prev => prev.filter(c => c.id !== comment.id));
+                        setComments(prev => {
+                            const next = prev.filter(c => c.id !== comment.id);
+                            publishCount(next.length, true);
+                            return next;
+                        });
                     } catch {
                         Alert.alert('Error', 'Could not delete comment. Please try again.');
                     }
                 }
             },
         ]);
-    }, []);
+    }, [publishCount]);
 
     return (
         <KeyboardAvoidingView
@@ -221,14 +248,14 @@ const styles = StyleSheet.create({
         gap: Theme.spacing.sm,
         padding: Theme.spacing.md,
         borderTopWidth: 1,
-        borderTopColor: Theme.colors.border,
-        backgroundColor: Theme.colors.dark,
+        borderTopColor: Theme.colors.divider,
+        backgroundColor: Theme.colors.background,
     },
     input: {
         flex: 1,
         color: Theme.colors.font,
         fontSize: Theme.fontSize.sm,
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         paddingHorizontal: Theme.spacing.md,
         paddingVertical: Theme.spacing.sm,

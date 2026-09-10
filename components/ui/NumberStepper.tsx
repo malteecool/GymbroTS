@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
 
@@ -29,7 +29,7 @@ export function NumberStepper({ value, onChange, step, minValue = 0 }: NumberSte
                 keyboardType="number-pad"
                 value={value > 0 ? String(value) : ''}
                 placeholder="0"
-                placeholderTextColor={Theme.colors.font + '60'}
+                placeholderTextColor={Theme.colors.textMuted}
                 onChangeText={(text) => onChange(Math.max(minValue, parseFloat(text) || 0))}
             />
             <TouchableOpacity
@@ -48,10 +48,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         width: '100%',
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         borderRadius: Theme.borderRadius.sm,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     button: {
         width: 28,

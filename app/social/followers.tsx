@@ -5,10 +5,16 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
+import { SegmentedTabs } from '../../components/ui/SegmentedTabs';
 import { PublicProfile } from '../../interfaces/User.Interface';
 import { getFollowers, getFollowing, followUser, unfollowUser } from '../../services/SocialService.Service';
 
 type Tab = 'followers' | 'following';
+
+const TABS = [
+    { value: 'followers' as const, label: 'Followers' },
+    { value: 'following' as const, label: 'Following' },
+];
 
 export default function FollowersScreen() {
     const { userId, tab: initialTab } = useLocalSearchParams<{ userId: string; tab: Tab }>();
@@ -86,24 +92,7 @@ export default function FollowersScreen() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.tabs}>
-                <TouchableOpacity
-                    style={[styles.tab, activeTab === 'followers' && styles.activeTab]}
-                    onPress={() => setActiveTab('followers')}
-                >
-                    <Text style={[styles.tabText, activeTab === 'followers' && styles.activeTabText]}>
-                        Followers
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.tab, activeTab === 'following' && styles.activeTab]}
-                    onPress={() => setActiveTab('following')}
-                >
-                    <Text style={[styles.tabText, activeTab === 'following' && styles.activeTabText]}>
-                        Following
-                    </Text>
-                </TouchableOpacity>
-            </View>
+            <SegmentedTabs options={TABS} value={activeTab} onChange={setActiveTab} />
 
             {loading ? (
                 <View style={styles.centered}>
@@ -131,31 +120,7 @@ export default function FollowersScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
-    tabs: {
-        flexDirection: 'row',
-        backgroundColor: Theme.colors.lessDark,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-    },
-    tab: {
-        flex: 1,
-        paddingVertical: Theme.spacing.md,
-        alignItems: 'center',
-    },
-    activeTab: {
-        borderBottomWidth: 2,
-        borderBottomColor: Theme.colors.yellow,
-    },
-    tabText: {
-        color: Theme.colors.secondary,
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.medium,
-    },
-    activeTabText: {
-        color: Theme.colors.font,
-        fontWeight: Theme.fontWeight.semibold,
+        backgroundColor: Theme.colors.background,
     },
     centered: {
         flex: 1,
@@ -176,7 +141,7 @@ const styles = StyleSheet.create({
     userCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         padding: Theme.spacing.md,
         marginBottom: Theme.spacing.sm,
@@ -214,7 +179,7 @@ const styles = StyleSheet.create({
     followingBtn: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     followBtnText: {
         color: Theme.colors.dark,

@@ -5,6 +5,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Theme } from '../../constants/Theme';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
 import { WorkoutSharePrompt } from '../../components/Social/WorkoutSharePrompt';
+import { MilestoneSharePrompt } from '../../components/Social/AchievementSharePrompt';
+import { detectMilestone, markMilestoneOffered } from '../../services/AchievementService.Service';
+import { Milestone } from '../../interfaces/Achievement.Interface';
 import { RatingPrompt } from '../../components/Workout/RatingPrompt';
 import { getWorkoutById, getWorkoutExercises, getFormattedTime } from '../../services/WorkoutService.Service';
 import { getCompletedExerciseIdsForDate } from '../../services/ExerciseService.Service';
@@ -28,6 +31,9 @@ export default function WorkoutComplete() {
     const [ratingSourceWorkout, setRatingSourceWorkout] = useState<Workout | null>(null);
     const [ratingPromptVisible, setRatingPromptVisible] = useState<boolean>(false);
     const [rated, setRated] = useState<boolean>(false);
+    const [milestone, setMilestone] = useState<Milestone | null>(null);
+    const [milestonePromptVisible, setMilestonePromptVisible] = useState<boolean>(false);
+    const [milestoneShared, setMilestoneShared] = useState<boolean>(false);
 
     const elapsedSeconds = Number(time) || 0;
 
@@ -46,6 +52,17 @@ export default function WorkoutComplete() {
             setWorkout(loadedWorkout);
             setExerciseCount(exercises.length);
             setStreak(workoutStreak);
+
+            // Offer at most one milestone, and record that we asked so skipping
+            // it does not bring the same prompt back after the next workout.
+            if (storedUser) {
+                const reached = await detectMilestone(storedUser);
+                if (reached) {
+                    await markMilestoneOffered(storedUser.id, reached);
+                    setMilestone(reached);
+                    setMilestonePromptVisible(true);
+                }
+            }
 
             const completedIds = await getCompletedExerciseIdsForDate(exercises.map((e) => e.id), new Date());
             setCompletedCount(completedIds.length);
@@ -133,7 +150,7 @@ export default function WorkoutComplete() {
                 {skippedExercises.length > 0 && (
                     <View style={styles.skippedWrap}>
                         <View style={styles.skippedHeader}>
-                            <MaterialCommunityIcons name="alert-circle-outline" size={14} color={Theme.colors.font + '80'} />
+                            <MaterialCommunityIcons name="alert-circle-outline" size={14} color={Theme.colors.textMuted} />
                             <Text style={styles.skippedHeaderText}>Skipped</Text>
                         </View>
                         <Text style={styles.skippedNames}>
@@ -158,6 +175,13 @@ export default function WorkoutComplete() {
                     </TouchableOpacity>
                 )}
 
+                {milestoneShared && milestone && (
+                    <View style={styles.sharedBadge}>
+                        <MaterialCommunityIcons name="star-circle" size={18} color={Theme.colors.accent} />
+                        <Text style={styles.ratedText}>Milestone shared</Text>
+                    </View>
+                )}
+
                 {rated && (
                     <View style={styles.sharedBadge}>
                         <MaterialCommunityIcons name="star" size={18} color={Theme.colors.accent} />
@@ -180,6 +204,19 @@ export default function WorkoutComplete() {
                 />
             )}
 
+            {/* Queued behind the other two sheets so they never stack. */}
+            {!sharePromptVisible && !ratingPromptVisible && (
+                <MilestoneSharePrompt
+                    visible={milestonePromptVisible}
+                    milestone={milestone}
+                    onClose={() => setMilestonePromptVisible(false)}
+                    onShared={() => {
+                        setMilestonePromptVisible(false);
+                        setMilestoneShared(true);
+                    }}
+                />
+            )}
+
             {ratingSourceWorkout && (
                 <RatingPrompt
                     visible={ratingPromptVisible}
@@ -195,7 +232,7 @@ export default function WorkoutComplete() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         justifyContent: 'space-between',
         padding: Theme.spacing.lg,
     },
@@ -214,7 +251,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     workoutName: {
-        color: Theme.colors.font + '99',
+        color: Theme.colors.textSecondary,
         fontSize: Theme.fontSize.lg,
         marginTop: Theme.spacing.xs,
         marginBottom: Theme.spacing.xl,
@@ -229,7 +266,7 @@ const styles = StyleSheet.create({
     statCard: {
         flex: 1,
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.lg,
         paddingVertical: Theme.spacing.lg,
         gap: Theme.spacing.xs,
@@ -241,7 +278,7 @@ const styles = StyleSheet.create({
         fontWeight: Theme.fontWeight.bold,
     },
     statLabel: {
-        color: Theme.colors.font + '80',
+        color: Theme.colors.textMuted,
         fontSize: Theme.fontSize.xs,
     },
     skippedWrap: {
@@ -256,14 +293,14 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     skippedHeaderText: {
-        color: Theme.colors.font + '80',
+        color: Theme.colors.textMuted,
         fontSize: Theme.fontSize.xs,
         fontWeight: Theme.fontWeight.semibold,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
     skippedNames: {
-        color: Theme.colors.font + '99',
+        color: Theme.colors.textSecondary,
         fontSize: Theme.fontSize.sm,
         textAlign: 'center',
     },
@@ -305,9 +342,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingVertical: Theme.spacing.md,
         borderRadius: Theme.borderRadius.xl,
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     doneButtonText: {
         color: Theme.colors.font,

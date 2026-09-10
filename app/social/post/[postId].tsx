@@ -49,6 +49,10 @@ export default function PostDetailScreen() {
         }
     }, []);
 
+    const handleCommentCountChange = useCallback((count: number) => {
+        setPost(prev => (prev && prev.commentCount !== count ? { ...prev, commentCount: count } : prev));
+    }, []);
+
     const handleDelete = useCallback((p: Post) => {
         Alert.alert('Delete post', 'Are you sure?', [
             { text: 'Cancel', style: 'cancel' },
@@ -90,9 +94,14 @@ export default function PostDetailScreen() {
                     onLikeToggle={handleLikeToggle}
                     onDelete={handleDelete}
                     currentUserId={currentUserId}
+                    variant="detail"
                 />
             </View>
-            <CommentSection postId={post.id} currentUserId={currentUserId} />
+            <CommentSection
+                postId={post.id}
+                currentUserId={currentUserId}
+                onCountChange={handleCommentCountChange}
+            />
         </View>
     );
 }
@@ -100,7 +109,7 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     postWrapper: {
         padding: Theme.spacing.md,
@@ -110,7 +119,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         gap: Theme.spacing.md,
     },
     notFoundText: {

@@ -20,6 +20,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { WorkoutExercise } from "../../interfaces/WorkoutExercise.Interface";
 import { HeaderBackButton } from "@react-navigation/elements";
 import { ActiveExerciseCard } from "../../components/Workout/ActiveExerciseCard";
+import { PersonalRecordSharePrompt } from "../../components/Social/AchievementSharePrompt";
+import { PersonalRecord } from "../../interfaces/Achievement.Interface";
 import { StarRating } from "../../components/ui/StarRating";
 
 export default function WorkoutDetails() {
@@ -40,6 +42,7 @@ export default function WorkoutDetails() {
     const [bottomBarHeight, setBottomBarHeight] = useState<number>(140);
     const [completedTodayIds, setCompletedTodayIds] = useState<string[]>([]);
     const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
+    const [pendingRecords, setPendingRecords] = useState<PersonalRecord[]>([]);
 
     const navigation = useNavigation();
     const bypassLeaveGuardRef = useRef(false);
@@ -374,6 +377,7 @@ export default function WorkoutDetails() {
                         onMoveDown={() => moveExerciseForward(i)}
                         onDelete={() => warnUser(workoutExercise)}
                         onLogged={() => handleExerciseLogged(workoutExercise.id)}
+                        onPersonalRecords={setPendingRecords}
                     />
                 ))}
             </ScrollView>
@@ -414,12 +418,19 @@ export default function WorkoutDetails() {
                             disabledTitleStyle={styles.secondaryButtonTextDisabled}
                             icon={{
                                 name: 'check-circle-outline', type: 'material-community',
-                                color: time > 0 ? Theme.colors.font : Theme.colors.font + '60', size: 18,
+                                color: time > 0 ? Theme.colors.font : Theme.colors.textMuted, size: 18,
                             }}
                         />
                     </View>
                 )}
             </View>
+
+            <PersonalRecordSharePrompt
+                visible={pendingRecords.length > 0}
+                records={pendingRecords}
+                onClose={() => setPendingRecords([])}
+                onShared={() => setPendingRecords([])}
+            />
         </View>
     )
 }
@@ -427,7 +438,7 @@ export default function WorkoutDetails() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -436,9 +447,9 @@ const styles = StyleSheet.create({
         height: 56,
         paddingHorizontal: Theme.spacing.sm,
         position: 'relative',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
+        borderBottomColor: Theme.colors.divider,
     },
     headerBackButton: {
         position: 'absolute',
@@ -454,7 +465,7 @@ const styles = StyleSheet.create({
         maxWidth: 220,
     },
     headerTimer: {
-        color: Theme.colors.font + '99',
+        color: Theme.colors.textSecondary,
         fontSize: Theme.fontSize.sm,
         marginTop: 2,
     },
@@ -498,7 +509,7 @@ const styles = StyleSheet.create({
         gap: Theme.spacing.xs,
     },
     sourceRatingText: {
-        color: Theme.colors.font + '80',
+        color: Theme.colors.textMuted,
         fontSize: Theme.fontSize.sm,
     },
     publicRow: {
@@ -509,7 +520,7 @@ const styles = StyleSheet.create({
         marginTop: Theme.spacing.md,
         paddingHorizontal: Theme.spacing.md,
         paddingVertical: Theme.spacing.sm,
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
     },
     publicRowText: {
@@ -529,9 +540,9 @@ const styles = StyleSheet.create({
         bottom: 0,
         padding: Theme.spacing.md,
         gap: Theme.spacing.sm,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         borderTopWidth: 1,
-        borderTopColor: Theme.colors.border,
+        borderTopColor: Theme.colors.divider,
     },
     primaryButton: {
         backgroundColor: Theme.colors.accent,
@@ -568,7 +579,7 @@ const styles = StyleSheet.create({
         paddingVertical: Theme.spacing.md,
     },
     secondaryButtonDisabled: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
     },
     secondaryButtonText: {
         color: Theme.colors.font,
@@ -577,6 +588,6 @@ const styles = StyleSheet.create({
         marginLeft: Theme.spacing.xs,
     },
     secondaryButtonTextDisabled: {
-        color: Theme.colors.font + '60',
+        color: Theme.colors.textMuted,
     },
 });

@@ -1,6 +1,6 @@
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
-import { Card, Button } from '@rneui/themed';
+import { Button } from '@rneui/themed';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Divider } from '@rneui/base';
 import emitter from '../../hooks/CustomEventEmitter';
@@ -9,6 +9,9 @@ import { getTodaysSplitWorkout } from '../../services/SplitService.Service';
 import { getWorkoutStreak } from '../../services/StatsService.Service';
 import { Theme, Styles } from '../../constants/Theme';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { MetaRow } from '../../components/ui/MetaRow';
+import { SearchBar } from '../../components/ui/SearchBar';
 import { getStordUserData } from '../../services/UserService.Service';
 import { User } from '../../interfaces/User.Interface';
 import { Workout } from '../../interfaces/Workout.Interface';
@@ -42,7 +45,7 @@ export default function WorkoutScreen() {
                         <MaterialCommunityIcons
                             name="format-list-bulleted"
                             size={22}
-                            color={Theme.colors.font}
+                            color={Theme.colors.textPrimary}
                         />
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -165,7 +168,7 @@ export default function WorkoutScreen() {
                         <MaterialCommunityIcons
                             name="calendar-today"
                             size={16}
-                            color={Theme.colors.font + '99'}
+                            color={Theme.colors.textSecondary}
                         />
                         <Text style={styles.dayLabel}>{dayName ? `Today · ${dayName}` : 'Today'}</Text>
                     </View>
@@ -179,7 +182,7 @@ export default function WorkoutScreen() {
 
                 {selectedWorkout ? (
                     <>
-                        <Card containerStyle={styles.heroCard}>
+                        <View style={styles.heroCard}>
                             <View style={styles.heroHeaderRow}>
                                 <MaterialCommunityIcons
                                     name="weight-lifter"
@@ -188,41 +191,25 @@ export default function WorkoutScreen() {
                                 />
                                 <Text style={styles.heroTitle}>{selectedWorkout.worName}</Text>
                             </View>
-                            <View style={styles.heroMetaRow}>
-                                <View style={styles.detailItem}>
-                                    <MaterialCommunityIcons
-                                        name='clock-time-four-outline'
-                                        size={16}
-                                        color={Theme.colors.font}
-                                    />
-                                    <Text style={styles.detailText}>
-                                        {getFormattedTime(selectedWorkout.worEstimateTime)}
-                                    </Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <MaterialCommunityIcons
-                                        name='calendar-range'
-                                        size={16}
-                                        color={Theme.colors.font}
-                                    />
-                                    <Text style={styles.detailText}>
-                                        {selectedWorkout.worLastDone
+                            <MetaRow
+                                align="center"
+                                items={[
+                                    {
+                                        icon: 'clock-time-four-outline',
+                                        label: getFormattedTime(selectedWorkout.worEstimateTime),
+                                    },
+                                    {
+                                        icon: 'calendar-range',
+                                        label: selectedWorkout.worLastDone
                                             ? new Date(selectedWorkout.worLastDone).toDateString()
-                                            : 'never'}
-                                    </Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <MaterialCommunityIcons
-                                        name='repeat'
-                                        size={16}
-                                        color={Theme.colors.font}
-                                    />
-                                    <Text style={styles.detailText}>{selectedWorkout.worCompletedCount}x</Text>
-                                </View>
-                            </View>
+                                            : 'never',
+                                    },
+                                    { icon: 'repeat', label: `${selectedWorkout.worCompletedCount}x` },
+                                ]}
+                            />
 
                             <View style={styles.exerciseListWrap}>
-                                <Divider width={1} color={Theme.colors.dark} style={styles.exerciseDivider} />
+                                <Divider width={StyleSheet.hairlineWidth} color={Theme.colors.divider} style={styles.exerciseDivider} />
                                 {exercisesLoading ? (
                                     <Text style={styles.exerciseEmptyText}>Loading exercises...</Text>
                                 ) : exercises.length === 0 ? (
@@ -254,7 +241,7 @@ export default function WorkoutScreen() {
                                                         <MaterialCommunityIcons
                                                             name="weight-kilogram"
                                                             size={12}
-                                                            color={Theme.colors.font + 'B0'}
+                                                            color={Theme.colors.textSecondary}
                                                         />
                                                         <Text style={styles.exerciseWeightText}>
                                                             {exercise.exeMaxWeight}kg
@@ -266,20 +253,20 @@ export default function WorkoutScreen() {
                                     </>
                                 )}
                             </View>
-                        </Card>
+                        </View>
 
                         <TouchableOpacity style={styles.changeRow} onPress={openPicker}>
-                            <MaterialCommunityIcons name="swap-horizontal" size={18} color={Theme.colors.font} />
+                            <MaterialCommunityIcons name="swap-horizontal" size={18} color={Theme.colors.textPrimary} />
                             <Text style={styles.changeText}>Change workout</Text>
                         </TouchableOpacity>
                     </>
                 ) : (
                     <>
-                        <Card containerStyle={styles.heroCard}>
+                        <View style={styles.heroCard}>
                             <MaterialCommunityIcons
                                 name={hasSplit ? 'weather-night' : 'calendar-remove'}
                                 size={40}
-                                color={Theme.colors.font + '60'}
+                                color={Theme.colors.textMuted}
                             />
                             <Text style={styles.heroTitle}>{hasSplit ? 'Rest day' : 'No split set up'}</Text>
                             <Text style={styles.heroSubtitle}>
@@ -287,7 +274,7 @@ export default function WorkoutScreen() {
                                     ? `Nothing scheduled for ${dayName}. Enjoy the recovery, or start something anyway.`
                                     : 'Set up a split and your workout will be ready here automatically.'}
                             </Text>
-                        </Card>
+                        </View>
 
                         {!hasSplit && (
                             <Button
@@ -299,7 +286,7 @@ export default function WorkoutScreen() {
                         )}
 
                         <TouchableOpacity style={styles.changeRow} onPress={openPicker}>
-                            <MaterialCommunityIcons name="swap-horizontal" size={18} color={Theme.colors.font} />
+                            <MaterialCommunityIcons name="swap-horizontal" size={18} color={Theme.colors.textPrimary} />
                             <Text style={styles.changeText}>
                                 {hasSplit ? 'Pick a workout anyway' : 'Pick a workout to start'}
                             </Text>
@@ -334,36 +321,21 @@ export default function WorkoutScreen() {
                             onPress={() => setPickerVisible(false)}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                            <MaterialCommunityIcons name="close" size={24} color={Theme.colors.font} />
+                            <MaterialCommunityIcons name="close" size={24} color={Theme.colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
-                    <View style={styles.searchContainer}>
-                        <MaterialCommunityIcons
-                            name="magnify"
-                            size={20}
-                            color={Theme.colors.font}
-                            style={styles.searchIcon}
-                        />
-                        <TextInput
-                            onChangeText={setPickerSearch}
-                            value={pickerSearch}
-                            style={styles.searchBar}
-                            placeholder='Search workouts...'
-                            placeholderTextColor={Theme.colors.font + '80'}
-                        />
-                    </View>
+                    <SearchBar
+                        value={pickerSearch}
+                        onChangeText={setPickerSearch}
+                        placeholder='Search workouts...'
+                    />
                     <ScrollView contentContainerStyle={styles.pickerListContent}>
                         {filteredWorkouts.length === 0 ? (
-                            <View style={styles.emptyContainer}>
-                                <MaterialCommunityIcons
-                                    name="weight-lifter"
-                                    size={48}
-                                    color={Theme.colors.font + '40'}
-                                />
-                                <Text style={styles.emptyText}>
-                                    {pickerSearch ? 'No workouts found' : 'No workouts yet'}
-                                </Text>
-                            </View>
+                            <EmptyState
+                                icon="weight-lifter"
+                                size="compact"
+                                title={pickerSearch ? 'No workouts found' : 'No workouts yet'}
+                            />
                         ) : (
                             filteredWorkouts.map((item) => (
                                 <WorkoutListItem
@@ -381,10 +353,7 @@ export default function WorkoutScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
+    container: Styles.screen,
     scrollContent: {
         padding: Theme.spacing.md,
         paddingBottom: Theme.spacing.xl * 3,
@@ -404,7 +373,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: Theme.spacing.xs,
-        backgroundColor: Theme.colors.accent + '1A',
+        backgroundColor: Theme.colors.accentFaint,
         paddingHorizontal: Theme.spacing.sm,
         paddingVertical: 4,
         borderRadius: Theme.borderRadius.round,
@@ -415,7 +384,7 @@ const styles = StyleSheet.create({
         fontWeight: Theme.fontWeight.bold,
     },
     dayLabel: {
-        color: Theme.colors.font + '99',
+        color: Theme.colors.textSecondary,
         fontSize: Theme.fontSize.sm,
         fontWeight: Theme.fontWeight.semibold,
         textTransform: 'uppercase',
@@ -423,12 +392,11 @@ const styles = StyleSheet.create({
     },
     heroCard: {
         borderRadius: Theme.borderRadius.lg,
-        borderWidth: 0,
-        marginHorizontal: 0,
         marginBottom: Theme.spacing.md,
         paddingVertical: Theme.spacing.xl,
+        paddingHorizontal: Theme.spacing.md,
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         ...Theme.shadows.medium,
     },
     heroHeaderRow: {
@@ -437,42 +405,24 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: Theme.spacing.sm,
         marginBottom: Theme.spacing.sm,
-        paddingHorizontal: Theme.spacing.lg,
     },
     heroTitle: {
-        color: Theme.colors.font,
-        fontSize: 30,//Theme.fontSize.xxl,
+        color: Theme.colors.textPrimary,
+        fontSize: Theme.fontSize.xl,
         fontWeight: Theme.fontWeight.bold,
         textAlign: 'center',
         flexShrink: 1,
     },
     heroSubtitle: {
-        color: Theme.colors.font + '99',
+        color: Theme.colors.textSecondary,
         fontSize: Theme.fontSize.md,
         textAlign: 'center',
         marginTop: Theme.spacing.sm,
-        paddingHorizontal: Theme.spacing.md,
         lineHeight: Theme.lineHeight.md,
-    },
-    heroMetaRow: {
-        flexDirection: 'row',
-        gap: Theme.spacing.md,
-        flexWrap: 'wrap',
-        justifyContent: 'center',
-    },
-    detailItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.xs,
-    },
-    detailText: {
-        ...Styles.fontColor,
-        fontSize: Theme.fontSize.sm,
     },
     exerciseListWrap: {
         alignSelf: 'stretch',
         marginTop: Theme.spacing.lg,
-        paddingHorizontal: Theme.spacing.xs,
     },
     exerciseDivider: {
         marginBottom: Theme.spacing.md,
@@ -484,7 +434,7 @@ const styles = StyleSheet.create({
         marginBottom: Theme.spacing.xs,
     },
     exerciseListTitle: {
-        color: Theme.colors.font + 'B0',
+        color: Theme.colors.textSecondary,
         fontSize: Theme.fontSize.sm,
         fontWeight: Theme.fontWeight.semibold,
         textTransform: 'uppercase',
@@ -495,12 +445,12 @@ const styles = StyleSheet.create({
         height: 18,
         paddingHorizontal: 5,
         borderRadius: Theme.borderRadius.round,
-        backgroundColor: Theme.colors.font + '1A',
+        backgroundColor: Theme.colors.neutralSoft,
         alignItems: 'center',
         justifyContent: 'center',
     },
     exerciseCountText: {
-        color: Theme.colors.font + 'B0',
+        color: Theme.colors.textSecondary,
         fontSize: Theme.fontSize.xs,
         fontWeight: Theme.fontWeight.bold,
     },
@@ -509,8 +459,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: Theme.spacing.sm,
         paddingVertical: Theme.spacing.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.dark,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: Theme.colors.divider,
     },
     exerciseRowLast: {
         borderBottomWidth: 0,
@@ -519,7 +469,7 @@ const styles = StyleSheet.create({
         width: 22,
         height: 22,
         borderRadius: Theme.borderRadius.round,
-        backgroundColor: Theme.colors.accent + '26',
+        backgroundColor: Theme.colors.accentSoft,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -529,9 +479,8 @@ const styles = StyleSheet.create({
         fontWeight: Theme.fontWeight.bold,
     },
     exerciseRowText: {
+        ...Theme.typography.body,
         flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
     },
     exerciseWeightPill: {
         flexDirection: 'row',
@@ -539,11 +488,11 @@ const styles = StyleSheet.create({
         gap: 3,
     },
     exerciseWeightText: {
-        color: Theme.colors.font + 'B0',
+        color: Theme.colors.textSecondary,
         fontSize: Theme.fontSize.xs,
     },
     exerciseEmptyText: {
-        color: Theme.colors.font + '80',
+        color: Theme.colors.textMuted,
         fontSize: Theme.fontSize.sm,
         fontStyle: 'italic',
         textAlign: 'center',
@@ -556,7 +505,7 @@ const styles = StyleSheet.create({
         paddingVertical: Theme.spacing.md,
     },
     changeText: {
-        color: Theme.colors.font,
+        color: Theme.colors.textPrimary,
         fontSize: Theme.fontSize.md,
         fontWeight: Theme.fontWeight.medium,
     },
@@ -582,7 +531,7 @@ const styles = StyleSheet.create({
         ...Theme.shadows.large,
     },
     startButtonText: {
-        color: Theme.colors.dark,
+        color: Theme.colors.textOnAccent,
         fontSize: Theme.fontSize.lg,
         fontWeight: Theme.fontWeight.bold,
         marginLeft: Theme.spacing.xs,
@@ -596,10 +545,7 @@ const styles = StyleSheet.create({
     headerButton: {
         padding: Theme.spacing.xs,
     },
-    modalContainer: {
-        flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
+    modalContainer: Styles.screen,
     modalHeader: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -608,42 +554,9 @@ const styles = StyleSheet.create({
         paddingTop: Theme.spacing.lg,
         paddingBottom: Theme.spacing.md,
     },
-    modalTitle: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.xl,
-        fontWeight: Theme.fontWeight.bold,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
-        paddingHorizontal: Theme.spacing.md,
-        paddingVertical: Theme.spacing.sm,
-        marginHorizontal: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-    },
-    searchIcon: {
-        marginRight: Theme.spacing.sm,
-    },
-    searchBar: {
-        flex: 1,
-        height: 40,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-    },
+    modalTitle: Theme.typography.screenTitle,
     pickerListContent: {
         paddingHorizontal: Theme.spacing.xs,
         paddingBottom: Theme.spacing.xl,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: Theme.spacing.xl * 2,
-    },
-    emptyText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        marginTop: Theme.spacing.md,
     },
 });

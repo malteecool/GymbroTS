@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     sheet: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderTopLeftRadius: Theme.borderRadius.xl,
         borderTopRightRadius: Theme.borderRadius.xl,
         padding: Theme.spacing.lg,
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
         borderRadius: Theme.borderRadius.md,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     skipBtnText: {
         color: Theme.colors.secondary,

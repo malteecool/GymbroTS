@@ -129,12 +129,12 @@ export default function DiscoverScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.lg,
         margin: Theme.spacing.md,
         paddingHorizontal: Theme.spacing.md,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     userCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         padding: Theme.spacing.md,
         marginBottom: Theme.spacing.sm,
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     followingBtn: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     followBtnText: {
         color: Theme.colors.dark,

@@ -199,7 +199,7 @@ export function BrowsePopular({ currentUserId }: BrowsePopularProps) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     centered: {
         flex: 1,
@@ -220,9 +220,9 @@ const styles = StyleSheet.create({
         gap: Theme.spacing.xs,
         paddingVertical: Theme.spacing.sm,
         borderRadius: Theme.borderRadius.md,
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     sortButtonActive: {
         backgroundColor: Theme.colors.accent,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     card: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         padding: Theme.spacing.md,
         marginBottom: Theme.spacing.sm,
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     followBtn: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     followBtnText: {
         color: Theme.colors.font,

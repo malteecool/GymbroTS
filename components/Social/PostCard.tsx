@@ -11,6 +11,11 @@ interface PostCardProps {
     onLikeToggle: (post: Post) => void;
     onDelete?: (post: Post) => void;
     currentUserId: string;
+    /**
+     * 'feed' makes the card and its comment button open the post detail.
+     * 'detail' is the card already on that screen, so both are inert.
+     */
+    variant?: 'feed' | 'detail';
 }
 
 function timeAgo(dateStr: string): string {
@@ -37,15 +42,20 @@ const POST_TYPE_LABEL: Record<Post['postType'], string> = {
     milestone: 'Hit a milestone',
 };
 
-export function PostCard({ post, onLikeToggle, onDelete, currentUserId }: PostCardProps) {
+export function PostCard({ post, onLikeToggle, onDelete, currentUserId, variant = 'feed' }: PostCardProps) {
     const router = useRouter();
     const isOwn = post.userId === currentUserId;
+    const isFeed = variant === 'feed';
+
+    const openPost = () =>
+        router.push({ pathname: '/social/post/[postId]', params: { postId: post.id } });
+
+    const CardContainer = isFeed ? TouchableOpacity : View;
 
     return (
-        <TouchableOpacity
+        <CardContainer
             style={styles.card}
-            onPress={() => router.push({ pathname: '/social/post/[postId]', params: { postId: post.id } })}
-            activeOpacity={0.85}
+            {...(isFeed ? { onPress: openPost, activeOpacity: 0.85 } : {})}
         >
             {/* Header row */}
             <View style={styles.header}>
@@ -91,10 +101,10 @@ export function PostCard({ post, onLikeToggle, onDelete, currentUserId }: PostCa
                 <Text style={styles.caption}>{post.caption}</Text>
             ) : null}
 
-            {/* Footer: like button */}
+            {/* Footer: engagement actions */}
             <View style={styles.footer}>
                 <TouchableOpacity
-                    style={styles.likeButton}
+                    style={styles.action}
                     onPress={() => onLikeToggle(post)}
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -105,19 +115,38 @@ export function PostCard({ post, onLikeToggle, onDelete, currentUserId }: PostCa
                         color={post.likedByMe ? Theme.colors.danger : Theme.colors.secondary}
                     />
                     {post.likeCount > 0 && (
-                        <Text style={[styles.likeCount, post.likedByMe && styles.likeCountActive]}>
+                        <Text style={[styles.actionCount, post.likedByMe && styles.actionCountActive]}>
                             {post.likeCount}
                         </Text>
                     )}
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.action}
+                    onPress={openPost}
+                    disabled={!isFeed}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                    <MaterialCommunityIcons
+                        name="comment-outline"
+                        size={20}
+                        color={Theme.colors.secondary}
+                    />
+                    <Text style={styles.actionCount}>
+                        {post.commentCount > 0
+                            ? post.commentCount
+                            : isFeed ? 'Comment' : 'No comments yet'}
+                    </Text>
+                </TouchableOpacity>
             </View>
-        </TouchableOpacity>
+        </CardContainer>
     );
 }
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         padding: Theme.spacing.md,
         marginBottom: Theme.spacing.sm,
@@ -164,7 +193,7 @@ const styles = StyleSheet.create({
         width: '100%',
         aspectRatio: 4 / 3,
         borderRadius: Theme.borderRadius.md,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         marginBottom: Theme.spacing.sm,
     },
     caption: {
@@ -176,21 +205,22 @@ const styles = StyleSheet.create({
     footer: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: Theme.spacing.lg,
         marginTop: Theme.spacing.sm,
         paddingTop: Theme.spacing.sm,
-        borderTopWidth: 1,
-        borderTopColor: Theme.colors.border,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: Theme.colors.divider,
     },
-    likeButton: {
+    action: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Theme.spacing.xs,
     },
-    likeCount: {
+    actionCount: {
         color: Theme.colors.secondary,
         fontSize: Theme.fontSize.sm,
     },
-    likeCountActive: {
+    actionCountActive: {
         color: Theme.colors.danger,
     },
 });

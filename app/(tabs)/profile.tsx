@@ -10,10 +10,10 @@ import { getWorkoutsCount, getWeekNumber } from '../../services/StatsService.Ser
 import emitter from '../../hooks/CustomEventEmitter';
 import { getStordUserData, updateProfile } from '../../services/UserService.Service';
 import { getOwnProfileStats } from '../../services/SocialService.Service';
-import { getPostsForUser, likePost, unlikePost, deletePost } from '../../services/PostService.Service';
+import { getPostsForUser, likePost, unlikePost, deletePost, appendPostPage } from '../../services/PostService.Service';
 import { pickImage, uploadAvatar } from '../../services/ImageUploadService.Service';
 import { User } from '../../interfaces/User.Interface';
-import { Post } from '../../interfaces/Post.Interface';
+import { Post, PostCommentCountChange, POST_COMMENT_COUNT_EVENT } from '../../interfaces/Post.Interface';
 import { Theme } from '../../constants/Theme';
 import { useImagePickerHost } from '../../providers/ImagePickerHostProvider';
 
@@ -134,19 +134,33 @@ export default function ProfileScreen() {
         };
     }, [load, loadPosts]);
 
+    useEffect(() => {
+        const onCommentCount = ({ postId, commentCount }: PostCommentCountChange) => {
+            setPosts(prev => prev.map(p => (p.id === postId ? { ...p, commentCount } : p)));
+        };
+        emitter.on(POST_COMMENT_COUNT_EVENT, onCommentCount);
+
+        return () => {
+            emitter.off(POST_COMMENT_COUNT_EVENT, onCommentCount);
+        };
+    }, []);
+
     const loadMorePosts = useCallback(async () => {
-        if (!user || loadingMorePosts || !hasMorePosts) return;
+        // `posts.length === 0` keeps this from fetching page 0: the list renders
+        // empty while the initial load is still in flight, and an empty FlatList
+        // fires onEndReached, which would append the page being loaded.
+        if (!user || loadingMorePosts || !hasMorePosts || postsLoading || posts.length === 0) return;
         try {
             setLoadingMorePosts(true);
             const data = await getPostsForUser(user.id, posts.length);
-            setPosts(prev => [...prev, ...data]);
+            setPosts(prev => appendPostPage(prev, data));
             setHasMorePosts(data.length === POSTS_PAGE_SIZE);
         } catch (e) {
             console.error('Error loading more posts:', e);
         } finally {
             setLoadingMorePosts(false);
         }
-    }, [user, loadingMorePosts, hasMorePosts, posts.length]);
+    }, [user, loadingMorePosts, hasMorePosts, postsLoading, posts.length]);
 
     const handleLikeToggle = useCallback(async (post: Post) => {
         setPosts(prev => prev.map(p => p.id === post.id ? {
@@ -405,7 +419,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     scrollContent: {
         paddingBottom: Theme.spacing.xl,
@@ -431,14 +445,14 @@ const styles = StyleSheet.create({
         marginLeft: Theme.spacing.xs,
     },
     input: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         color: Theme.colors.font,
         borderRadius: Theme.borderRadius.md,
         paddingHorizontal: Theme.spacing.md,
         paddingVertical: Theme.spacing.md,
         fontSize: Theme.fontSize.md,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     bioInput: {
         height: 90,
@@ -449,9 +463,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: Theme.spacing.sm,
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
         paddingVertical: Theme.spacing.md,
         paddingHorizontal: Theme.spacing.xl,
         borderRadius: Theme.borderRadius.lg,
@@ -476,9 +490,9 @@ const styles = StyleSheet.create({
         borderRadius: Theme.borderRadius.lg,
     },
     cancelBtn: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     cancelBtnText: {
         color: Theme.colors.font,
@@ -502,7 +516,7 @@ const styles = StyleSheet.create({
         width: '100%',
         marginTop: Theme.spacing.lg,
         borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
+        borderBottomColor: Theme.colors.divider,
     },
     tabBtn: {
         flex: 1,
@@ -540,7 +554,7 @@ const styles = StyleSheet.create({
     statTile: {
         flex: 1,
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         paddingVertical: Theme.spacing.lg,
         ...Theme.shadows.small,
@@ -558,7 +572,7 @@ const styles = StyleSheet.create({
     },
     trendCard: {
         width: '100%',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         padding: Theme.spacing.md,
         marginTop: Theme.spacing.md,

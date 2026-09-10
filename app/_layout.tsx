@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     headerRight: {
         position: 'absolute',
@@ -189,12 +189,12 @@ const styles = StyleSheet.create({
     appContainer: {
         flex: 1,
         paddingTop: StatusBar.currentHeight || 0,
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
     },
     loadingContainer: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
 });

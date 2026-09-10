@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
+import { EmptyState } from '../ui/EmptyState';
+import { SearchBar } from '../ui/SearchBar';
+import { SelectRow } from '../ui/SelectRow';
 import { Workout } from '../../interfaces/Workout.Interface';
 
 interface DayWorkoutPickerProps {
@@ -35,64 +38,36 @@ export function DayWorkoutPicker({ visible, dayLabel, workouts, selectedWorkoutI
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.searchContainer}>
-                        <MaterialCommunityIcons name="magnify" size={20} color={Theme.colors.font + '80'} style={styles.searchIcon} />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Search workouts..."
-                            placeholderTextColor={Theme.colors.font + '60'}
-                            value={search}
-                            onChangeText={setSearch}
-                        />
-                        {search.length > 0 && (
-                            <TouchableOpacity onPress={() => setSearch('')}>
-                                <MaterialCommunityIcons name="close-circle" size={20} color={Theme.colors.font + '80'} />
-                            </TouchableOpacity>
-                        )}
-                    </View>
+                    <SearchBar
+                        value={search}
+                        onChangeText={setSearch}
+                        placeholder="Search workouts..."
+                    />
 
                     <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-                        <TouchableOpacity
+                        <SelectRow
+                            icon="sleep"
+                            label="Rest day"
+                            selected={selectedWorkoutId === null}
                             onPress={() => onSelect(null)}
-                            style={[styles.option, selectedWorkoutId === null && styles.optionSelected]}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons name="sleep" size={22} color={Theme.colors.font + '80'} />
-                            <Text style={styles.optionText}>Rest day</Text>
-                            {selectedWorkoutId === null && (
-                                <MaterialCommunityIcons name="check-circle" size={22} color={Theme.colors.green} />
-                            )}
-                        </TouchableOpacity>
+                        />
 
                         {filteredWorkouts.length === 0 ? (
-                            <View style={styles.emptyContainer}>
-                                <MaterialCommunityIcons name="weight-lifter" size={40} color={Theme.colors.font + '40'} />
-                                <Text style={styles.emptyText}>
-                                    {search ? 'No workouts found' : 'No workouts yet'}
-                                </Text>
-                            </View>
+                            <EmptyState
+                                icon="weight-lifter"
+                                size="compact"
+                                title={search ? 'No workouts found' : 'No workouts yet'}
+                            />
                         ) : (
-                            filteredWorkouts.map((workout) => {
-                                const isSelected = selectedWorkoutId === workout.id;
-                                return (
-                                    <TouchableOpacity
-                                        key={workout.id}
-                                        onPress={() => onSelect(workout)}
-                                        style={[styles.option, isSelected && styles.optionSelected]}
-                                        activeOpacity={0.7}
-                                    >
-                                        <MaterialCommunityIcons
-                                            name="weight-lifter"
-                                            size={22}
-                                            color={isSelected ? Theme.colors.green : Theme.colors.font}
-                                        />
-                                        <Text style={styles.optionText}>{workout.worName}</Text>
-                                        {isSelected && (
-                                            <MaterialCommunityIcons name="check-circle" size={22} color={Theme.colors.green} />
-                                        )}
-                                    </TouchableOpacity>
-                                );
-                            })
+                            filteredWorkouts.map((workout) => (
+                                <SelectRow
+                                    key={workout.id}
+                                    icon="weight-lifter"
+                                    label={workout.worName}
+                                    selected={selectedWorkoutId === workout.id}
+                                    onPress={() => onSelect(workout)}
+                                />
+                            ))
                         )}
                     </ScrollView>
                 </View>
@@ -104,11 +79,11 @@ export function DayWorkoutPicker({ visible, dayLabel, workouts, selectedWorkoutI
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backgroundColor: Theme.colors.overlay,
         justifyContent: 'flex-end',
     },
     container: {
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         borderTopLeftRadius: Theme.borderRadius.lg,
         borderTopRightRadius: Theme.borderRadius.lg,
         maxHeight: '80%',
@@ -119,69 +94,18 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: Theme.spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.lessDark,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: Theme.colors.divider,
     },
     title: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.bold,
+        ...Theme.typography.cardTitle,
         flex: 1,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
-        margin: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
-        paddingHorizontal: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.md,
-        gap: Theme.spacing.sm,
-    },
-    searchIcon: {
-        marginRight: Theme.spacing.xs,
-    },
-    searchInput: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        paddingVertical: Theme.spacing.sm,
     },
     list: {
         flex: 1,
     },
     listContent: {
-        padding: Theme.spacing.sm,
+        paddingVertical: Theme.spacing.xs,
         paddingBottom: Theme.spacing.xl,
-    },
-    option: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: Theme.spacing.md,
-        backgroundColor: Theme.colors.lessDark,
-        borderRadius: Theme.borderRadius.md,
-        marginBottom: Theme.spacing.sm,
-        gap: Theme.spacing.md,
-        borderWidth: 2,
-        borderColor: 'transparent',
-    },
-    optionSelected: {
-        backgroundColor: Theme.colors.green + '20',
-        borderColor: Theme.colors.green,
-    },
-    optionText: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: Theme.spacing.xl * 2,
-        gap: Theme.spacing.sm,
-    },
-    emptyText: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.md,
     },
 });

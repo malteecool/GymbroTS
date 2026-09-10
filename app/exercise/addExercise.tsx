@@ -5,12 +5,13 @@ import { User } from "../../interfaces/User.Interface";
 import { addExercise, getDefaultExercises, getExercises } from "../../services/ExerciseService.Service";
 import { getStordUserData } from "../../services/UserService.Service";
 import { attachToWorkout } from "../../services/WorkoutService.Service";
-import { Theme, Styles } from "../../constants/Theme";
-import { Card } from "@rneui/themed";
+import { Styles } from "../../constants/Theme";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { SearchBar } from "../../components/ui/SearchBar";
+import { SelectRow } from "../../components/ui/SelectRow";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState, useCallback } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { ScrollView, View } from "react-native";
 
 export default function AddExerciseScreen() {
     const [isLoading, setLoading] = useState<boolean>(false);
@@ -102,105 +103,41 @@ export default function AddExerciseScreen() {
     }
 
     return (
-        <View style={styles.container}>
-            <View style={styles.searchContainer}>
-                <MaterialCommunityIcons
-                    name="magnify"
-                    size={20}
-                    color={Theme.colors.font + '80'}
-                    style={styles.searchIcon}
-                />
-                <TextInput
-                    onChangeText={searchFilterFunction}
-                    value={search}
-                    style={styles.searchInput}
-                    placeholder='Search exercises...'
-                    placeholderTextColor={Theme.colors.font + '60'}
-                    autoCapitalize="none"
-                />
-                {search.length > 0 && (
-                    <TouchableOpacity
-                        onPress={() => searchFilterFunction('')}
-                        style={styles.clearButton}
-                    >
-                        <MaterialCommunityIcons
-                            name="close-circle"
-                            size={20}
-                            color={Theme.colors.font + '80'}
-                        />
-                    </TouchableOpacity>
-                )}
-            </View>
+        <View style={Styles.screen}>
+            <SearchBar
+                value={search}
+                onChangeText={searchFilterFunction}
+                placeholder='Search exercises...'
+            />
 
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView contentContainerStyle={Styles.listContent} keyboardShouldPersistTaps="handled">
                 {filteredDataSource.length > 0 ? (
                     filteredDataSource.map((item: Exercise, i: number) => (
-                        <TouchableOpacity
+                        <SelectRow
                             key={item.id || i}
+                            icon="dumbbell"
+                            label={item.exeName}
+                            trailingIcon="chevron-right"
                             onPress={() => onAddExercise(item.exeName, item.id)}
-                            activeOpacity={0.7}
-                        >
-                            <Card containerStyle={styles.exerciseCard}>
-                                <View style={styles.exerciseContent}>
-                                    <MaterialCommunityIcons
-                                        name="dumbbell"
-                                        size={24}
-                                        color={Theme.colors.font}
-                                    />
-                                    <Text style={styles.exerciseText}>
-                                        {item.exeName}
-                                    </Text>
-                                    <MaterialCommunityIcons
-                                        name="chevron-right"
-                                        size={20}
-                                        color={Theme.colors.font + '60'}
-                                    />
-                                </View>
-                            </Card>
-                        </TouchableOpacity>
+                        />
                     ))
                 ) : (
                     <View>
-                        <TouchableOpacity
-                            onPress={() => onAddExercise(search)}
+                        <SelectRow
+                            icon="plus-circle"
+                            label={search.trim()
+                                ? `Add new: ${search}`
+                                : 'Search for an exercise or type to add new'}
                             disabled={!search.trim()}
-                            activeOpacity={0.7}
-                        >
-                            <Card containerStyle={[
-                                styles.exerciseCard,
-                                !search.trim() && styles.disabledCard
-                            ]}>
-                                <View style={styles.addNewContainer}>
-                                    <MaterialCommunityIcons
-                                        name="plus-circle"
-                                        size={24}
-                                        color={Theme.colors.font}
-                                    />
-                                    <Text style={styles.exerciseText}>
-                                        {search.trim()
-                                            ? `Add new: ${search}`
-                                            : 'Search for an exercise or type to add new'}
-                                    </Text>
-                                </View>
-                            </Card>
-                        </TouchableOpacity>
+                            onPress={() => onAddExercise(search)}
+                        />
                         {!search.trim() && (
-                            <View style={styles.emptyContainer}>
-                                <MaterialCommunityIcons
-                                    name="dumbbell"
-                                    size={48}
-                                    color={Theme.colors.font + '40'}
-                                />
-                                <Text style={styles.emptyText}>
-                                    No exercises found
-                                </Text>
-                                <Text style={styles.emptySubtext}>
-                                    Type an exercise name above to create a new one
-                                </Text>
-                            </View>
+                            <EmptyState
+                                icon="dumbbell"
+                                size="compact"
+                                title="No exercises found"
+                                subtitle="Type an exercise name above to create a new one"
+                            />
                         )}
                     </View>
                 )}
@@ -208,81 +145,3 @@ export default function AddExerciseScreen() {
         </View>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
-        margin: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
-        paddingHorizontal: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.md,
-        gap: Theme.spacing.sm,
-    },
-    searchIcon: {
-        marginRight: Theme.spacing.xs,
-    },
-    searchInput: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        paddingVertical: Theme.spacing.sm,
-    },
-    clearButton: {
-        padding: Theme.spacing.xs,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingBottom: Theme.spacing.xl,
-    },
-    exerciseCard: {
-        marginHorizontal: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-        backgroundColor: Theme.colors.lessDark,
-        padding: Theme.spacing.md,
-    },
-    exerciseContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.md,
-    },
-    exerciseText: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-    },
-    addNewContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.md,
-    },
-    disabledCard: {
-        opacity: 0.5,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: Theme.spacing.xl * 2,
-        paddingHorizontal: Theme.spacing.xl,
-    },
-    emptyText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.semibold,
-        marginTop: Theme.spacing.md,
-    },
-    emptySubtext: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.sm,
-        marginTop: Theme.spacing.xs,
-        textAlign: 'center',
-    },
-});

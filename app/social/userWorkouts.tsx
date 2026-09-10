@@ -181,13 +181,13 @@ export default function UserWorkoutsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     centered: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     list: {
         padding: Theme.spacing.md,
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     card: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         padding: Theme.spacing.md,
         marginBottom: Theme.spacing.sm,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     followBtn: {
         backgroundColor: 'transparent',
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     followBtnText: {
         color: Theme.colors.font,

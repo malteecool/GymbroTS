@@ -194,7 +194,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     scrollContent: {
         flexGrow: 1,
@@ -231,9 +231,9 @@ const styles = StyleSheet.create({
         marginBottom: Theme.spacing.md,
     },
     input: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
         borderRadius: Theme.borderRadius.md,
         padding: Theme.spacing.md,
         color: Theme.colors.font,
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
         marginRight: Theme.spacing.sm,
     },
     magicLinkButton: {
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     magicLinkButtonText: {
         color: Theme.colors.dark,
@@ -267,9 +267,9 @@ const styles = StyleSheet.create({
         fontWeight: Theme.fontWeight.semibold,
     },
     googleButton: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     googleButtonText: {
         color: Theme.colors.font,

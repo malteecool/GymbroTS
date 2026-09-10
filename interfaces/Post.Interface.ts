@@ -15,4 +15,13 @@ export interface Post {
     workoutName: string | null;
     likeCount: number;
     likedByMe: boolean;
+    commentCount: number;
+}
+
+/** Emitted on the app event bus when a post's comment count changes. */
+export const POST_COMMENT_COUNT_EVENT = 'postCommentCountChanged';
+
+export interface PostCommentCountChange {
+    postId: string;
+    commentCount: number;
 }

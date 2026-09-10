@@ -46,3 +46,6 @@ my-release-key.keystore
 firebaseConfig.js
 
 migration/.env.migration
+# JVM crash dumps (Gradle/Android builds)
+hs_err_pid*.log
+replay_pid*.log

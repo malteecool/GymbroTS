@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
-import { Card, Button } from '@rneui/themed';
+import { Button } from '@rneui/themed';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
 import { Theme, Styles } from '../../constants/Theme';
@@ -131,7 +131,7 @@ export default function CreateSplitScreen() {
 
                     return (
                         <View key={day} style={styles.dayContainer}>
-                            <Card containerStyle={Styles.card}>
+                            <View style={Styles.card}>
                                 <View style={styles.dayHeader}>
                                     <View style={styles.dayTitleContainer}>
                                         <MaterialCommunityIcons
@@ -179,7 +179,7 @@ export default function CreateSplitScreen() {
                                             <MaterialCommunityIcons
                                                 name="plus-circle-outline"
                                                 size={20}
-                                                color={Theme.colors.font + '80'}
+                                                color={Theme.colors.textMuted}
                                             />
                                             <Text style={styles.emptyText}>
                                                 Tap to select workout
@@ -189,10 +189,10 @@ export default function CreateSplitScreen() {
                                     <MaterialCommunityIcons
                                         name="chevron-right"
                                         size={20}
-                                        color={Theme.colors.font + '60'}
+                                        color={Theme.colors.textMuted}
                                     />
                                 </TouchableOpacity>
-                            </Card>
+                            </View>
                         </View>
                     );
                 })}
@@ -225,7 +225,7 @@ export default function CreateSplitScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     scrollView: {
         flex: 1,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     },
     infoContainer: {
         flexDirection: 'row',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         padding: Theme.spacing.md,
         margin: Theme.spacing.sm,
         borderRadius: Theme.borderRadius.md,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: Theme.spacing.md,
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         borderWidth: 2,
         borderColor: Theme.colors.lessDark,
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
         fontWeight: Theme.fontWeight.semibold,
     },
     emptyText: {
-        color: Theme.colors.font + '80',
+        color: Theme.colors.textMuted,
         fontSize: Theme.fontSize.md,
         fontStyle: 'italic',
     },
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         padding: Theme.spacing.md,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         ...Theme.shadows.medium,
     },
     saveButton: {

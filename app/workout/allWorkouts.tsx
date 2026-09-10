@@ -1,15 +1,16 @@
-import { Alert, RefreshControl, ScrollView, StyleSheet, TextInput, TouchableOpacity, View, Text } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import React, { useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import emitter from '../../hooks/CustomEventEmitter';
 import { removeWorkout as removeWorkoutService, getWorkouts } from '../../services/WorkoutService.Service';
-import { Theme } from '../../constants/Theme';
+import { Theme, Styles } from '../../constants/Theme';
 import { LoadingIndicator } from '../../components/ui/LoadingIndicator';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { SearchBar } from '../../components/ui/SearchBar';
 import { getStordUserData } from '../../services/UserService.Service';
 import { User } from '../../interfaces/User.Interface';
 import { Workout } from '../../interfaces/Workout.Interface';
 import { router, useNavigation } from 'expo-router';
-import { Divider } from '@rneui/base';
 import { WorkoutListItem } from '../../components/Workout/WorkoutListItem';
 
 export default function AllWorkoutsScreen() {
@@ -131,54 +132,24 @@ export default function AllWorkoutsScreen() {
     }
 
     return (
-        <View style={styles.container}>
-            <View style={styles.searchContainer}>
-                <MaterialCommunityIcons
-                    name="magnify"
-                    size={20}
-                    color={Theme.colors.font}
-                    style={styles.searchIcon}
-                />
-                <TextInput
-                    onChangeText={searchFilterFunction}
-                    value={search}
-                    style={styles.searchBar}
-                    placeholder='Search workouts...'
-                    placeholderTextColor={Theme.colors.font + '80'}
-                />
-                {search.length > 0 && (
-                    <TouchableOpacity
-                        onPress={() => searchFilterFunction('')}
-                        style={styles.clearButton}
-                    >
-                        <MaterialCommunityIcons
-                            name="close-circle"
-                            size={20}
-                            color={Theme.colors.font}
-                        />
-                    </TouchableOpacity>
-                )}
-            </View>
-            <Divider width={1} color={Theme.colors.dark} />
+        <View style={Styles.screen}>
+            <SearchBar
+                value={search}
+                onChangeText={searchFilterFunction}
+                placeholder='Search workouts...'
+            />
             <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={Styles.listContent}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
                 {filteredDataSource.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <MaterialCommunityIcons
-                            name="weight-lifter"
-                            size={64}
-                            color={Theme.colors.font + '40'}
-                        />
-                        <Text style={styles.emptyText}>
-                            {search ? 'No workouts found' : 'No workouts yet'}
-                        </Text>
-                        <Text style={styles.emptySubtext}>
-                            {search ? 'Try a different search term' : 'Tap the + button to create your first workout'}
-                        </Text>
-                    </View>
+                    <EmptyState
+                        icon="weight-lifter"
+                        title={search ? 'No workouts found' : 'No workouts yet'}
+                        subtitle={search
+                            ? 'Try a different search term'
+                            : 'Tap the + button to create your first workout'}
+                    />
                 ) : (
                     filteredDataSource.map((item: Workout) => (
                         <WorkoutListItem
@@ -200,57 +171,6 @@ export default function AllWorkoutsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
-        paddingHorizontal: Theme.spacing.md,
-        paddingVertical: Theme.spacing.sm,
-        marginHorizontal: Theme.spacing.xs,
-        marginTop: Theme.spacing.xs,
-        borderRadius: Theme.borderRadius.md,
-    },
-    searchIcon: {
-        marginRight: Theme.spacing.sm,
-    },
-    searchBar: {
-        flex: 1,
-        height: 40,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-    },
-    clearButton: {
-        marginLeft: Theme.spacing.sm,
-        padding: Theme.spacing.xs,
-    },
-    scrollView: {
-        width: '100%',
-    },
-    scrollContent: {
-        paddingBottom: Theme.spacing.xl,
-    },
-    emptyContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: Theme.spacing.xl * 2,
-    },
-    emptyText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.semibold,
-        marginTop: Theme.spacing.md,
-    },
-    emptySubtext: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.md,
-        marginTop: Theme.spacing.xs,
-        textAlign: 'center',
-    },
     headerButton: {
         paddingRight: Theme.spacing.md,
     },

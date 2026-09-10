@@ -4,7 +4,8 @@ import emitter from "../../hooks/CustomEventEmitter";
 import { Exercise } from "../../interfaces/Exercise.Interface";
 import { ExerciseHistory } from "../../interfaces/ExerciseHistory.Interface";
 import { getExerciseById, getHistory } from "../../services/ExerciseService.Service";
-import { Theme } from "../../constants/Theme";
+import { Styles, Theme } from "../../constants/Theme";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState, useCallback } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -94,21 +95,15 @@ export default function ExerciseDetails() {
             />
             <View style={styles.content}>
                 {isEmpty ? (
-                    <View style={styles.emptyContainer}>
-                        <MaterialCommunityIcons
-                            name="dumbbell"
-                            size={64}
-                            color={Theme.colors.font + '40'}
-                        />
-                        <Text style={styles.emptyText}>No sets yet</Text>
-                        <Text style={styles.emptySubtext}>
-                            Tap the + button to add your first set
-                        </Text>
-                    </View>
+                    <EmptyState
+                        icon="dumbbell"
+                        title="No sets yet"
+                        subtitle="Tap the + button to add your first set"
+                        style={styles.emptyState}
+                    />
                 ) : (
                     <ScrollView
-                        style={styles.scrollView}
-                        contentContainerStyle={styles.scrollContent}
+                        contentContainerStyle={Styles.listContent}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                         }
@@ -130,41 +125,16 @@ export default function ExerciseDetails() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
+    container: Styles.screen,
     content: {
         flex: 1,
         width: '100%',
     },
-    scrollView: {
-        width: '100%',
-    },
-    scrollContent: {
-        paddingBottom: Theme.spacing.xl,
-    },
-    emptyContainer: {
+    emptyState: {
         flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: Theme.spacing.xl * 2,
-    },
-    emptyText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.semibold,
-        marginTop: Theme.spacing.md,
-    },
-    emptySubtext: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.md,
-        marginTop: Theme.spacing.xs,
-        textAlign: 'center',
     },
     errorText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
+        ...Theme.typography.body,
         textAlign: 'center',
         marginTop: Theme.spacing.xl,
     },

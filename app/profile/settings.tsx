@@ -116,20 +116,20 @@ export default function ProfileSettingsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         padding: Theme.spacing.md,
     },
     centered: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     visibilityRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         paddingVertical: Theme.spacing.md,
         paddingHorizontal: Theme.spacing.md,
         borderRadius: Theme.borderRadius.md,

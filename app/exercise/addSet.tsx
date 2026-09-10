@@ -3,7 +3,9 @@ import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
 import emitter from "../../hooks/CustomEventEmitter";
 import { Exercise } from "../../interfaces/Exercise.Interface";
 import { addExerciseHistory, getExerciseById } from "../../services/ExerciseService.Service";
-import { Theme } from "../../constants/Theme";
+import { PersonalRecordSharePrompt } from "../../components/Social/AchievementSharePrompt";
+import { PersonalRecord } from "../../interfaces/Achievement.Interface";
+import { Styles, Theme } from "../../constants/Theme";
 import { Button } from "@rneui/themed";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -14,6 +16,7 @@ export default function AddSetScreen() {
     const [isLoading, setLoading] = useState(false);
     const [exercise, setExercise] = useState<Exercise | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [pendingRecords, setPendingRecords] = useState<PersonalRecord[]>([]);
 
     const setsRef = useRef<SetsRef>(null);
 
@@ -53,11 +56,18 @@ export default function AddSetScreen() {
                 return;
             }
 
-            const success = await addExerciseHistory(exercise, sets, comment);
+            const { success, personalRecords } = await addExerciseHistory(exercise, sets, comment);
             if (success) {
                 emitter.emit('setEvent', 0);
                 emitter.emit('workoutEvent', 0);
-                router.back();
+
+                // The sets are saved either way; a PR just holds the screen open
+                // long enough to ask whether to share it.
+                if (personalRecords.length > 0) {
+                    setPendingRecords(personalRecords);
+                } else {
+                    router.back();
+                }
             } else {
                 Alert.alert('Error', 'Failed to save exercise history. Please try again.');
             }
@@ -68,6 +78,11 @@ export default function AddSetScreen() {
             setIsSubmitting(false);
         }
     }, [exercise]);
+
+    const dismissRecordPrompt = useCallback(() => {
+        setPendingRecords([]);
+        router.back();
+    }, []);
 
     if (isLoading) {
         return <LoadingIndicator text='Loading exercise...' />;
@@ -106,19 +121,24 @@ export default function AddSetScreen() {
                     />
                 </View>
             </View>
+
+            <PersonalRecordSharePrompt
+                visible={pendingRecords.length > 0}
+                records={pendingRecords}
+                onClose={dismissRecordPrompt}
+                onShared={dismissRecordPrompt}
+            />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
+    container: Styles.screen,
     content: {
         flex: 1,
     },
     scrollContent: {
+        paddingTop: Theme.spacing.xs,
         paddingBottom: 120,
     },
     buttonContainer: {
@@ -126,7 +146,7 @@ const styles = StyleSheet.create({
         width: '100%',
         bottom: 0,
         padding: Theme.spacing.md,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         ...Theme.shadows.medium,
     },
     button: {
@@ -136,13 +156,12 @@ const styles = StyleSheet.create({
         ...Theme.shadows.large,
     },
     buttonText: {
-        color: Theme.colors.dark,
+        color: Theme.colors.textOnAccent,
         fontSize: Theme.fontSize.lg,
         fontWeight: Theme.fontWeight.bold,
     },
     errorText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
+        ...Theme.typography.body,
         textAlign: 'center',
         marginTop: Theme.spacing.xl,
     },

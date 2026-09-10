@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Card } from '@rneui/themed';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Theme, Styles } from '../../constants/Theme';
-import { NumberStepper } from '../ui/NumberStepper';
+import { SetField, SetTable } from './SetTable';
+import { MetaRow } from '../ui/MetaRow';
 import { addExerciseHistory, getLastLoggedSession } from '../../services/ExerciseService.Service';
+import { PersonalRecord } from '../../interfaces/Achievement.Interface';
 import { WorkoutExercise } from '../../interfaces/WorkoutExercise.Interface';
 import { Set as WorkoutSet } from '../../interfaces/Set.Interface';
 import { ExerciseHistory } from '../../interfaces/ExerciseHistory.Interface';
@@ -22,11 +23,17 @@ interface ActiveExerciseCardProps {
     onMoveDown: () => void;
     onDelete: () => void;
     onLogged: () => void;
+    /**
+     * Raised when the saved session beat a record. The sheet is rendered by the
+     * screen, not here: this card lives inside a clipped, scrolling container,
+     * so a full-screen overlay mounted from it would be cut off at the card.
+     */
+    onPersonalRecords: (records: PersonalRecord[]) => void;
 }
 
 export function ActiveExerciseCard({
     exercise, isFirst, isLast, editMode, expanded, alreadyLoggedToday,
-    onToggleExpand, onMoveUp, onMoveDown, onDelete, onLogged,
+    onToggleExpand, onMoveUp, onMoveDown, onDelete, onLogged, onPersonalRecords,
 }: ActiveExerciseCardProps) {
     const [sets, setSets] = useState<WorkoutSet[]>([{ setWeight: 0, setReps: 0, setOrder: 1 }]);
     const [comment, setComment] = useState<string>('');
@@ -69,7 +76,7 @@ export function ActiveExerciseCard({
     const displayWeight = Math.max(exercise.exeMaxWeight ?? 0, sessionMaxWeight);
     const displayDate = saved ? new Date().toDateString() : exerciseDate;
 
-    const updateSet = (index: number, field: 'setWeight' | 'setReps', value: number) => {
+    const updateSet = (index: number, field: SetField, value: number) => {
         setSets((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
     };
 
@@ -92,10 +99,11 @@ export function ActiveExerciseCard({
 
         try {
             setSaving(true);
-            const success = await addExerciseHistory(exercise, sets, comment);
+            const { success, personalRecords } = await addExerciseHistory(exercise, sets, comment);
             if (success) {
                 setSaved(true);
                 onLogged();
+                if (personalRecords.length > 0) onPersonalRecords(personalRecords);
             } else {
                 Alert.alert('Error', 'Failed to save sets. Please try again.');
             }
@@ -108,7 +116,7 @@ export function ActiveExerciseCard({
     };
 
     return (
-        <Card containerStyle={Styles.card}>
+        <View style={Styles.card}>
             <TouchableOpacity
                 onPress={editMode ? undefined : onToggleExpand}
                 activeOpacity={editMode ? 1 : 0.7}
@@ -122,21 +130,16 @@ export function ActiveExerciseCard({
                                     name="check-circle"
                                     size={16}
                                     color={Theme.colors.green}
-                                    style={styles.savedIcon}
                                 />
                             )}
                             <Text style={styles.exerciseName}>{exercise.exeName}</Text>
                         </View>
-                        <View style={styles.metaRow}>
-                            <View style={styles.metaItem}>
-                                <MaterialCommunityIcons name="weight-kilogram" size={16} color={Theme.colors.font} />
-                                <Text style={styles.metaText}>{displayWeight}kg</Text>
-                            </View>
-                            <View style={styles.metaItem}>
-                                <MaterialCommunityIcons name="calendar-range" size={16} color={Theme.colors.font} />
-                                <Text style={styles.metaText}>{displayDate}</Text>
-                            </View>
-                        </View>
+                        <MetaRow
+                            items={[
+                                { icon: 'weight-kilogram', label: `${displayWeight} kg` },
+                                { icon: 'calendar-range', label: displayDate },
+                            ]}
+                        />
                     </View>
                     {editMode ? (
                         <View style={styles.exerciseActions}>
@@ -149,7 +152,7 @@ export function ActiveExerciseCard({
                                 <MaterialCommunityIcons
                                     name='arrow-up'
                                     size={20}
-                                    color={isFirst ? Theme.colors.font + '40' : Theme.colors.font}
+                                    color={isFirst ? Theme.colors.textDisabled : Theme.colors.textPrimary}
                                 />
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -161,7 +164,7 @@ export function ActiveExerciseCard({
                                 <MaterialCommunityIcons
                                     name='arrow-down'
                                     size={20}
-                                    color={isLast ? Theme.colors.font + '40' : Theme.colors.font}
+                                    color={isLast ? Theme.colors.textDisabled : Theme.colors.textPrimary}
                                 />
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -176,7 +179,7 @@ export function ActiveExerciseCard({
                         <MaterialCommunityIcons
                             name={expanded ? 'chevron-up' : 'chevron-down'}
                             size={24}
-                            color={Theme.colors.font + '80'}
+                            color={Theme.colors.textMuted}
                         />
                     )}
                 </View>
@@ -188,7 +191,7 @@ export function ActiveExerciseCard({
                         <Text style={styles.lastSessionText}>Loading last time...</Text>
                     ) : lastSession ? (
                         <View style={styles.lastSessionRow}>
-                            <MaterialCommunityIcons name="history" size={14} color={Theme.colors.font + '80'} />
+                            <MaterialCommunityIcons name="history" size={14} color={Theme.colors.textMuted} />
                             <Text style={styles.lastSessionText} numberOfLines={1}>
                                 Last time ({new Date(lastSession.exhDate).toDateString()}): {' '}
                                 {lastSession.exhSets.map((s) => `${s.setWeight}×${s.setReps}`).join(', ')}
@@ -203,40 +206,18 @@ export function ActiveExerciseCard({
                         <MaterialCommunityIcons name="chevron-right" size={14} color={Theme.colors.accent} />
                     </TouchableOpacity>
 
-                    <View style={styles.setsHeaderRow}>
-                        <Text style={[styles.colLabel, styles.setIndexCol]}>SET</Text>
-                        <Text style={styles.colLabel}>WEIGHT</Text>
-                        <Text style={styles.colLabel}>REPS</Text>
-                        <View style={styles.removeCol} />
-                    </View>
-                    {sets.map((set, i) => (
-                        <View key={i} style={styles.setRow}>
-                            <Text style={[styles.setIndex, styles.setIndexCol]}>{i + 1}</Text>
-                            <View style={styles.stepperCol}>
-                                <NumberStepper value={set.setWeight} step={2.5} onChange={(v) => updateSet(i, 'setWeight', v)} />
-                            </View>
-                            <View style={styles.stepperCol}>
-                                <NumberStepper value={set.setReps} step={1} onChange={(v) => updateSet(i, 'setReps', v)} />
-                            </View>
-                            <TouchableOpacity
-                                onPress={() => removeSet(i)}
-                                style={styles.removeCol}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                                <MaterialCommunityIcons name="close" size={16} color={Theme.colors.font + '80'} />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-
-                    <TouchableOpacity style={styles.addSetButton} onPress={addSet} activeOpacity={0.7}>
-                        <MaterialCommunityIcons name="plus" size={16} color={Theme.colors.font} />
-                        <Text style={styles.addSetText}>Add set</Text>
-                    </TouchableOpacity>
+                    <SetTable
+                        sets={sets}
+                        editable
+                        onChange={updateSet}
+                        onRemove={removeSet}
+                        onAdd={addSet}
+                    />
 
                     <TextInput
                         style={styles.commentInput}
                         placeholder="Add a note (optional)"
-                        placeholderTextColor={Theme.colors.font + '60'}
+                        placeholderTextColor={Theme.colors.textMuted}
                         value={comment}
                         onChangeText={setComment}
                     />
@@ -248,10 +229,10 @@ export function ActiveExerciseCard({
                         activeOpacity={0.8}
                     >
                         {saving ? (
-                            <ActivityIndicator size="small" color={Theme.colors.dark} />
+                            <ActivityIndicator size="small" color={Theme.colors.textOnAccent} />
                         ) : (
                             <>
-                                <MaterialCommunityIcons name="check" size={18} color={Theme.colors.dark} />
+                                <MaterialCommunityIcons name="check" size={18} color={Theme.colors.textOnAccent} />
                                 <Text style={styles.saveButtonText}>
                                     Log {sets.length} set{sets.length !== 1 ? 's' : ''}
                                 </Text>
@@ -260,7 +241,7 @@ export function ActiveExerciseCard({
                     </TouchableOpacity>
                 </View>
             )}
-        </Card>
+        </View>
     );
 }
 
@@ -269,6 +250,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        gap: Theme.spacing.sm,
     },
     headerInfo: {
         flex: 1,
@@ -276,36 +258,16 @@ const styles = StyleSheet.create({
     nameRow: {
         flexDirection: 'row',
         alignItems: 'center',
-    },
-    savedIcon: {
-        marginRight: Theme.spacing.xs,
-    },
-    exerciseName: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.semibold,
-        marginLeft: Theme.spacing.sm,
-    },
-    metaRow: {
-        flexDirection: 'row',
-        marginTop: Theme.spacing.xs,
-        marginLeft: Theme.spacing.sm,
-        gap: Theme.spacing.md,
-    },
-    metaItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
         gap: Theme.spacing.xs,
     },
-    metaText: {
-        ...Styles.fontColor,
-        fontSize: Theme.fontSize.sm,
+    exerciseName: {
+        ...Theme.typography.cardTitle,
+        flexShrink: 1,
     },
     exerciseActions: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Theme.spacing.sm,
-        marginLeft: Theme.spacing.sm,
     },
     actionButton: {
         padding: Theme.spacing.xs,
@@ -313,8 +275,8 @@ const styles = StyleSheet.create({
     expandedContent: {
         marginTop: Theme.spacing.md,
         paddingTop: Theme.spacing.md,
-        borderTopWidth: 1,
-        borderTopColor: Theme.colors.dark,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: Theme.colors.divider,
     },
     lastSessionRow: {
         flexDirection: 'row',
@@ -323,85 +285,31 @@ const styles = StyleSheet.create({
         marginBottom: Theme.spacing.xs,
     },
     lastSessionText: {
+        ...Theme.typography.caption,
         flex: 1,
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.xs,
     },
     fullHistoryLink: {
         flexDirection: 'row',
         alignItems: 'center',
         alignSelf: 'flex-start',
         gap: 2,
-        marginBottom: Theme.spacing.sm,
+        marginBottom: Theme.spacing.md,
     },
     fullHistoryLinkText: {
         color: Theme.colors.accent,
         fontSize: Theme.fontSize.xs,
         fontWeight: Theme.fontWeight.semibold,
     },
-    setsHeaderRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.sm,
-        marginBottom: Theme.spacing.xs,
-    },
-    colLabel: {
-        flex: 1,
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.xs,
-        fontWeight: Theme.fontWeight.semibold,
-        textAlign: 'center',
-    },
-    setIndexCol: {
-        flex: 0,
-        width: 24,
-        textAlign: 'center',
-    },
-    stepperCol: {
-        flex: 1,
-    },
-    removeCol: {
-        flex: 0,
-        width: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    setRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.sm,
-        marginBottom: Theme.spacing.sm,
-    },
-    setIndex: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.sm,
-        fontWeight: Theme.fontWeight.semibold,
-    },
-    addSetButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: Theme.spacing.xs,
-        paddingVertical: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        marginBottom: Theme.spacing.sm,
-    },
-    addSetText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.sm,
-        fontWeight: Theme.fontWeight.medium,
-    },
     commentInput: {
-        backgroundColor: Theme.colors.dark,
-        color: Theme.colors.font,
+        backgroundColor: Theme.colors.surfaceSunken,
+        color: Theme.colors.textPrimary,
         borderRadius: Theme.borderRadius.md,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
         paddingHorizontal: Theme.spacing.md,
         paddingVertical: Theme.spacing.sm,
         fontSize: Theme.fontSize.sm,
+        marginTop: Theme.spacing.md,
         marginBottom: Theme.spacing.sm,
     },
     saveButton: {
@@ -417,7 +325,7 @@ const styles = StyleSheet.create({
         opacity: 0.7,
     },
     saveButtonText: {
-        color: Theme.colors.dark,
+        color: Theme.colors.textOnAccent,
         fontSize: Theme.fontSize.md,
         fontWeight: Theme.fontWeight.bold,
     },

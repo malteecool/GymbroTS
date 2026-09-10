@@ -114,7 +114,7 @@ export default function AddWorkout() {
                             <MaterialCommunityIcons
                                 name="check"
                                 size={26}
-                                color={canCreate ? Theme.colors.green : Theme.colors.font + '40'}
+                                color={canCreate ? Theme.colors.green : Theme.colors.textDisabled}
                             />
                         </TouchableOpacity>
                     ) : undefined,
@@ -129,7 +129,7 @@ export default function AddWorkout() {
                         indicatorStyle={styles.tabIndicator}
                         //tabStyle={styles.tabLabel}
                         activeColor={Theme.colors.font}
-                        inactiveColor={Theme.colors.font + '80'}
+                        inactiveColor={Theme.colors.textMuted}
                     />
                 )}
                 navigationState={{ index, routes }}
@@ -144,12 +144,12 @@ export default function AddWorkout() {
 const styles = StyleSheet.create({
     tabContainer: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         marginHorizontal: Theme.spacing.md,
         marginTop: Theme.spacing.sm,
         paddingHorizontal: Theme.spacing.md,
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
         marginTop: Theme.spacing.sm,
     },
     tabBar: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
     },
     tabIndicator: {
         backgroundColor: Theme.colors.green,

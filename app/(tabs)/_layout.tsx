@@ -38,6 +38,23 @@ function NotificationBellButton() {
     );
 }
 
+function SocialHeaderActions() {
+    const router = useRouter();
+
+    return (
+        <View style={styles.headerActions}>
+            <TouchableOpacity
+                style={styles.headerButton}
+                onPress={() => router.push('/social/discover')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+                <MaterialCommunityIcons name="account-search-outline" size={24} color={Theme.colors.textPrimary} />
+            </TouchableOpacity>
+            <NotificationBellButton />
+        </View>
+    );
+}
+
 function ProfileSettingsButton() {
     const router = useRouter();
 
@@ -61,7 +78,7 @@ export default function TabLayout() {
                 tabBarActiveBackgroundColor: Theme.colors.dark,
                 tabBarInactiveBackgroundColor: Theme.colors.lessDark,
                 tabBarActiveTintColor: Theme.colors.font,
-                tabBarInactiveTintColor: Theme.colors.font + '80',
+                tabBarInactiveTintColor: Theme.colors.textMuted,
                 headerShown: false,
                 tabBarStyle: {
                     borderTopWidth: 1,
@@ -77,7 +94,7 @@ export default function TabLayout() {
                     headerTitleAlign: 'center',
                     headerStatusBarHeight: 0,
                     headerStyle: {
-                        backgroundColor: Theme.colors.lessDark,
+                        backgroundColor: Theme.colors.surface,
                         borderBottomWidth: 1,
                         borderBottomColor: Theme.colors.dark,
                     },
@@ -99,7 +116,7 @@ export default function TabLayout() {
                     headerTitleAlign: 'center',
                     headerStatusBarHeight: 0,
                     headerStyle: {
-                        backgroundColor: Theme.colors.lessDark,
+                        backgroundColor: Theme.colors.surface,
                         borderBottomWidth: 1,
                         borderBottomColor: Theme.colors.dark,
                     },
@@ -120,7 +137,7 @@ export default function TabLayout() {
                     headerTitleAlign: 'center',
                     headerStatusBarHeight: 0,
                     headerStyle: {
-                        backgroundColor: Theme.colors.lessDark,
+                        backgroundColor: Theme.colors.surface,
                         borderBottomWidth: 1,
                         borderBottomColor: Theme.colors.dark,
                     },
@@ -141,7 +158,7 @@ export default function TabLayout() {
                     headerTitleAlign: 'center',
                     headerStatusBarHeight: 0,
                     headerStyle: {
-                        backgroundColor: Theme.colors.lessDark,
+                        backgroundColor: Theme.colors.surface,
                         borderBottomWidth: 1,
                         borderBottomColor: Theme.colors.dark,
                     },
@@ -162,7 +179,7 @@ export default function TabLayout() {
                     headerTitleAlign: 'center',
                     headerStatusBarHeight: 0,
                     headerStyle: {
-                        backgroundColor: Theme.colors.lessDark,
+                        backgroundColor: Theme.colors.surface,
                         borderBottomWidth: 1,
                         borderBottomColor: Theme.colors.dark,
                     },
@@ -170,7 +187,7 @@ export default function TabLayout() {
                         color: Theme.colors.font,
                         fontWeight: '600',
                     },
-                    headerRight: () => <NotificationBellButton />,
+                    headerRight: () => <SocialHeaderActions />,
                     tabBarIcon: ({ color, size }) => (
                         <TabIconWithBadge name='account-group' color={color} size={size || 26} count={unreadCount} />
                     ),
@@ -197,6 +214,10 @@ const styles = StyleSheet.create({
         color: Theme.colors.white,
         fontSize: 10,
         fontWeight: Theme.fontWeight.bold,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     headerButton: {
         marginRight: Theme.spacing.md,
