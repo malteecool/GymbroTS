@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseConfig';
 import { Post, PostType } from '../interfaces/Post.Interface';
 import { createNotification } from './NotificationService.Service';
+import { getBlockedIds } from './SocialService.Service';
 
 const PAGE_SIZE = 20;
 
@@ -30,6 +31,18 @@ function rowToPost(row: any): Post {
  * fetches shifts the window and the following page repeats a row. Callers that
  * append should go through this rather than spreading directly.
  */
+/**
+ * Excludes posts authored by blocked accounts.
+ *
+ * Applied in the query rather than after fetching so a page still comes back
+ * full — filtering afterwards would shorten pages and confuse the `hasMore`
+ * check, which compares the row count against PAGE_SIZE.
+ */
+function excludeBlockedAuthors(query: any, blockedIds: Set<string>) {
+    if (blockedIds.size === 0) return query;
+    return query.not('user_id', 'in', `(${[...blockedIds].join(',')})`);
+}
+
 export function appendPostPage(current: Post[], page: Post[]): Post[] {
     const seen = new Set(current.map(p => p.id));
     return [...current, ...page.filter(p => !seen.has(p.id))];
@@ -80,7 +93,10 @@ export async function getFeedForUser(userId: string, offset: number = 0): Promis
         .select('following_id')
         .eq('follower_id', userId);
 
-    const followingIds = (followData ?? []).map((f: any) => f.following_id);
+    const blockedIds = await getBlockedIds(userId);
+    const followingIds = (followData ?? [])
+        .map((f: any) => f.following_id)
+        .filter((id: string) => !blockedIds.has(id));
     const userIds = [...followingIds, userId];
 
     const { data, error } = await supabase
@@ -137,7 +153,10 @@ export async function getExploreFeed(offset: number = 0): Promise<Post[]> {
         .range(offset, offset + PAGE_SIZE - 1);
 
     // Explore is for finding other people, so leave the viewer's own posts out.
-    if (user) query = query.neq('user_id', user.id);
+    if (user) {
+        query = query.neq('user_id', user.id);
+        query = excludeBlockedAuthors(query, await getBlockedIds(user.id));
+    }
 
     const { data, error } = await query;
 
@@ -153,6 +172,11 @@ export async function getExploreFeed(offset: number = 0): Promise<Post[]> {
 
 export async function getPostsForUser(userId: string, offset: number = 0): Promise<Post[]> {
     const { data: { user } } = await supabase.auth.getUser();
+
+    if (user && user.id !== userId) {
+        const blockedIds = await getBlockedIds(user.id);
+        if (blockedIds.has(userId)) return [];
+    }
 
     const { data, error } = await supabase
         .from('post')
@@ -195,6 +219,12 @@ export async function getPostById(postId: string): Promise<Post | null> {
 
     if (error) throw error;
     if (!data) return null;
+
+    // Reachable by direct link or a stale notification, so check here too.
+    if (user && data.user_id !== user.id) {
+        const blockedIds = await getBlockedIds(user.id);
+        if (blockedIds.has(data.user_id)) return null;
+    }
 
     return {
         ...rowToPost(data),

@@ -11,6 +11,7 @@ interface ProfileHeaderProps {
     onAvatarPress?: () => void;
 
     name: string;
+    handle?: string;
     bio?: string | null;
     nameBioSlot?: React.ReactNode;
 
@@ -30,6 +31,7 @@ export function ProfileHeader({
     avatarUploading,
     onAvatarPress,
     name,
+    handle,
     bio,
     nameBioSlot,
     followerCount,
@@ -69,6 +71,7 @@ export function ProfileHeader({
             {nameBioSlot ?? (
                 <>
                     <Text style={styles.name}>{name}</Text>
+                    {handle ? <Text style={styles.handle}>@{handle}</Text> : null}
                     {bio ? <Text style={styles.bio}>{bio}</Text> : null}
                 </>
             )}
@@ -130,6 +133,12 @@ const styles = StyleSheet.create({
         color: Theme.colors.font,
         fontSize: Theme.fontSize.xxl,
         fontWeight: Theme.fontWeight.bold,
+        textAlign: 'center',
+        marginBottom: Theme.spacing.xs,
+    },
+    handle: {
+        color: Theme.colors.textMuted,
+        fontSize: Theme.fontSize.sm,
         textAlign: 'center',
         marginBottom: Theme.spacing.xs,
     },

@@ -95,6 +95,19 @@ export default function ProfileSettingsScreen() {
             </View>
 
             <TouchableOpacity
+                style={styles.linkRow}
+                onPress={() => router.push('/social/blocked')}
+                activeOpacity={0.7}
+            >
+                <MaterialCommunityIcons name="account-cancel-outline" size={20} color={Theme.colors.secondary} />
+                <View style={styles.linkTextBlock}>
+                    <Text style={styles.linkLabel}>Blocked Accounts</Text>
+                    <Text style={styles.linkHint}>Review and unblock people you have blocked</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={Theme.colors.secondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
                 style={[styles.signOutButton, signingOut && styles.signOutButtonDisabled]}
                 onPress={handleSignOut}
                 disabled={signingOut}
@@ -124,6 +137,25 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: Theme.colors.background,
+    },
+    linkRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.sm,
+        backgroundColor: Theme.colors.surface,
+        borderRadius: Theme.borderRadius.md,
+        padding: Theme.spacing.md,
+        marginTop: Theme.spacing.sm,
+    },
+    linkTextBlock: {
+        flex: 1,
+    },
+    linkLabel: {
+        ...Theme.typography.bodyStrong,
+    },
+    linkHint: {
+        ...Theme.typography.caption,
+        marginTop: 2,
     },
     visibilityRow: {
         flexDirection: 'row',

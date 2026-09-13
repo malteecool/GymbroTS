@@ -3,12 +3,16 @@ import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity, TextInput,
 import { useRouter } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ProfileHeader } from '../../components/Profile/ProfileHeader';
+import { IconButton } from '../../components/ui/IconButton';
 import { PostCard } from '../../components/Social/PostCard';
 import CounterComponent from '../../components/AnimateNumber';
 import BarGraph from '../../components/BarGraph';
 import { getWorkoutsCount, getWeekNumber } from '../../services/StatsService.Service';
 import emitter from '../../hooks/CustomEventEmitter';
-import { getStordUserData, updateProfile } from '../../services/UserService.Service';
+import {
+    getStordUserData, updateProfile, normalizeHandle, validateHandle, isHandleAvailable,
+    HANDLE_MAX_LENGTH,
+} from '../../services/UserService.Service';
 import { getOwnProfileStats } from '../../services/SocialService.Service';
 import { getPostsForUser, likePost, unlikePost, deletePost, appendPostPage } from '../../services/PostService.Service';
 import { pickImage, uploadAvatar } from '../../services/ImageUploadService.Service';
@@ -61,6 +65,8 @@ export default function ProfileScreen() {
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState('');
     const [editBio, setEditBio] = useState('');
+    const [editHandle, setEditHandle] = useState('');
+    const [handleError, setHandleError] = useState<string | null>(null);
     const [editSaving, setEditSaving] = useState(false);
     const [avatarUploading, setAvatarUploading] = useState(false);
 
@@ -202,6 +208,8 @@ export default function ProfileScreen() {
     const handleEnterEdit = () => {
         setEditName(user?.name ?? '');
         setEditBio(user?.bio ?? '');
+        setEditHandle(user?.handle ?? '');
+        setHandleError(null);
         setIsEditing(true);
     };
 
@@ -214,13 +222,33 @@ export default function ProfileScreen() {
         if (!editName.trim()) {
             return;
         }
+
+        const handle = normalizeHandle(editHandle);
+        const formatError = validateHandle(handle);
+        if (formatError) {
+            setHandleError(formatError);
+            return;
+        }
+
         try {
             setEditSaving(true);
-            const updated = await updateProfile(user.id, { name: editName.trim(), bio: editBio.trim() || undefined });
+            setHandleError(null);
+
+            if (handle !== user.handle && !(await isHandleAvailable(handle, user.id))) {
+                setHandleError('That handle is already taken.');
+                return;
+            }
+
+            const updated = await updateProfile(user.id, {
+                name: editName.trim(),
+                bio: editBio.trim() || undefined,
+                handle,
+            });
             setUser(updated);
             setIsEditing(false);
-        } catch (e) {
+        } catch (e: any) {
             console.error('Error saving profile:', e);
+            setHandleError(e?.message ?? 'Could not save your profile. Please try again.');
         } finally {
             setEditSaving(false);
         }
@@ -250,12 +278,20 @@ export default function ProfileScreen() {
 
     const listHeader = (
         <View style={styles.headerWrap}>
+            <View style={styles.topActions}>
+                <IconButton
+                    icon="cog-outline"
+                    onPress={() => router.push('/profile/settings')}
+                    accessibilityLabel="Settings"
+                />
+            </View>
             <ProfileHeader
                 avatarUrl={user?.avatarUrl}
                 editableAvatar
                 avatarUploading={avatarUploading}
                 onAvatarPress={handlePickAvatar}
                 name={user?.name ?? ''}
+                handle={isEditing ? undefined : user?.handle}
                 bio={user?.bio}
                 nameBioSlot={isEditing ? (
                     <View style={styles.editForm}>
@@ -268,6 +304,31 @@ export default function ProfileScreen() {
                             placeholderTextColor={Theme.colors.placeholder}
                             maxLength={60}
                         />
+
+                        <Text style={styles.inputLabel}>Handle</Text>
+                        <View style={styles.handleInputRow}>
+                            <Text style={styles.handlePrefix}>@</Text>
+                            <TextInput
+                                style={styles.handleInput}
+                                value={editHandle}
+                                onChangeText={(text) => {
+                                    setEditHandle(normalizeHandle(text));
+                                    setHandleError(null);
+                                }}
+                                placeholder="yourhandle"
+                                placeholderTextColor={Theme.colors.placeholder}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                maxLength={HANDLE_MAX_LENGTH}
+                            />
+                        </View>
+                        {handleError ? (
+                            <Text style={styles.handleError}>{handleError}</Text>
+                        ) : (
+                            <Text style={styles.handleHint}>
+                                Lowercase letters, numbers and underscores. This is how people find you.
+                            </Text>
+                        )}
 
                         <Text style={styles.inputLabel}>Bio</Text>
                         <TextInput
@@ -427,8 +488,14 @@ const styles = StyleSheet.create({
     },
     headerWrap: {
         alignItems: 'center',
-        paddingTop: Theme.spacing.lg,
+        paddingTop: Theme.spacing.sm,
         paddingHorizontal: Theme.spacing.md,
+    },
+    topActions: {
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginBottom: Theme.spacing.sm,
     },
     postItemWrap: {
         paddingHorizontal: Theme.spacing.md,
@@ -457,6 +524,36 @@ const styles = StyleSheet.create({
     bioInput: {
         height: 90,
         textAlignVertical: 'top',
+    },
+    handleInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.surface,
+        borderRadius: Theme.borderRadius.md,
+        paddingHorizontal: Theme.spacing.md,
+        borderWidth: 1,
+        borderColor: Theme.colors.outline,
+    },
+    handlePrefix: {
+        color: Theme.colors.secondary,
+        fontSize: Theme.fontSize.md,
+    },
+    handleInput: {
+        flex: 1,
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.md,
+        paddingVertical: Theme.spacing.md,
+        paddingLeft: 2,
+    },
+    handleError: {
+        color: Theme.colors.danger,
+        fontSize: Theme.fontSize.xs,
+        marginLeft: Theme.spacing.xs,
+    },
+    handleHint: {
+        color: Theme.colors.textMuted,
+        fontSize: Theme.fontSize.xs,
+        marginLeft: Theme.spacing.xs,
     },
     editProfileBtn: {
         flexDirection: 'row',

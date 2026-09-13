@@ -1,5 +1,5 @@
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Button } from '@rneui/themed';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Divider } from '@rneui/base';
@@ -17,10 +17,10 @@ import { User } from '../../interfaces/User.Interface';
 import { Workout } from '../../interfaces/Workout.Interface';
 import { WorkoutExercise } from '../../interfaces/WorkoutExercise.Interface';
 import { WorkoutListItem } from '../../components/Workout/WorkoutListItem';
-import { router, useNavigation } from 'expo-router';
+import { IconButton } from '../../components/ui/IconButton';
+import { router } from 'expo-router';
 
 export default function WorkoutScreen() {
-    const navigation = useNavigation();
     const [isLoading, setLoading] = useState<boolean>(true);
     const [user, setUser] = useState<User | null>(null);
     const [dayName, setDayName] = useState<string>('');
@@ -32,37 +32,6 @@ export default function WorkoutScreen() {
     const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
     const [exercisesLoading, setExercisesLoading] = useState<boolean>(false);
     const [streak, setStreak] = useState<number>(0);
-
-    useLayoutEffect(() => {
-        navigation.setOptions({
-            headerRight: () => (
-                <View style={styles.headerButtons}>
-                    <TouchableOpacity
-                        onPress={() => router.push('/workout/allWorkouts')}
-                        style={styles.headerButton}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                        <MaterialCommunityIcons
-                            name="format-list-bulleted"
-                            size={22}
-                            color={Theme.colors.textPrimary}
-                        />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => router.push('/workout/addWorkout')}
-                        style={styles.headerButton}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                        <MaterialCommunityIcons
-                            name="plus"
-                            size={24}
-                            color={Theme.colors.green}
-                        />
-                    </TouchableOpacity>
-                </View>
-            ),
-        });
-    }, [navigation]);
 
     const load = useCallback(async () => {
         try {
@@ -172,12 +141,26 @@ export default function WorkoutScreen() {
                         />
                         <Text style={styles.dayLabel}>{dayName ? `Today · ${dayName}` : 'Today'}</Text>
                     </View>
-                    {streak > 0 && (
-                        <View style={styles.streakBadge}>
-                            <MaterialCommunityIcons name="fire" size={16} color={Theme.colors.accent} />
-                            <Text style={styles.streakText}>{streak}</Text>
-                        </View>
-                    )}
+                    <View style={styles.dayLabelRight}>
+                        {streak > 0 && (
+                            <View style={styles.streakBadge}>
+                                <MaterialCommunityIcons name="fire" size={16} color={Theme.colors.accent} />
+                                <Text style={styles.streakText}>{streak}</Text>
+                            </View>
+                        )}
+                        <IconButton
+                            icon="format-list-bulleted"
+                            onPress={() => router.push('/workout/allWorkouts')}
+                            accessibilityLabel="All workouts"
+                        />
+                        <IconButton
+                            icon="plus"
+                            onPress={() => router.push('/workout/addWorkout')}
+                            accessibilityLabel="Add workout"
+                            color={Theme.colors.green}
+                            size={24}
+                        />
+                    </View>
                 </View>
 
                 {selectedWorkout ? (
@@ -369,6 +352,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: Theme.spacing.xs,
     },
+    dayLabelRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.sm,
+    },
     streakBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -535,15 +523,6 @@ const styles = StyleSheet.create({
         fontSize: Theme.fontSize.lg,
         fontWeight: Theme.fontWeight.bold,
         marginLeft: Theme.spacing.xs,
-    },
-    headerButtons: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.md,
-        paddingRight: Theme.spacing.md,
-    },
-    headerButton: {
-        padding: Theme.spacing.xs,
     },
     modalContainer: Styles.screen,
     modalHeader: {

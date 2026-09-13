@@ -10,9 +10,10 @@ import { Theme } from "../../constants/Theme";
 import { router, Stack } from "expo-router";
 import { memo, useCallback, useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
-import { TabView, TabBar, SceneRendererProps } from "react-native-tab-view";
+import { TabView, SceneRendererProps } from "react-native-tab-view";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import CustomAddWorkout from "../../components/ui/CustomAddWorkout";
+import { SegmentedTabs } from "../../components/ui/SegmentedTabs";
 
 export default function AddWorkout() {
 
@@ -122,14 +123,16 @@ export default function AddWorkout() {
             />
             <TabView
                 swipeEnabled={true}
-                renderTabBar={props => (
-                    <TabBar
-                        {...props}
+                renderTabBar={({ navigationState }) => (
+                    <SegmentedTabs
+                        options={navigationState.routes.map(route => ({
+                            value: route.key,
+                            label: route.title ?? '',
+                        }))}
+                        value={navigationState.routes[navigationState.index].key}
+                        onChange={key => setIndex(routes.findIndex(route => route.key === key))}
+                        stretch
                         style={styles.tabBar}
-                        indicatorStyle={styles.tabIndicator}
-                        //tabStyle={styles.tabLabel}
-                        activeColor={Theme.colors.font}
-                        inactiveColor={Theme.colors.textMuted}
                     />
                 )}
                 navigationState={{ index, routes }}
@@ -170,15 +173,8 @@ const styles = StyleSheet.create({
         marginTop: Theme.spacing.sm,
     },
     tabBar: {
-        backgroundColor: Theme.colors.surface,
-    },
-    tabIndicator: {
-        backgroundColor: Theme.colors.green,
-        height: 3,
-    },
-    tabLabel: {
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.semibold,
-        textTransform: 'none',
+        paddingHorizontal: Theme.spacing.md,
+        paddingVertical: Theme.spacing.sm,
+        backgroundColor: Theme.colors.background
     },
 });

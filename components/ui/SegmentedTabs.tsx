@@ -11,14 +11,21 @@ interface SegmentedTabsProps<T extends string> {
     options: SegmentOption<T>[];
     value: T;
     onChange: (value: T) => void;
+    /**
+     * Splits the control's width evenly between the options instead of sizing
+     * each to its label. How much width the control itself gets is the parent's
+     * call - inside a row, give it `flex: 1` through `style`.
+     */
+    stretch?: boolean;
     style?: StyleProp<ViewStyle>;
 }
 
 /**
- * Underlined tab bar for switching between two or three peer lists
- * (followers/following, following-feed/explore).
+ * Pill switcher for peer lists - the feed's Following/Explore, followers vs
+ * following, the comment sort. Sits on the screen background rather than a bar
+ * of its own, so a screen has one raised surface at most: the content.
  */
-export function SegmentedTabs<T extends string>({ options, value, onChange, style }: SegmentedTabsProps<T>) {
+export function SegmentedTabs<T extends string>({ options, value, onChange, stretch, style }: SegmentedTabsProps<T>) {
     return (
         <View style={[styles.tabs, style]}>
             {options.map((option) => {
@@ -26,11 +33,14 @@ export function SegmentedTabs<T extends string>({ options, value, onChange, styl
                 return (
                     <TouchableOpacity
                         key={option.value}
-                        style={[styles.tab, active && styles.tabActive]}
+                        style={[styles.tab, stretch && styles.tabStretch, active && styles.tabActive]}
                         onPress={() => onChange(option.value)}
                         activeOpacity={0.7}
                     >
-                        <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                        <Text
+                            style={[styles.tabText, active && styles.tabTextActive]}
+                            numberOfLines={1}
+                        >
                             {option.label}
                         </Text>
                     </TouchableOpacity>
@@ -43,27 +53,29 @@ export function SegmentedTabs<T extends string>({ options, value, onChange, styl
 const styles = StyleSheet.create({
     tabs: {
         flexDirection: 'row',
-        backgroundColor: Theme.colors.surface,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: Theme.colors.divider,
+        gap: Theme.spacing.sm,
+    },
+    tabStretch: {
+        flex: 1,
+        alignItems: 'center',
     },
     tab: {
-        flex: 1,
-        paddingVertical: Theme.spacing.md,
-        alignItems: 'center',
-        borderBottomWidth: 2,
-        borderBottomColor: 'transparent',
+        paddingVertical: Theme.spacing.xs,
+        paddingHorizontal: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.round,
+        borderWidth: 1,
+        borderColor: Theme.colors.outline,
     },
     tabActive: {
-        borderBottomColor: Theme.colors.accent,
+        backgroundColor: Theme.colors.surface,
+        borderColor: Theme.colors.yellow,
     },
     tabText: {
-        color: Theme.colors.textMuted,
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.medium,
+        color: Theme.colors.secondary,
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.semibold,
     },
     tabTextActive: {
-        color: Theme.colors.textPrimary,
-        fontWeight: Theme.fontWeight.semibold,
+        color: Theme.colors.font,
     },
 });

@@ -92,7 +92,7 @@ export default function FollowersScreen() {
 
     return (
         <View style={styles.container}>
-            <SegmentedTabs options={TABS} value={activeTab} onChange={setActiveTab} />
+            <SegmentedTabs options={TABS} value={activeTab} onChange={setActiveTab} stretch style={styles.tabs} />
 
             {loading ? (
                 <View style={styles.centered}>
@@ -121,6 +121,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Theme.colors.background,
+    },
+    tabs: {
+        paddingHorizontal: Theme.spacing.md,
+        paddingVertical: Theme.spacing.sm,
     },
     centered: {
         flex: 1,

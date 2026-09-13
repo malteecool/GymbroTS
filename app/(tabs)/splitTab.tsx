@@ -310,9 +310,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: Theme.colors.background,
         paddingHorizontal: Theme.spacing.md,
-        ...Theme.shadows.small,
     },
     navButton: {
         padding: Theme.spacing.sm,

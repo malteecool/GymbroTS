@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Theme } from '../../constants/Theme';
@@ -10,12 +10,22 @@ interface PostCardProps {
     post: Post;
     onLikeToggle: (post: Post) => void;
     onDelete?: (post: Post) => void;
+    /** Offered on other people's posts, so blocking is reachable from the feed. */
+    onBlock?: (post: Post) => void;
     currentUserId: string;
     /**
      * 'feed' makes the card and its comment button open the post detail.
      * 'detail' is the card already on that screen, so both are inert.
      */
     variant?: 'feed' | 'detail';
+    /**
+     * Follow state for the author, or null while it is still unknown. Omit it
+     * entirely and the card shows no follow button - the feed does, because
+     * resolving this per row would be a query per card.
+     */
+    isFollowingAuthor?: boolean | null;
+    onToggleFollow?: (post: Post) => void;
+    followPending?: boolean;
 }
 
 function timeAgo(dateStr: string): string {
@@ -42,13 +52,28 @@ const POST_TYPE_LABEL: Record<Post['postType'], string> = {
     milestone: 'Hit a milestone',
 };
 
-export function PostCard({ post, onLikeToggle, onDelete, currentUserId, variant = 'feed' }: PostCardProps) {
+export function PostCard({
+    post,
+    onLikeToggle,
+    onDelete,
+    onBlock,
+    currentUserId,
+    variant = 'feed',
+    isFollowingAuthor,
+    onToggleFollow,
+    followPending,
+}: PostCardProps) {
     const router = useRouter();
     const isOwn = post.userId === currentUserId;
     const isFeed = variant === 'feed';
 
     const openPost = () =>
         router.push({ pathname: '/social/post/[postId]', params: { postId: post.id } });
+
+    // Hidden until the state is known, so the button never flips label under
+    // the reader a moment after the card appears.
+    const showFollow = !isOwn && !!onToggleFollow && isFollowingAuthor !== null
+        && isFollowingAuthor !== undefined;
 
     const CardContainer = isFeed ? TouchableOpacity : View;
 
@@ -71,8 +96,35 @@ export function PostCard({ post, onLikeToggle, onDelete, currentUserId, variant 
                     </View>
                 </TouchableOpacity>
 
+                {showFollow && (
+                    <TouchableOpacity
+                        style={[styles.followButton, isFollowingAuthor && styles.followingButton]}
+                        onPress={() => onToggleFollow!(post)}
+                        disabled={followPending}
+                        activeOpacity={0.8}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        {followPending ? (
+                            <ActivityIndicator
+                                size="small"
+                                color={isFollowingAuthor ? Theme.colors.font : Theme.colors.dark}
+                            />
+                        ) : (
+                            <Text style={[styles.followText, isFollowingAuthor && styles.followingText]}>
+                                {isFollowingAuthor ? 'Following' : 'Follow'}
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                )}
+
                 {isOwn && onDelete && (
                     <TouchableOpacity onPress={() => onDelete(post)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <MaterialCommunityIcons name="dots-vertical" size={20} color={Theme.colors.secondary} />
+                    </TouchableOpacity>
+                )}
+
+                {!isOwn && onBlock && (
+                    <TouchableOpacity onPress={() => onBlock(post)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                         <MaterialCommunityIcons name="dots-vertical" size={20} color={Theme.colors.secondary} />
                     </TouchableOpacity>
                 )}
@@ -173,6 +225,28 @@ const styles = StyleSheet.create({
         color: Theme.colors.secondary,
         fontSize: Theme.fontSize.xs,
         marginTop: 1,
+    },
+    followButton: {
+        minWidth: 88,
+        paddingVertical: Theme.spacing.xs,
+        paddingHorizontal: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.round,
+        backgroundColor: Theme.colors.yellow,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    followingButton: {
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: Theme.colors.outline,
+    },
+    followText: {
+        color: Theme.colors.dark,
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.semibold,
+    },
+    followingText: {
+        color: Theme.colors.font,
     },
     activityRow: {
         flexDirection: 'row',

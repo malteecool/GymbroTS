@@ -144,7 +144,10 @@ function RootLayoutContent() {
                         />
                         <Stack.Screen
                             name="social/post/[postId]"
-                            options={{ headerShown: true, title: 'Post' }}
+                            // Renders its own header: left-aligned title on the
+                            // screen background, plus an options button whose
+                            // sheet needs the screen's own state.
+                            options={{ headerShown: false }}
                         />
                         <Stack.Screen
                             name="social/notifications"
@@ -153,6 +156,10 @@ function RootLayoutContent() {
                         <Stack.Screen
                             name="social/userWorkouts"
                             options={{ headerShown: true, title: 'Workouts' }}
+                        />
+                        <Stack.Screen
+                            name="social/blocked"
+                            options={{ headerShown: true, title: 'Blocked Accounts' }}
                         />
                         <Stack.Screen
                             name="+not-found"
@@ -189,7 +196,9 @@ const styles = StyleSheet.create({
     appContainer: {
         flex: 1,
         paddingTop: StatusBar.currentHeight || 0,
-        backgroundColor: Theme.colors.surface,
+        // Tabs have no header bar, so the status bar strip sits straight on the
+        // screen background rather than on a header-coloured band.
+        backgroundColor: Theme.colors.background,
     },
     loadingContainer: {
         flex: 1,

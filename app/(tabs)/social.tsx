@@ -10,7 +10,10 @@ import {
 import { PostCard } from '../../components/Social/PostCard';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SegmentedTabs } from '../../components/ui/SegmentedTabs';
+import { IconButton } from '../../components/ui/IconButton';
 import { getStordUserData } from '../../services/UserService.Service';
+import { blockUser } from '../../services/SocialService.Service';
+import { useNotificationContext } from '../../providers/NotificationProvider';
 import emitter from '../../hooks/CustomEventEmitter';
 
 const PAGE_SIZE = 20;
@@ -27,6 +30,7 @@ const fetchFeed = (mode: FeedMode, offset: number) =>
 
 export default function SocialScreen() {
     const router = useRouter();
+    const { unreadCount } = useNotificationContext();
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -136,6 +140,29 @@ export default function SocialScreen() {
         ]);
     }, []);
 
+    const handleBlock = useCallback((post: Post) => {
+        Alert.alert(
+            `Block ${post.authorName}?`,
+            "You won't see each other's posts, profiles or comments, and you'll both stop following each other. You can undo this in Settings.",
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Block', style: 'destructive', onPress: async () => {
+                        try {
+                            await blockUser(post.userId);
+                            // Drop everything of theirs already on screen rather
+                            // than refetching the whole feed.
+                            setPosts(prev => prev.filter(p => p.userId !== post.userId));
+                        } catch (e) {
+                            console.error('Error blocking user:', e);
+                            Alert.alert('Error', 'Could not block this user. Please try again.');
+                        }
+                    }
+                },
+            ]
+        );
+    }, []);
+
     const switchMode = useCallback((next: FeedMode) => {
         if (next === mode) return;
         // Invalidate here rather than waiting for `load` to do it, so a page
@@ -148,7 +175,32 @@ export default function SocialScreen() {
 
     return (
         <View style={styles.container}>
-            <SegmentedTabs options={FEED_TABS} value={mode} onChange={switchMode} />
+            <View style={styles.topBar}>
+                <SegmentedTabs
+                    options={FEED_TABS}
+                    value={mode}
+                    onChange={switchMode}
+                    stretch
+                    style={styles.feedTabs}
+                />
+                <View style={styles.topBarActions}>
+                    <IconButton
+                        icon="account-search-outline"
+                        onPress={() => router.push('/social/discover')}
+                        accessibilityLabel="Find people"
+                        variant="plain"
+                        size={24}
+                    />
+                    <IconButton
+                        icon="bell-outline"
+                        onPress={() => router.push('/social/notifications')}
+                        accessibilityLabel="Notifications"
+                        variant="plain"
+                        size={24}
+                        badgeCount={unreadCount}
+                    />
+                </View>
+            </View>
 
             {loading ? (
                 <View style={styles.centered}>
@@ -163,6 +215,7 @@ export default function SocialScreen() {
                         post={item}
                         onLikeToggle={handleLikeToggle}
                         onDelete={handleDelete}
+                        onBlock={handleBlock}
                         currentUserId={currentUserId}
                     />
                 )}
@@ -219,6 +272,23 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Theme.colors.background,
+    },
+    topBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.md,
+        paddingVertical: Theme.spacing.sm,
+    },
+    feedTabs: {
+        // Claims the row's leftover width so the pills reach the action buttons.
+        flex: 1,
+    },
+    topBarActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.sm,
     },
     centered: {
         flex: 1,

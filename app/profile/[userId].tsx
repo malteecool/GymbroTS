@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
 import { PublicProfile } from '../../interfaces/User.Interface';
 import { Post, PostCommentCountChange, POST_COMMENT_COUNT_EVENT } from '../../interfaces/Post.Interface';
-import { getPublicProfile, followUser, unfollowUser } from '../../services/SocialService.Service';
+import { getPublicProfile, followUser, unfollowUser, blockUser } from '../../services/SocialService.Service';
 import { getPostsForUser, likePost, unlikePost, deletePost, appendPostPage } from '../../services/PostService.Service';
 import { getStordUserData } from '../../services/UserService.Service';
 import emitter from '../../hooks/CustomEventEmitter';
@@ -131,6 +131,29 @@ export default function PublicProfileScreen() {
         ]);
     }, []);
 
+    const handleBlock = useCallback(() => {
+        if (!profile) return;
+        Alert.alert(
+            `Block ${profile.name}?`,
+            "You won't see each other's posts, profiles or comments, and you'll both stop following each other. You can undo this in Settings.",
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Block', style: 'destructive', onPress: async () => {
+                        try {
+                            await blockUser(profile.id);
+                            // The profile is no longer visible to us, so leave it.
+                            router.back();
+                        } catch (e) {
+                            console.error('Error blocking user:', e);
+                            Alert.alert('Error', 'Could not block this user. Please try again.');
+                        }
+                    }
+                },
+            ]
+        );
+    }, [profile, router]);
+
     const handleFollowToggle = async () => {
         if (!profile) return;
         try {
@@ -199,6 +222,7 @@ export default function PublicProfileScreen() {
                     <ProfileHeader
                         avatarUrl={profile.avatarUrl}
                         name={profile.name}
+                        handle={profile.handle}
                         bio={profile.bio}
                         followerCount={profile.followerCount}
                         followingCount={profile.followingCount}
@@ -230,6 +254,16 @@ export default function PublicProfileScreen() {
                             </TouchableOpacity>
                         }
                     />
+
+                    <TouchableOpacity
+                        style={styles.blockBtn}
+                        onPress={handleBlock}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons name="cancel" size={16} color={Theme.colors.danger} />
+                        <Text style={styles.blockBtnText}>Block {profile.name}</Text>
+                    </TouchableOpacity>
 
                     <Text style={styles.postsTitle}>Posts</Text>
                     {postsLoading && (
@@ -264,6 +298,19 @@ const styles = StyleSheet.create({
         paddingTop: Theme.spacing.xl,
         paddingBottom: Theme.spacing.md,
         paddingHorizontal: Theme.spacing.sm,
+    },
+    blockBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'center',
+        gap: Theme.spacing.xs,
+        paddingVertical: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.md,
+    },
+    blockBtnText: {
+        color: Theme.colors.danger,
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.medium,
     },
     postsTitle: {
         alignSelf: 'flex-start',

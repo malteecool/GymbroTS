@@ -160,6 +160,149 @@ CREATE TABLE IF NOT EXISTS notification (
 );
 
 -- -----------------------------------------------------------------------------
+-- Social: threaded comment replies
+-- -----------------------------------------------------------------------------
+
+-- A reply points at the comment it answers. NULL means the comment sits at the
+-- top level of the post. Replies are one level deep by convention: the client
+-- always attaches a reply to the top-level comment, never to another reply, so
+-- a thread stays a post -> comment -> replies shape.
+ALTER TABLE comment
+    ADD COLUMN IF NOT EXISTS parent_comment_id UUID REFERENCES comment(id) ON DELETE CASCADE;
+
+-- -----------------------------------------------------------------------------
+-- Social: comment likes
+-- -----------------------------------------------------------------------------
+
+-- Mirrors `reaction`, one row per person per comment. Needed for the "Top"
+-- comment sort, which orders threads by how many likes they drew.
+CREATE TABLE IF NOT EXISTS comment_reaction (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    comment_id UUID NOT NULL REFERENCES comment(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (comment_id, user_id)
+);
+
+-- -----------------------------------------------------------------------------
+-- Social: reply and comment-like notifications
+-- -----------------------------------------------------------------------------
+
+-- 'reply' and 'comment_like' joined the original three. Dropped by lookup
+-- rather than by name: the original CHECK was written inline on the column, so
+-- its generated name is not guaranteed across environments.
+DO $$
+DECLARE c record;
+BEGIN
+    FOR c IN
+        SELECT conname FROM pg_constraint
+        WHERE conrelid = 'notification'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%notif_type%'
+    LOOP
+        EXECUTE format('ALTER TABLE notification DROP CONSTRAINT %I', c.conname);
+    END LOOP;
+END $$;
+
+ALTER TABLE notification ADD CONSTRAINT notification_notif_type_check
+    CHECK (notif_type IN ('like', 'comment', 'follow', 'reply', 'comment_like'));
+
+-- -----------------------------------------------------------------------------
+-- Social: reports
+-- -----------------------------------------------------------------------------
+
+-- Reporting is a record, not an action: nothing in the app reads this table
+-- back yet, it exists so the report option has somewhere to land for review.
+-- `reported_user_id` is kept alongside `post_id` so a report survives the post
+-- being deleted from under it.
+CREATE TABLE IF NOT EXISTS report (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    reported_user_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    post_id UUID REFERENCES post(id) ON DELETE SET NULL,
+    reason TEXT NOT NULL CHECK (reason IN ('spam', 'harassment', 'nudity', 'violence', 'other')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (reporter_id <> reported_user_id)
+);
+
+-- -----------------------------------------------------------------------------
+-- Unique @handles (Phase 6)
+-- -----------------------------------------------------------------------------
+
+-- `name` is free text and not unique, so two people with the same name were
+-- indistinguishable in search. The handle is the stable, unique identifier.
+ALTER TABLE APP_USER ADD COLUMN IF NOT EXISTS HANDLE TEXT;
+
+CREATE OR REPLACE FUNCTION public.generate_handle(base_name text)
+RETURNS text
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    slug text;
+    candidate text;
+    suffix int := 0;
+BEGIN
+    slug := lower(coalesce(base_name, ''));
+    -- Fold accented characters before stripping, so "Håkan" becomes "hakan".
+    slug := translate(slug, 'åäöøæéèüñ', 'aaooaeeun');
+    slug := regexp_replace(slug, '[^a-z0-9]+', '', 'g');
+    slug := left(slug, 20);
+
+    IF length(slug) < 3 THEN
+        slug := 'user';
+    END IF;
+
+    candidate := slug;
+    WHILE EXISTS (SELECT 1 FROM public.app_user WHERE lower(handle) = candidate) LOOP
+        suffix := suffix + 1;
+        candidate := left(slug, 20 - length(suffix::text)) || suffix::text;
+    END LOOP;
+
+    RETURN candidate;
+END;
+$$;
+
+-- Row by row, not one UPDATE: a single statement works from one snapshot, so
+-- two identical names would generate the same handle and the unique index below
+-- would then fail to build.
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT id, name FROM public.app_user WHERE handle IS NULL ORDER BY created_at LOOP
+        UPDATE public.app_user SET handle = public.generate_handle(r.name) WHERE id = r.id;
+    END LOOP;
+END $$;
+
+-- Case-insensitive: @Malte and @malte must not be different people.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_app_user_handle_lower ON APP_USER (lower(handle));
+
+ALTER TABLE APP_USER ALTER COLUMN HANDLE SET NOT NULL;
+
+ALTER TABLE APP_USER DROP CONSTRAINT IF EXISTS app_user_handle_format;
+ALTER TABLE APP_USER ADD CONSTRAINT app_user_handle_format
+    CHECK (HANDLE ~ '^[a-z0-9_]{3,20}$');
+
+-- NOTE: the on_auth_user_created trigger function handle_new_user() was also
+-- updated to mint a handle at signup via generate_handle(). See the Supabase
+-- dashboard, or migration add_user_handle.
+
+-- -----------------------------------------------------------------------------
+-- Social: block table (Phase 6)
+-- -----------------------------------------------------------------------------
+
+-- Mirrors the shape of `follows`: one row per direction, self-block prevented.
+-- Blocking is mutual in the app — see SocialService.blockUser, which also drops
+-- any follow in either direction at block time.
+CREATE TABLE IF NOT EXISTS block (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    blocker_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    blocked_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (blocker_id, blocked_id),
+    CHECK (blocker_id <> blocked_id)
+);
+
+-- -----------------------------------------------------------------------------
 -- Workout sharing: browse/copy/follow public workouts (Phase 4, partial)
 -- -----------------------------------------------------------------------------
 
@@ -256,6 +399,13 @@ CREATE INDEX IF NOT EXISTS IDX_POST_CREATED_AT ON post(created_at DESC);
 CREATE INDEX IF NOT EXISTS IDX_REACTION_POST_ID ON reaction(post_id);
 CREATE INDEX IF NOT EXISTS IDX_REACTION_USER_ID ON reaction(user_id);
 CREATE INDEX IF NOT EXISTS IDX_COMMENT_POST_ID ON comment(post_id);
+CREATE INDEX IF NOT EXISTS IDX_COMMENT_PARENT_COMMENT_ID ON comment(parent_comment_id) WHERE parent_comment_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS IDX_COMMENT_REACTION_COMMENT_ID ON comment_reaction(comment_id);
+CREATE INDEX IF NOT EXISTS IDX_COMMENT_REACTION_USER_ID ON comment_reaction(user_id);
+CREATE INDEX IF NOT EXISTS IDX_REPORT_REPORTED_USER_ID ON report(reported_user_id);
+CREATE INDEX IF NOT EXISTS IDX_REPORT_CREATED_AT ON report(created_at DESC);
+CREATE INDEX IF NOT EXISTS IDX_BLOCK_BLOCKER_ID ON block(blocker_id);
+CREATE INDEX IF NOT EXISTS IDX_BLOCK_BLOCKED_ID ON block(blocked_id);
 CREATE INDEX IF NOT EXISTS IDX_NOTIFICATION_RECIPIENT_ID ON notification(recipient_id);
 CREATE INDEX IF NOT EXISTS IDX_NOTIFICATION_RECIPIENT_UNREAD ON notification(recipient_id) WHERE is_read = false;
 CREATE INDEX IF NOT EXISTS IDX_NOTIFICATION_CREATED_AT ON notification(created_at DESC);

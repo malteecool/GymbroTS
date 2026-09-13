@@ -297,7 +297,9 @@ export const Styles = StyleSheet.create({
         height: 50,
         paddingHorizontal: Theme.spacing.sm,
         position: 'relative',
-        backgroundColor: Theme.colors.surface,
+        // Same as the screen behind it, so the bar reads as part of the content
+        // rather than a band between it and Android's status bar.
+        backgroundColor: Theme.colors.background,
     },
     backButton: {
         position: 'absolute',

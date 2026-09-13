@@ -134,6 +134,10 @@ CREATE TABLE IF NOT EXISTS comment (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Added later: replies hang off the comment they answer (NULL = top level)
+ALTER TABLE comment
+  ADD COLUMN IF NOT EXISTS parent_comment_id UUID REFERENCES comment(id) ON DELETE CASCADE;
+
 -- Notifications
 CREATE TABLE IF NOT EXISTS notification (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -151,7 +155,7 @@ CREATE TABLE IF NOT EXISTS notification (
 ### New Screens / Components
 - ✅ `app/social/notifications.tsx` — notification inbox, marks all read on open
 - ✅ `components/Social/CommentSection.tsx` — comment list + input on post detail
-- ✅ Notification badge on Social tab icon (unread count) + bell button in Social header
+- ✅ Notification badge on Social tab icon (unread count) + bell button on the Social screen
 
 ### Realtime
 - ✅ Subscribe to `notification` table via Supabase Realtime (`hooks/useNotifications.ts`) to push badge updates without polling
@@ -163,7 +167,7 @@ CREATE TABLE IF NOT EXISTS notification (
 - ✅ `services/PostService.Service.ts` — `likePost` now creates a like notification
 - ✅ `services/SocialService.Service.ts` — `followUser` now creates a follow notification
 - ✅ `providers/NotificationProvider.tsx` / `hooks/useNotifications.ts` — app-wide unread count context
-- ✅ `app/(tabs)/_layout.tsx` — badge on Social tab icon, bell button in Social header
+- ✅ `app/(tabs)/_layout.tsx` — badge on Social tab icon; the bell sits in the Social screen's own top bar (the tabs carry no header)
 - ✅ `app/_layout.tsx` — `social/notifications` stack screen registered, tree wrapped in `NotificationProvider`
 
 ### Follow-up (delivered after the initial pass)
@@ -178,6 +182,37 @@ CREATE TABLE IF NOT EXISTS notification (
 - ✅ `components/Social/CommentSection.tsx` — reports its count to the card above
   it, and emits `postCommentCountChanged` on the app event bus so the feed and
   profile timelines patch that post in place instead of going stale
+- ✅ Threaded replies: `comment.parent_comment_id` (self-referencing, `ON DELETE
+  CASCADE`) turns the flat list into post → comment → replies. Threads are one
+  level deep by convention — replying to a reply attaches to the same top-level
+  comment — so a conversation stays grouped under the comment that started it
+  instead of drifting into arbitrary nesting. `buildCommentThreads` groups the
+  flat rows client-side; a reply whose parent is missing (blocked author) is
+  promoted to the top level rather than silently dropped. A reply notifies the
+  comment's author as well as the post owner, deduplicated when they are the
+  same person
+
+### Post detail screen (second pass)
+- ✅ The screen renders its own header (`headerShown: false` on the route): title
+  left-aligned on the screen background rather than the header surface colour,
+  so the post card is the only raised thing on screen, plus an options button
+- ✅ `components/ui/ActionSheet.tsx` — generalises `ImagePickerSheet`'s overlay
+  approach (not RN `<Modal>`, which can render collapsed on Android). The post
+  options sheet is two-stage: options → report reasons
+- ✅ `report` table + `services/ReportService.Service.ts` — a report is a record
+  for review, nothing reads it back; blocking is the action that changes what the
+  reporter sees, and the sheet offers both
+- ✅ `components/Social/PostCard.tsx` — optional `isFollowingAuthor` /
+  `onToggleFollow` render a follow pill beside the author. Only the post detail
+  screen passes them: resolving follow state per feed row would be a query per
+  card
+- ✅ `comment_reaction` table + likes on comments, and a Newest / Most liked sort
+  over the top-level threads (`sortCommentThreads`). Replies stay chronological
+  inside a thread whatever the sort — a conversation read out of order is not a
+  conversation
+- ✅ `notif_type` widened with `reply` and `comment_like` so the notification copy
+  is accurate ("replied to your comment", "liked your comment") instead of
+  reusing "commented on your post" for both
 
 ### Acceptance Criteria
 - [x] User can comment on any visible post
@@ -186,6 +221,10 @@ CREATE TABLE IF NOT EXISTS notification (
 - [x] Notification badge shows unread count
 - [x] Notifications link back to the relevant post or profile
 - [x] Comment count is visible on the post card without opening the post
+- [x] User can reply to a comment, and replies are grouped under it
+- [x] User can like a comment, and sort comments by newest or most liked
+- [x] User can follow the author, report the post, or block the author from the
+      post detail screen
 
 ---
 
@@ -322,9 +361,17 @@ CREATE TABLE milestone (...);
 ## Cross-Cutting Concerns
 
 ### Privacy & Safety (do throughout)
+- ⚠️ **RLS is currently disabled on all 16 tables.** The anon key ships inside the
+  app binary, so anyone holding it can read or modify every row directly,
+  bypassing the app. Every privacy rule below — private profiles, blocking,
+  post visibility — is therefore enforced in the query layer only, which is a UX
+  guarantee rather than a security boundary. Enabling RLS without policies would
+  break all access, so it needs policies written per table before being switched
+  on. Unresolved.
 - All social data behind Supabase RLS policies
 - Private profiles are invisible to non-followers — no leaking via feed queries
-- Users can block others (add `block` table, filter all queries)
+- ✅ Users can block others (`block` table, filtered in every query that surfaces
+  another user — see Phase 6)
 - Users can delete all their posts at once (account cleanup)
 
 ### Performance
@@ -342,7 +389,7 @@ reaction          (new)
 comment           (new)
 notification      (new)
 milestone         (not created — Phase 5 dedupes in AsyncStorage instead)
-block             (not created — see Privacy & Safety)
+block             (new, Phase 6)
 ```
 
 ---
@@ -379,14 +426,25 @@ feed with no path out of it except manual search.
 - Ordered by recency, not popularity: on a small corpus a popularity sort shows
   the same handful of posts indefinitely. Worth revisiting once volume justifies it
 
+- ✅ **Blocking** (`block` table, applied to the live project). Mutual: one row
+  makes each party invisible to the other. `SocialService.blockUser` also deletes
+  any follow in **both** directions — leaving them would keep the blocked account
+  in follower counts and resurrect the connection when the block was lifted
+- ✅ Filtered in nine queries: `searchUsers`, `getPublicProfile`, `getFollowers`,
+  `getFollowing`, `getFeedForUser`, `getExploreFeed`, `getPostsForUser`,
+  `getPostById`, `getComments`. Feeds filter server-side so pages stay full and
+  the `hasMore` check stays honest; comment lists filter after fetching, being
+  small and unpaginated
+- ✅ `app/social/blocked.tsx` — blocked-accounts list with unblock, linked from
+  Settings. Block itself is reachable from a profile and from any post's overflow
+- Reporting deliberately **not** built: without somewhere for reports to land it
+  is UI theatre. Revisit when there is a moderation path
+
 ### Open items, roughly in priority order
-1. **Block / report.** No `block` table exists (see Privacy & Safety below). Close
-   to table stakes for shipped user-generated content, and both app stores expect
-   report + block for UGC.
-2. **Unique handles.** `app_user.name` is not unique and search is
+1. **Unique handles.** `app_user.name` is not unique and search is
    `ilike '%query%'` against it, so two users with the same name are
    indistinguishable. Needs `handle TEXT UNIQUE`.
-3. **Social proof on search results.** `searchUsers` returns hardcoded
+2. **Social proof on search results.** `searchUsers` returns hardcoded
    `followerCount: 0` / `workoutCount: 0` stubs, so results show a bare name with
    nothing to judge by. No "people you may know" or mutual-follow hints either.
 

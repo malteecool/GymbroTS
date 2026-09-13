@@ -13,6 +13,9 @@ export class UserMapper {
             id: supabaseUser.id,
             email: supabaseUser.email || '',
             name: supabaseUser.user_metadata?.name || '',
+            // Only ever the fallback for an auth user with no row yet; the real
+            // handle is minted by the signup trigger.
+            handle: '',
         };
     }
 
@@ -24,6 +27,7 @@ export class UserMapper {
             id: row.ID || row.id,
             email: row.EMAIL || row.email,
             name: row.NAME || row.name || '',
+            handle: row.HANDLE || row.handle || '',
             bio: row.BIO || row.bio || undefined,
             avatarUrl: row.AVATAR_URL || row.avatar_url || undefined,
             isPublic: row.IS_PUBLIC ?? row.is_public ?? false,
@@ -39,6 +43,7 @@ export class UserMapper {
             ID: user.id,
             EMAIL: user.email,
             NAME: user.name,
+            HANDLE: user.handle,
             BIO: user.bio,
             AVATAR_URL: user.avatarUrl,
             IS_PUBLIC: user.isPublic ?? false,
@@ -53,6 +58,7 @@ export class UserMapper {
 
         if (user.email !== undefined) update.EMAIL = user.email;
         if (user.name !== undefined) update.NAME = user.name;
+        if (user.handle !== undefined) update.HANDLE = user.handle;
         if (user.bio !== undefined) update.BIO = user.bio;
         if (user.avatarUrl !== undefined) update.AVATAR_URL = user.avatarUrl;
         if (user.isPublic !== undefined) update.IS_PUBLIC = user.isPublic;

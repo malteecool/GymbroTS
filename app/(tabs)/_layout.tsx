@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Tabs, useRouter } from 'expo-router';
+import { View, Text, StyleSheet } from 'react-native';
+import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
 import { useNotificationContext } from '../../providers/NotificationProvider';
@@ -18,57 +18,16 @@ function TabIconWithBadge({ name, color, size, count }: { name: any; color: stri
     );
 }
 
-function NotificationBellButton() {
-    const router = useRouter();
-    const { unreadCount } = useNotificationContext();
+/** Tab order is Social - Exercise - Workout - Split - Profile, but the app
+ *  still opens on Workout. */
+export const unstable_settings = {
+    initialRouteName: 'index',
+};
 
-    return (
-        <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => router.push('/social/notifications')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-            <MaterialCommunityIcons name="bell-outline" size={24} color={Theme.colors.font} />
-            {unreadCount > 0 && (
-                <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-            )}
-        </TouchableOpacity>
-    );
-}
-
-function SocialHeaderActions() {
-    const router = useRouter();
-
-    return (
-        <View style={styles.headerActions}>
-            <TouchableOpacity
-                style={styles.headerButton}
-                onPress={() => router.push('/social/discover')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-                <MaterialCommunityIcons name="account-search-outline" size={24} color={Theme.colors.textPrimary} />
-            </TouchableOpacity>
-            <NotificationBellButton />
-        </View>
-    );
-}
-
-function ProfileSettingsButton() {
-    const router = useRouter();
-
-    return (
-        <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => router.push('/profile/settings')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-            <MaterialCommunityIcons name="cog-outline" size={24} color={Theme.colors.font} />
-        </TouchableOpacity>
-    );
-}
-
+/**
+ * The tab bar already names the screen you are on, so no tab carries a header
+ * bar. Screen-level actions live inside each screen instead of `headerRight`.
+ */
 export default function TabLayout() {
     const { unreadCount } = useNotificationContext();
 
@@ -87,24 +46,11 @@ export default function TabLayout() {
             }}
         >
             <Tabs.Screen
-                name="profile"
+                name="social"
                 options={{
-                    title: 'Profile',
-                    headerShown: true,
-                    headerTitleAlign: 'center',
-                    headerStatusBarHeight: 0,
-                    headerStyle: {
-                        backgroundColor: Theme.colors.surface,
-                        borderBottomWidth: 1,
-                        borderBottomColor: Theme.colors.dark,
-                    },
-                    headerTitleStyle: {
-                        color: Theme.colors.font,
-                        fontWeight: '600',
-                    },
-                    headerRight: () => <ProfileSettingsButton />,
+                    title: 'Social',
                     tabBarIcon: ({ color, size }) => (
-                        <MaterialCommunityIcons name='account' color={color} size={size || 26} />
+                        <TabIconWithBadge name='account-group' color={color} size={size || 26} count={unreadCount} />
                     ),
                 }}
             />
@@ -112,18 +58,6 @@ export default function TabLayout() {
                 name="exerciseTab"
                 options={{
                     title: 'Exercise',
-                    headerShown: true,
-                    headerTitleAlign: 'center',
-                    headerStatusBarHeight: 0,
-                    headerStyle: {
-                        backgroundColor: Theme.colors.surface,
-                        borderBottomWidth: 1,
-                        borderBottomColor: Theme.colors.dark,
-                    },
-                    headerTitleStyle: {
-                        color: Theme.colors.font,
-                        fontWeight: '600',
-                    },
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name='dumbbell' color={color} size={size || 26} />
                     ),
@@ -133,18 +67,6 @@ export default function TabLayout() {
                 name="index"
                 options={{
                     title: 'Workout',
-                    headerShown: true,
-                    headerTitleAlign: 'center',
-                    headerStatusBarHeight: 0,
-                    headerStyle: {
-                        backgroundColor: Theme.colors.surface,
-                        borderBottomWidth: 1,
-                        borderBottomColor: Theme.colors.dark,
-                    },
-                    headerTitleStyle: {
-                        color: Theme.colors.font,
-                        fontWeight: '600',
-                    },
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name='weight-lifter' color={color} size={size || 26} />
                     ),
@@ -154,42 +76,17 @@ export default function TabLayout() {
                 name="splitTab"
                 options={{
                     title: 'Split',
-                    headerShown: true,
-                    headerTitleAlign: 'center',
-                    headerStatusBarHeight: 0,
-                    headerStyle: {
-                        backgroundColor: Theme.colors.surface,
-                        borderBottomWidth: 1,
-                        borderBottomColor: Theme.colors.dark,
-                    },
-                    headerTitleStyle: {
-                        color: Theme.colors.font,
-                        fontWeight: '600',
-                    },
                     tabBarIcon: ({ color, size }) => (
                         <MaterialCommunityIcons name='calendar' color={color} size={size || 26} />
                     ),
                 }}
             />
             <Tabs.Screen
-                name="social"
+                name="profile"
                 options={{
-                    title: 'Social',
-                    headerShown: true,
-                    headerTitleAlign: 'center',
-                    headerStatusBarHeight: 0,
-                    headerStyle: {
-                        backgroundColor: Theme.colors.surface,
-                        borderBottomWidth: 1,
-                        borderBottomColor: Theme.colors.dark,
-                    },
-                    headerTitleStyle: {
-                        color: Theme.colors.font,
-                        fontWeight: '600',
-                    },
-                    headerRight: () => <SocialHeaderActions />,
+                    title: 'Profile',
                     tabBarIcon: ({ color, size }) => (
-                        <TabIconWithBadge name='account-group' color={color} size={size || 26} count={unreadCount} />
+                        <MaterialCommunityIcons name='account' color={color} size={size || 26} />
                     ),
                 }}
             />
@@ -214,12 +111,5 @@ const styles = StyleSheet.create({
         color: Theme.colors.white,
         fontSize: 10,
         fontWeight: Theme.fontWeight.bold,
-    },
-    headerActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    headerButton: {
-        marginRight: Theme.spacing.md,
     },
 });
