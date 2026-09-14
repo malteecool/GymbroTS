@@ -8,7 +8,6 @@
     "scheme": "com.malteiscool.gymbrots",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "jsEngine": "jsc",
     "ios": {
       "supportsTablet": true
     },
