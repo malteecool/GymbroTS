@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, memo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { getExercises } from "../services/ExerciseService.Service";
 import { FlatList, StyleSheet, View } from "react-native";
 import { Divider } from '@rneui/themed';
@@ -7,9 +7,20 @@ import { LoadingIndicator } from "./ui/LoadingIndicator";
 import { EmptyState } from "./ui/EmptyState";
 import { SearchBar } from "./ui/SearchBar";
 import { SelectRow } from "./ui/SelectRow";
+import {
+    MuscleGroup,
+    muscleGroupIcon,
+    MUSCLE_GROUP_OPTIONS,
+    UNCATEGORISED_ICON,
+    UNCATEGORISED_LABEL,
+} from "../constants/MuscleGroups";
+import { FilterChips, FilterChipOption } from "./ui/FilterChips";
 import { Exercise } from "../interfaces/Exercise.Interface";
 import { WorkoutExercise } from "../interfaces/WorkoutExercise.Interface";
 
+
+/** 'all' shows everything, 'none' narrows to exercises with no group set. */
+type GroupFilter = 'all' | 'none' | MuscleGroup;
 
 export function CustomExerciseView(props: {
     userId: string,
@@ -23,29 +34,58 @@ export function CustomExerciseView(props: {
     const [isLoading, setLoading] = useState(false);
     const [selectedExercises, setSelectedExercises] = useState<WorkoutExercise[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filteredData, setFilteredData] = useState<Exercise[]>([]);
+    const [groupFilter, setGroupFilter] = useState<GroupFilter>('all');
 
     useEffect(() => {
         const getAvailableExericses = async () => {
             setLoading(true);
             const fetchedData = await getExercises(userId)
             setData(fetchedData);
-            setFilteredData(fetchedData);
             setLoading(false);
         }
         getAvailableExericses();
     }, [userId]);
 
-    useEffect(() => {
-        if (searchQuery.trim() === '') {
-            setFilteredData(data);
-        } else {
-            const filtered = data.filter(exercise =>
-                exercise.exeName.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-            setFilteredData(filtered);
+    // Same chip row as the exercise tab, limited to the groups actually present.
+    const groupOptions = useMemo<FilterChipOption<GroupFilter>[]>(() => {
+        const present = new Set(data.map((exercise) => exercise.exeMuscleGroup));
+        const options: FilterChipOption<GroupFilter>[] = [{ value: 'all', label: 'All' }];
+
+        for (const option of MUSCLE_GROUP_OPTIONS) {
+            if (present.has(option.value)) {
+                options.push({ value: option.value, label: option.label, icon: option.icon });
+            }
         }
-    }, [searchQuery, data]);
+
+        if (present.has(null)) {
+            options.push({ value: 'none', label: UNCATEGORISED_LABEL, icon: UNCATEGORISED_ICON });
+        }
+
+        return options;
+    }, [data]);
+
+    useEffect(() => {
+        if (!groupOptions.some((option) => option.value === groupFilter)) {
+            setGroupFilter('all');
+        }
+    }, [groupOptions, groupFilter]);
+
+    const filteredData = useMemo(() => {
+        const needle = searchQuery.trim().toLowerCase();
+
+        return data.filter((exercise) => {
+            const matchesGroup =
+                groupFilter === 'all' ||
+                (groupFilter === 'none'
+                    ? exercise.exeMuscleGroup === null
+                    : exercise.exeMuscleGroup === groupFilter);
+
+            if (!matchesGroup) return false;
+            if (!needle) return true;
+
+            return exercise.exeName.toLowerCase().includes(needle);
+        });
+    }, [data, searchQuery, groupFilter]);
 
     const addSelectedExercise = useCallback((exercise: Exercise) => {
         setSelectedExercises((prev) => {
@@ -76,6 +116,13 @@ export function CustomExerciseView(props: {
                         onChangeText={setSearchQuery}
                         placeholder="Search exercises..."
                     />
+                    {groupOptions.length > 1 && (
+                        <FilterChips
+                            options={groupOptions}
+                            value={groupFilter}
+                            onChange={setGroupFilter}
+                        />
+                    )}
                 </View>
             }
             ListEmptyComponent={
@@ -85,16 +132,18 @@ export function CustomExerciseView(props: {
                     <EmptyState
                         icon="dumbbell"
                         size="compact"
-                        title={searchQuery ? 'No exercises found' : 'No exercises available'}
+                        title={searchQuery || groupFilter !== 'all' ? 'No exercises found' : 'No exercises available'}
                         subtitle={searchQuery
                             ? 'Try a different search term'
-                            : 'Create exercises first to add them to your workout'}
+                            : groupFilter !== 'all'
+                                ? 'Nothing in this group yet'
+                                : 'Create exercises first to add them to your workout'}
                     />
                 )
             }
             renderItem={({ item }) => (
                 <SelectRow
-                    icon="dumbbell"
+                    icon={muscleGroupIcon(item.exeMuscleGroup)}
                     label={item.exeName}
                     selected={selectedExercises.some((x) => x.id === item.id)}
                     onPress={() => addSelectedExercise(item)}

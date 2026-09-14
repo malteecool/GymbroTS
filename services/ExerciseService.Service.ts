@@ -4,6 +4,7 @@ import { ExerciseHistory } from '../interfaces/ExerciseHistory.Interface';
 import { Set as WorkoutSet } from '../interfaces/Set.Interface';
 import { PersonalRecord } from '../interfaces/Achievement.Interface';
 import { ExerciseMapper, ExerciseHistoryMapper, SetMapper, WorkoutExerciseMapper } from './mappers';
+import { guessMuscleGroup, MuscleGroup } from '../constants/MuscleGroups';
 
 export async function getExercises(usr_id: string): Promise<Exercise[]> {
     try {
@@ -110,31 +111,82 @@ export async function getLastLoggedSession(exerciseId: string, excludeDateKey?: 
     }
 }
 
-export async function getHistory(exerciseId: string, date?: Date): Promise<ExerciseHistory[]> {
+/** How many logged sessions a single history page holds. */
+export const HISTORY_PAGE_SIZE = 5;
+
+export interface ExerciseHistoryPage {
+    items: ExerciseHistory[];
+    /** True when there is at least one older session past this page. */
+    hasMore: boolean;
+}
+
+/**
+ * Fetch the sets of several sessions in one query, grouped by history id, so a
+ * page of history costs two round trips instead of one per session.
+ */
+async function getSetsByHistoryIds(historyIds: string[]): Promise<Map<string, WorkoutSet[]>> {
+    const grouped = new Map<string, WorkoutSet[]>();
+    if (historyIds.length === 0) return grouped;
+
+    const { data, error } = await supabase
+        .from('set')
+        .select('*')
+        .in('exercise_history_id', historyIds)
+        .order('set_order', { ascending: true });
+
+    if (error) throw error;
+
+    for (const row of data || []) {
+        const sets = grouped.get(row.exercise_history_id);
+        if (sets) {
+            sets.push(SetMapper.toDomain(row));
+        } else {
+            grouped.set(row.exercise_history_id, [SetMapper.toDomain(row)]);
+        }
+    }
+
+    return grouped;
+}
+
+/**
+ * Fetch one page of logged sessions for an exercise, newest first. History can
+ * run to hundreds of sessions, so callers page through it instead of loading
+ * the lot up front.
+ */
+export async function getHistory(
+    exerciseId: string,
+    options: { limit?: number; offset?: number } = {}
+): Promise<ExerciseHistoryPage> {
+    const limit = options.limit ?? HISTORY_PAGE_SIZE;
+    const offset = options.offset ?? 0;
+
     try {
+        // Ask for one row past the page so we know whether a "load more" is worth offering.
         const { data, error } = await supabase
             .from('exercise_history')
             .select('*')
             .eq('exercise_id', exerciseId)
-            .order('exh_date', { ascending: false });
+            .order('exh_date', { ascending: false })
+            .range(offset, offset + limit);
 
         if (error) throw error;
 
-        const documentData: ExerciseHistory[] = [];
+        const rows = data || [];
+        const hasMore = rows.length > limit;
+        const pageRows = hasMore ? rows.slice(0, limit) : rows;
 
-        for (const historyRecord of data || []) {
-            const historyDate = new Date(historyRecord.exh_date);
-
-            if (!date || (date && historyDate > date)) {
-                const setsData = await getSetByHistoryId(historyRecord.id);
-                console.log(setsData);
-                documentData.push(
-                    ExerciseHistoryMapper.toDomain(historyRecord, setsData.exhSets)
-                );
-            }
+        if (pageRows.length === 0) {
+            return { items: [], hasMore: false };
         }
-        console.log("document data: ", documentData[0].exhSets)
-        return documentData;
+
+        const setsByHistoryId = await getSetsByHistoryIds(pageRows.map((row) => row.id));
+
+        return {
+            items: pageRows.map((row) =>
+                ExerciseHistoryMapper.toDomain(row, setsByHistoryId.get(row.id) || [])
+            ),
+            hasMore,
+        };
     } catch (error) {
         console.error('Error getting history:', error);
         throw error;
@@ -202,13 +254,23 @@ export async function updateExerciseDate(exe_id: string): Promise<void> {
     }
 }
 
-export async function addExercise(name: string, usr_id: string): Promise<string> {
+/**
+ * Create an exercise. When no muscle group is given the name is used to guess
+ * one, so a quick add still lands in a category the filter can find; anything
+ * unrecognised stays uncategorised until the user picks a group.
+ */
+export async function addExercise(
+    name: string,
+    usr_id: string,
+    muscleGroup?: MuscleGroup | null
+): Promise<string> {
     try {
         const { data, error } = await supabase
             .from('exercise')
             .insert(ExerciseMapper.toSupabase({
                 exeName: name,
-                exeUserId: usr_id
+                exeUserId: usr_id,
+                exeMuscleGroup: muscleGroup !== undefined ? muscleGroup : guessMuscleGroup(name)
             }))
             .select()
             .single();
@@ -218,6 +280,24 @@ export async function addExercise(name: string, usr_id: string): Promise<string>
         return data.id;
     } catch (error) {
         console.error('Error adding exercise:', error);
+        throw error;
+    }
+}
+
+/** Set (or clear, with null) the primary muscle group of an existing exercise. */
+export async function setExerciseMuscleGroup(
+    exe_id: string,
+    muscleGroup: MuscleGroup | null
+): Promise<void> {
+    try {
+        const { error } = await supabase
+            .from('exercise')
+            .update({ exe_muscle_group: muscleGroup })
+            .eq('id', exe_id);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error updating exercise muscle group:', error);
         throw error;
     }
 }

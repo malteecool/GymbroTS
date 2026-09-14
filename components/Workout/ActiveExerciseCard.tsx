@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Theme, Styles } from '../../constants/Theme';
 import { SetField, SetTable } from './SetTable';
 import { MetaRow } from '../ui/MetaRow';
+import { muscleGroupIcon, muscleGroupLabel } from '../../constants/MuscleGroups';
 import { addExerciseHistory, getLastLoggedSession } from '../../services/ExerciseService.Service';
 import { PersonalRecord } from '../../interfaces/Achievement.Interface';
 import { WorkoutExercise } from '../../interfaces/WorkoutExercise.Interface';
@@ -136,6 +137,7 @@ export function ActiveExerciseCard({
                         </View>
                         <MetaRow
                             items={[
+                                { icon: muscleGroupIcon(exercise.exeMuscleGroup), label: muscleGroupLabel(exercise.exeMuscleGroup) },
                                 { icon: 'weight-kilogram', label: `${displayWeight} kg` },
                                 { icon: 'calendar-range', label: displayDate },
                             ]}

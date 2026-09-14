@@ -9,14 +9,26 @@ import { Styles } from "../../constants/Theme";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { SearchBar } from "../../components/ui/SearchBar";
 import { SelectRow } from "../../components/ui/SelectRow";
+import { FilterChips, FilterChipOption } from "../../components/ui/FilterChips";
+import {
+    guessMuscleGroup,
+    muscleGroupIcon,
+    MuscleGroup,
+    MUSCLE_GROUP_OPTIONS,
+    UNCATEGORISED_ICON,
+    UNCATEGORISED_LABEL,
+} from "../../constants/MuscleGroups";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { ScrollView, View } from "react-native";
+
+/** 'all' shows everything, 'none' narrows to exercises with no group set. */
+type GroupFilter = 'all' | 'none' | MuscleGroup;
 
 export default function AddExerciseScreen() {
     const [isLoading, setLoading] = useState<boolean>(false);
     const [search, setSearch] = useState('');
-    const [filteredDataSource, setFilteredDataSource] = useState<Exercise[]>([]);
+    const [groupFilter, setGroupFilter] = useState<GroupFilter>('all');
     const [masterDataSource, setMasterDataSource] = useState<Exercise[]>([]);
     const [user, setUser] = useState<User | null>(null);
 
@@ -40,7 +52,6 @@ export default function AddExerciseScreen() {
                 docDataArray = await getDefaultExercises();
             }
 
-            setFilteredDataSource(docDataArray);
             setMasterDataSource(docDataArray);
         } catch (error) {
             console.error('Error loading exercises:', error);
@@ -52,6 +63,63 @@ export default function AddExerciseScreen() {
     useEffect(() => {
         loadExercises();
     }, [loadExercises]);
+
+    /**
+     * Only offer the groups the list actually has exercises in - the same chip
+     * row as the exercise tab.
+     */
+    const groupOptions = useMemo<FilterChipOption<GroupFilter>[]>(() => {
+        const present = new Set(masterDataSource.map((item) => item.exeMuscleGroup));
+        const options: FilterChipOption<GroupFilter>[] = [{ value: 'all', label: 'All' }];
+
+        for (const option of MUSCLE_GROUP_OPTIONS) {
+            if (present.has(option.value)) {
+                options.push({ value: option.value, label: option.label, icon: option.icon });
+            }
+        }
+
+        if (present.has(null)) {
+            options.push({ value: 'none', label: UNCATEGORISED_LABEL, icon: UNCATEGORISED_ICON });
+        }
+
+        return options;
+    }, [masterDataSource]);
+
+    // Drop a filter that no longer has anything behind it, so the list cannot
+    // get stuck showing nothing.
+    useEffect(() => {
+        if (!groupOptions.some((option) => option.value === groupFilter)) {
+            setGroupFilter('all');
+        }
+    }, [groupOptions, groupFilter]);
+
+    const trimmedSearch = search.trim();
+
+    const filteredDataSource = useMemo(() => {
+        const needle = trimmedSearch.toUpperCase();
+
+        return masterDataSource.filter((item: Exercise) => {
+            const matchesGroup =
+                groupFilter === 'all' ||
+                (groupFilter === 'none' ? item.exeMuscleGroup === null : item.exeMuscleGroup === groupFilter);
+
+            if (!matchesGroup) return false;
+            if (!needle) return true;
+
+            return (item.exeName?.toUpperCase() || '').indexOf(needle) > -1;
+        });
+    }, [masterDataSource, trimmedSearch, groupFilter]);
+
+    /**
+     * A filter-picked group beats the name guess: if you are looking at Back and
+     * type a new name, you meant to add it to Back.
+     */
+    const newExerciseGroup = useMemo(
+        () => (groupFilter === 'all' || groupFilter === 'none'
+            ? guessMuscleGroup(trimmedSearch)
+            : groupFilter),
+        [groupFilter, trimmedSearch]
+    );
 
     const onAddExercise = useCallback(async (name: string, exerciseId?: string) => {
         if (!user) {
@@ -66,10 +134,10 @@ export default function AddExerciseScreen() {
                 await attachToWorkout(exerciseId, workoutId as string, masterDataSource.length);
             } else if (workoutId) {
                 console.log("Adding new exercise and attaching to workout");
-                const newExerciseId = await addExercise(name, user.id);
+                const newExerciseId = await addExercise(name, user.id, newExerciseGroup);
                 await attachToWorkout(newExerciseId, workoutId as string, masterDataSource.length);
             } else {
-                await addExercise(name, user.id);
+                await addExercise(name, user.id, newExerciseGroup);
             }
 
             emitter.emit('exerciseEvent', 0);
@@ -82,21 +150,7 @@ export default function AddExerciseScreen() {
         } finally {
             setLoading(false);
         }
-    }, [user, workoutId, masterDataSource.length]);
-
-    const searchFilterFunction = useCallback((text: string) => {
-        setSearch(text);
-        if (text) {
-            const newData = masterDataSource.filter((item: Exercise) => {
-                const itemData = item.exeName?.toUpperCase() || '';
-                const textData = text.toUpperCase();
-                return itemData.indexOf(textData) > -1;
-            });
-            setFilteredDataSource(newData);
-        } else {
-            setFilteredDataSource(masterDataSource);
-        }
-    }, [masterDataSource]);
+    }, [user, workoutId, masterDataSource.length, newExerciseGroup]);
 
     if (isLoading && masterDataSource.length === 0) {
         return <LoadingIndicator text='Loading exercises...' />;
@@ -106,16 +160,24 @@ export default function AddExerciseScreen() {
         <View style={Styles.screen}>
             <SearchBar
                 value={search}
-                onChangeText={searchFilterFunction}
+                onChangeText={setSearch}
                 placeholder='Search exercises...'
             />
+
+            {groupOptions.length > 1 && (
+                <FilterChips
+                    options={groupOptions}
+                    value={groupFilter}
+                    onChange={setGroupFilter}
+                />
+            )}
 
             <ScrollView contentContainerStyle={Styles.listContent} keyboardShouldPersistTaps="handled">
                 {filteredDataSource.length > 0 ? (
                     filteredDataSource.map((item: Exercise, i: number) => (
                         <SelectRow
                             key={item.id || i}
-                            icon="dumbbell"
+                            icon={muscleGroupIcon(item.exeMuscleGroup)}
                             label={item.exeName}
                             trailingIcon="chevron-right"
                             onPress={() => onAddExercise(item.exeName, item.id)}
@@ -124,18 +186,18 @@ export default function AddExerciseScreen() {
                 ) : (
                     <View>
                         <SelectRow
-                            icon="plus-circle"
-                            label={search.trim()
-                                ? `Add new: ${search}`
+                            icon={trimmedSearch ? muscleGroupIcon(newExerciseGroup) : 'plus-circle'}
+                            label={trimmedSearch
+                                ? `Add new: ${trimmedSearch}`
                                 : 'Search for an exercise or type to add new'}
-                            disabled={!search.trim()}
-                            onPress={() => onAddExercise(search)}
+                            disabled={!trimmedSearch}
+                            onPress={() => onAddExercise(trimmedSearch)}
                         />
-                        {!search.trim() && (
+                        {!trimmedSearch && (
                             <EmptyState
                                 icon="dumbbell"
                                 size="compact"
-                                title="No exercises found"
+                                title={groupFilter === 'all' ? 'No exercises found' : 'No exercises in this group'}
                                 subtitle="Type an exercise name above to create a new one"
                             />
                         )}

@@ -1,5 +1,6 @@
 import { plainToInstance, Type } from 'class-transformer';
 import { Exercise } from '../../interfaces/Exercise.Interface';
+import { isMuscleGroup } from '../../constants/MuscleGroups';
 
 /**
  * Mapper for converting Supabase database rows to Exercise interface
@@ -16,7 +17,10 @@ export class ExerciseMapper {
             exeUserId: row.exe_user_id,
             exeDate: row.exe_date || new Date().toISOString(),
             exeMaxReps: row.exe_max_reps,
-            exeMaxWeight: row.exe_max_weight
+            exeMaxWeight: row.exe_max_weight,
+            // Guard the value so a group retired from the taxonomy reads as
+            // uncategorised instead of breaking the badge and filter.
+            exeMuscleGroup: isMuscleGroup(row.exe_muscle_group) ? row.exe_muscle_group : null
         };
     }
 
@@ -37,7 +41,8 @@ export class ExerciseMapper {
             exe_user_id: exercise.exeUserId,
             exe_date: new Date().toISOString(),
             exe_max_reps: exercise.exeMaxReps ?? 0,
-            exe_max_weight: exercise.exeMaxWeight ?? 0
+            exe_max_weight: exercise.exeMaxWeight ?? 0,
+            exe_muscle_group: exercise.exeMuscleGroup ?? null
         };
     }
 
@@ -51,6 +56,7 @@ export class ExerciseMapper {
         if (exercise.exeDate !== undefined) update.exe_date = new Date().toISOString();
         if (exercise.exeMaxReps !== undefined) update.exe_max_reps = exercise.exeMaxReps;
         if (exercise.exeMaxWeight !== undefined) update.exe_max_weight = exercise.exeMaxWeight;
+        if (exercise.exeMuscleGroup !== undefined) update.exe_muscle_group = exercise.exeMuscleGroup;
         
         return update;
     }
