@@ -192,6 +192,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: Theme.spacing.md,
+        // Same gap the visibility row keeps below itself: signing out is its own
+        // concern, not another row in the settings list above it.
+        marginTop: Theme.spacing.lg,
         backgroundColor: Theme.colors.danger,
         borderRadius: Theme.spacing.sm,
         ...Theme.shadows.small,

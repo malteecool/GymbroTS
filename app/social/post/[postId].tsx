@@ -11,6 +11,7 @@ import { reportPost } from '../../../services/ReportService.Service';
 import { getStordUserData } from '../../../services/UserService.Service';
 import { PostCard } from '../../../components/Social/PostCard';
 import { CommentSection } from '../../../components/Social/CommentSection';
+import { PostEditSheet } from '../../../components/Social/PostEditSheet';
 import { ActionSheet, ActionSheetOption } from '../../../components/ui/ActionSheet';
 
 /** Which sheet is open: the options list, the report reasons, or neither. */
@@ -25,6 +26,13 @@ export default function PostDetailScreen() {
     const [followingAuthor, setFollowingAuthor] = useState<boolean | null>(null);
     const [followPending, setFollowPending] = useState(false);
     const [sheet, setSheet] = useState<SheetStage>('closed');
+    /** The post being edited, or null when the edit sheet is closed. */
+    const [editing, setEditing] = useState<Post | null>(null);
+    /**
+     * What to do once the options sheet has finished sliding away. Deferred so
+     * the edit sheet or the delete alert does not land on a closing sheet.
+     */
+    const [pending, setPending] = useState<'edit' | 'delete' | 'block' | null>(null);
 
     const load = useCallback(async () => {
         if (!postId) return;
@@ -168,12 +176,19 @@ export default function PostDetailScreen() {
     const isOwn = post.userId === currentUserId;
 
     const optionsForPost: ActionSheetOption[] = isOwn
-        ? [{
-            label: 'Delete post',
-            icon: 'trash-can-outline',
-            destructive: true,
-            onPress: () => { setSheet('closed'); handleDelete(post); },
-        }]
+        ? [
+            {
+                label: 'Edit post',
+                icon: 'pencil-outline',
+                onPress: () => { setPending('edit'); setSheet('closed'); },
+            },
+            {
+                label: 'Delete post',
+                icon: 'trash-can-outline',
+                destructive: true,
+                onPress: () => { setPending('delete'); setSheet('closed'); },
+            },
+        ]
         : [
             {
                 label: 'Report post',
@@ -185,7 +200,7 @@ export default function PostDetailScreen() {
                 label: `Block ${post.authorName}`,
                 icon: 'account-cancel-outline',
                 destructive: true,
-                onPress: () => { setSheet('closed'); handleBlock(post); },
+                onPress: () => { setPending('block'); setSheet('closed'); },
             },
         ];
 
@@ -217,17 +232,29 @@ export default function PostDetailScreen() {
                 }
             />
 
+            {/*
+              * One sheet for both stages rather than two: swapping the options
+              * in place keeps the report list an instant step within the same
+              * sheet, instead of one sheet sliding out past another sliding in.
+              */}
             <ActionSheet
-                visible={sheet === 'options'}
-                options={optionsForPost}
+                visible={sheet !== 'closed'}
+                title={sheet === 'report' ? 'Why are you reporting this post?' : undefined}
+                options={sheet === 'report' ? reportOptions : optionsForPost}
                 onCancel={() => setSheet('closed')}
+                cancelLabel={sheet === 'report' ? 'Back' : 'Cancel'}
+                onClosed={() => {
+                    if (!pending) return;
+                    if (pending === 'edit') setEditing(post);
+                    else if (pending === 'delete') handleDelete(post);
+                    else handleBlock(post);
+                    setPending(null);
+                }}
             />
-            <ActionSheet
-                visible={sheet === 'report'}
-                title="Why are you reporting this post?"
-                options={reportOptions}
-                onCancel={() => setSheet('closed')}
-                cancelLabel="Back"
+            <PostEditSheet
+                post={editing}
+                onCancel={() => setEditing(null)}
+                onSaved={saved => { setEditing(null); setPost(saved); }}
             />
         </View>
     );

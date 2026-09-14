@@ -80,6 +80,45 @@ export async function createPost(params: {
     return { ...rowToPost(data), likedByMe: false };
 }
 
+/**
+ * Rewrites the caption and photo of a post the caller owns.
+ *
+ * The `user_id` filter is what enforces ownership - without RLS on this table
+ * an id alone would be enough to edit anyone's post. A post that does not match
+ * both returns no row, which surfaces as an error from `.single()`.
+ *
+ * Clearing the photo only nulls the column; the object stays in the bucket, the
+ * same as it does when a post is deleted outright.
+ */
+export async function updatePost(postId: string, params: {
+    caption: string | null;
+    imageUrl: string | null;
+}): Promise<Post> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+        .from('post')
+        .update({ caption: params.caption, image_url: params.imageUrl })
+        .eq('id', postId)
+        .eq('user_id', user.id)
+        .select(`
+            *,
+            app_user ( name, avatar_url ),
+            workout ( wor_name ),
+            reaction ( id, user_id ),
+            comment ( id )
+        `)
+        .single();
+
+    if (error) throw error;
+
+    return {
+        ...rowToPost(data),
+        likedByMe: (data.reaction ?? []).some((r: any) => r.user_id === user.id),
+    };
+}
+
 export async function getFeed(offset: number = 0): Promise<Post[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];

@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity, TextInput, FlatList, Alert } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity, TextInput, FlatList } from "react-native";
 import { useRouter } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ProfileHeader } from '../../components/Profile/ProfileHeader';
 import { IconButton } from '../../components/ui/IconButton';
 import { PostCard } from '../../components/Social/PostCard';
+import { PostOwnerActions } from '../../components/Social/PostOwnerActions';
 import CounterComponent from '../../components/AnimateNumber';
 import BarGraph from '../../components/BarGraph';
 import { getWorkoutsCount, getWeekNumber } from '../../services/StatsService.Service';
@@ -14,7 +15,7 @@ import {
     HANDLE_MAX_LENGTH,
 } from '../../services/UserService.Service';
 import { getOwnProfileStats } from '../../services/SocialService.Service';
-import { getPostsForUser, likePost, unlikePost, deletePost, appendPostPage } from '../../services/PostService.Service';
+import { getPostsForUser, likePost, unlikePost, appendPostPage } from '../../services/PostService.Service';
 import { pickImage, uploadAvatar } from '../../services/ImageUploadService.Service';
 import { User } from '../../interfaces/User.Interface';
 import { Post, PostCommentCountChange, POST_COMMENT_COUNT_EVENT } from '../../interfaces/Post.Interface';
@@ -73,6 +74,8 @@ export default function ProfileScreen() {
     const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
     const [posts, setPosts] = useState<Post[]>([]);
     const [postsLoading, setPostsLoading] = useState(true);
+    /** The post whose owner menu is open, or null when none is. */
+    const [optionsPost, setOptionsPost] = useState<Post | null>(null);
     const [loadingMorePosts, setLoadingMorePosts] = useState(false);
     const [hasMorePosts, setHasMorePosts] = useState(true);
 
@@ -189,20 +192,12 @@ export default function ProfileScreen() {
         }
     }, []);
 
-    const handleDeletePost = useCallback((post: Post) => {
-        Alert.alert('Delete post', 'Are you sure you want to delete this post?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Delete', style: 'destructive', onPress: async () => {
-                    try {
-                        await deletePost(post.id);
-                        setPosts(prev => prev.filter(p => p.id !== post.id));
-                    } catch (e) {
-                        Alert.alert('Error', 'Could not delete post. Please try again.');
-                    }
-                }
-            },
-        ]);
+    const handlePostDeleted = useCallback((postId: string) => {
+        setPosts(prev => prev.filter(p => p.id !== postId));
+    }, []);
+
+    const handlePostUpdated = useCallback((updated: Post) => {
+        setPosts(prev => prev.map(p => (p.id === updated.id ? updated : p)));
     }, []);
 
     const handleEnterEdit = () => {
@@ -445,12 +440,12 @@ export default function ProfileScreen() {
             <FlatList
                 data={activeTab === 'posts' ? posts : []}
                 keyExtractor={item => item.id}
-                renderItem={({ item }) => (
-                    <View style={styles.postItemWrap}>
+                renderItem={({ item, index }) => (
+                    <View style={[styles.postItemWrap, index === 0 && styles.postItemFirst]}>
                         <PostCard
                             post={item}
                             onLikeToggle={handleLikeToggle}
-                            onDelete={handleDeletePost}
+                            onOptions={setOptionsPost}
                             currentUserId={user?.id ?? ''}
                         />
                     </View>
@@ -472,6 +467,13 @@ export default function ProfileScreen() {
                         </View>
                     )
                 ) : null}
+            />
+
+            <PostOwnerActions
+                post={optionsPost}
+                onClose={() => setOptionsPost(null)}
+                onDeleted={handlePostDeleted}
+                onUpdated={handlePostUpdated}
             />
         </View>
     );
@@ -499,6 +501,10 @@ const styles = StyleSheet.create({
     },
     postItemWrap: {
         paddingHorizontal: Theme.spacing.md,
+    },
+    /** Lifts the first card off the tab row's divider, matching statsSection. */
+    postItemFirst: {
+        paddingTop: Theme.spacing.md,
     },
     editForm: {
         width: '100%',

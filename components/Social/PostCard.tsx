@@ -9,7 +9,11 @@ import { Avatar } from '../ui/Avatar';
 interface PostCardProps {
     post: Post;
     onLikeToggle: (post: Post) => void;
-    onDelete?: (post: Post) => void;
+    /**
+     * Opens the owner menu (edit / delete) behind the dots on your own posts.
+     * The menu itself lives on the screen - see PostOwnerActions.
+     */
+    onOptions?: (post: Post) => void;
     /** Offered on other people's posts, so blocking is reachable from the feed. */
     onBlock?: (post: Post) => void;
     currentUserId: string;
@@ -40,13 +44,19 @@ function timeAgo(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString();
 }
 
-const POST_TYPE_ICON: Record<Post['postType'], string> = {
+/**
+ * Only posts that announce an activity get the label row - a plain `text` post
+ * is just the author and what they wrote, so it is left out of both maps.
+ */
+type ActivityPostType = Exclude<Post['postType'], 'text'>;
+
+const POST_TYPE_ICON: Record<ActivityPostType, string> = {
     workout_complete: 'check-circle',
     pr_broken: 'trophy',
     milestone: 'star-circle',
 };
 
-const POST_TYPE_LABEL: Record<Post['postType'], string> = {
+const POST_TYPE_LABEL: Record<ActivityPostType, string> = {
     workout_complete: 'Completed a workout',
     pr_broken: 'Set a new PR',
     milestone: 'Hit a milestone',
@@ -55,7 +65,7 @@ const POST_TYPE_LABEL: Record<Post['postType'], string> = {
 export function PostCard({
     post,
     onLikeToggle,
-    onDelete,
+    onOptions,
     onBlock,
     currentUserId,
     variant = 'feed',
@@ -117,31 +127,43 @@ export function PostCard({
                     </TouchableOpacity>
                 )}
 
-                {isOwn && onDelete && (
-                    <TouchableOpacity onPress={() => onDelete(post)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                {isOwn && onOptions && (
+                    <TouchableOpacity
+                        onPress={() => onOptions(post)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Post options"
+                    >
                         <MaterialCommunityIcons name="dots-vertical" size={20} color={Theme.colors.secondary} />
                     </TouchableOpacity>
                 )}
 
                 {!isOwn && onBlock && (
-                    <TouchableOpacity onPress={() => onBlock(post)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <TouchableOpacity
+                        onPress={() => onBlock(post)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Post options"
+                    >
                         <MaterialCommunityIcons name="dots-vertical" size={20} color={Theme.colors.secondary} />
                     </TouchableOpacity>
                 )}
             </View>
 
             {/* Activity label */}
-            <View style={styles.activityRow}>
-                <MaterialCommunityIcons
-                    name={POST_TYPE_ICON[post.postType] as any}
-                    size={16}
-                    color={Theme.colors.yellow}
-                />
-                <Text style={styles.activityLabel}>{POST_TYPE_LABEL[post.postType]}</Text>
-                {post.workoutName && (
-                    <Text style={styles.workoutName}> · {post.workoutName}</Text>
-                )}
-            </View>
+            {post.postType !== 'text' && (
+                <View style={styles.activityRow}>
+                    <MaterialCommunityIcons
+                        name={POST_TYPE_ICON[post.postType] as any}
+                        size={16}
+                        color={Theme.colors.yellow}
+                    />
+                    <Text style={styles.activityLabel}>{POST_TYPE_LABEL[post.postType]}</Text>
+                    {post.workoutName && (
+                        <Text style={styles.workoutName}> · {post.workoutName}</Text>
+                    )}
+                </View>
+            )}
 
             {/* Photo */}
             {post.imageUrl ? (

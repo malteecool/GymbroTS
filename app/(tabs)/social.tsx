@@ -5,9 +5,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
 import { Post, PostCommentCountChange, POST_COMMENT_COUNT_EVENT } from '../../interfaces/Post.Interface';
 import {
-    getFeed, getExploreFeed, likePost, unlikePost, deletePost, appendPostPage,
+    getFeed, getExploreFeed, likePost, unlikePost, appendPostPage,
 } from '../../services/PostService.Service';
 import { PostCard } from '../../components/Social/PostCard';
+import { PostComposer } from '../../components/Social/PostComposer';
+import { PostOwnerActions } from '../../components/Social/PostOwnerActions';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SegmentedTabs } from '../../components/ui/SegmentedTabs';
 import { IconButton } from '../../components/ui/IconButton';
@@ -37,7 +39,10 @@ export default function SocialScreen() {
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [currentUserId, setCurrentUserId] = useState('');
+    const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null);
     const [mode, setMode] = useState<FeedMode>('following');
+    /** The post whose owner menu is open, or null when none is. */
+    const [optionsPost, setOptionsPost] = useState<Post | null>(null);
 
     /**
      * Identifies the newest first-page request. Switching tabs faster than the
@@ -53,7 +58,10 @@ export default function SocialScreen() {
             const user = await getStordUserData();
             const data = await fetchFeed(mode, 0);
             if (token !== requestRef.current) return;
-            if (user) setCurrentUserId(user.id);
+            if (user) {
+                setCurrentUserId(user.id);
+                setCurrentUserAvatar(user.avatarUrl ?? null);
+            }
             setPosts(data);
             setHasMore(data.length === PAGE_SIZE);
         } catch (e) {
@@ -124,20 +132,12 @@ export default function SocialScreen() {
         }
     }, []);
 
-    const handleDelete = useCallback((post: Post) => {
-        Alert.alert('Delete post', 'Are you sure you want to delete this post?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Delete', style: 'destructive', onPress: async () => {
-                    try {
-                        await deletePost(post.id);
-                        setPosts(prev => prev.filter(p => p.id !== post.id));
-                    } catch (e) {
-                        Alert.alert('Error', 'Could not delete post. Please try again.');
-                    }
-                }
-            },
-        ]);
+    const handleDeleted = useCallback((postId: string) => {
+        setPosts(prev => prev.filter(p => p.id !== postId));
+    }, []);
+
+    const handleUpdated = useCallback((updated: Post) => {
+        setPosts(prev => prev.map(p => (p.id === updated.id ? updated : p)));
     }, []);
 
     const handleBlock = useCallback((post: Post) => {
@@ -161,6 +161,12 @@ export default function SocialScreen() {
                 },
             ]
         );
+    }, []);
+
+    const handlePosted = useCallback((post: Post) => {
+        // Straight to the top rather than refetching - the feed is ordered by
+        // recency, so this is exactly where the next load would put it.
+        setPosts(prev => [post, ...prev]);
     }, []);
 
     const switchMode = useCallback((next: FeedMode) => {
@@ -214,12 +220,20 @@ export default function SocialScreen() {
                     <PostCard
                         post={item}
                         onLikeToggle={handleLikeToggle}
-                        onDelete={handleDelete}
+                        onOptions={setOptionsPost}
                         onBlock={handleBlock}
                         currentUserId={currentUserId}
                     />
                 )}
                 contentContainerStyle={styles.list}
+                keyboardShouldPersistTaps="handled"
+                ListHeaderComponent={
+                    // Only on Following: Explore deliberately leaves out your own
+                    // posts, so a new one would vanish on the next refresh.
+                    mode === 'following'
+                        ? <PostComposer avatarUrl={currentUserAvatar} onPosted={handlePosted} />
+                        : null
+                }
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.4}
                 onRefresh={() => load(true)}
@@ -264,6 +278,13 @@ export default function SocialScreen() {
                 }
             />
             )}
+
+            <PostOwnerActions
+                post={optionsPost}
+                onClose={() => setOptionsPost(null)}
+                onDeleted={handleDeleted}
+                onUpdated={handleUpdated}
+            />
         </View>
     );
 }

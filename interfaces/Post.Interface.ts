@@ -1,4 +1,8 @@
-export type PostType = 'workout_complete' | 'pr_broken' | 'milestone';
+/**
+ * 'text' is a standalone post written straight into the feed - it has no
+ * workout behind it, so cards render it without an activity label.
+ */
+export type PostType = 'text' | 'workout_complete' | 'pr_broken' | 'milestone';
 
 export interface Post {
     id: string;

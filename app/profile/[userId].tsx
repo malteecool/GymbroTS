@@ -8,10 +8,11 @@ import { Theme } from '../../constants/Theme';
 import { PublicProfile } from '../../interfaces/User.Interface';
 import { Post, PostCommentCountChange, POST_COMMENT_COUNT_EVENT } from '../../interfaces/Post.Interface';
 import { getPublicProfile, followUser, unfollowUser, blockUser } from '../../services/SocialService.Service';
-import { getPostsForUser, likePost, unlikePost, deletePost, appendPostPage } from '../../services/PostService.Service';
+import { getPostsForUser, likePost, unlikePost, appendPostPage } from '../../services/PostService.Service';
 import { getStordUserData } from '../../services/UserService.Service';
 import emitter from '../../hooks/CustomEventEmitter';
 import { PostCard } from '../../components/Social/PostCard';
+import { PostOwnerActions } from '../../components/Social/PostOwnerActions';
 import { ProfileHeader } from '../../components/Profile/ProfileHeader';
 
 const PAGE_SIZE = 20;
@@ -27,6 +28,8 @@ export default function PublicProfileScreen() {
 
     const [posts, setPosts] = useState<Post[]>([]);
     const [postsLoading, setPostsLoading] = useState(true);
+    /** The post whose owner menu is open, or null when none is. */
+    const [optionsPost, setOptionsPost] = useState<Post | null>(null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
 
@@ -115,20 +118,12 @@ export default function PublicProfileScreen() {
         }
     }, []);
 
-    const handleDeletePost = useCallback((post: Post) => {
-        Alert.alert('Delete post', 'Are you sure you want to delete this post?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Delete', style: 'destructive', onPress: async () => {
-                    try {
-                        await deletePost(post.id);
-                        setPosts(prev => prev.filter(p => p.id !== post.id));
-                    } catch (e) {
-                        Alert.alert('Error', 'Could not delete post. Please try again.');
-                    }
-                }
-            },
-        ]);
+    const handlePostDeleted = useCallback((postId: string) => {
+        setPosts(prev => prev.filter(p => p.id !== postId));
+    }, []);
+
+    const handlePostUpdated = useCallback((updated: Post) => {
+        setPosts(prev => prev.map(p => (p.id === updated.id ? updated : p)));
     }, []);
 
     const handleBlock = useCallback(() => {
@@ -201,6 +196,7 @@ export default function PublicProfileScreen() {
     }
 
     return (
+        <>
         <FlatList
             style={styles.container}
             contentContainerStyle={styles.content}
@@ -210,7 +206,7 @@ export default function PublicProfileScreen() {
                 <PostCard
                     post={item}
                     onLikeToggle={handleLikeToggle}
-                    onDelete={item.userId === currentUserId ? handleDeletePost : undefined}
+                    onOptions={setOptionsPost}
                     currentUserId={currentUserId}
                 />
             )}
@@ -280,6 +276,14 @@ export default function PublicProfileScreen() {
                 ) : null
             }
         />
+
+        <PostOwnerActions
+            post={optionsPost}
+            onClose={() => setOptionsPost(null)}
+            onDeleted={handlePostDeleted}
+            onUpdated={handlePostUpdated}
+        />
+        </>
     );
 }
 
