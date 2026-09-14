@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet, Alert } from "react-native";
-import { Button } from '@rneui/themed';
+import { Button } from '../../components/ui/Button';
 import {
     getReferenceWeek, markDayAsCompleted, updateSplitDayWorkout, SplitWeek,
 } from '../../services/SplitService.Service';

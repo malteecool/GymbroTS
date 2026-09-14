@@ -1,8 +1,8 @@
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button } from '@rneui/themed';
+import { Button } from '../../components/ui/Button';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Divider } from '@rneui/base';
+import { Divider } from '../../components/ui/Divider';
 import emitter from '../../hooks/CustomEventEmitter';
 import { getWorkouts, getWorkoutExercises, getFormattedTime } from '../../services/WorkoutService.Service';
 import { getTodaysSplitWorkout } from '../../services/SplitService.Service';
@@ -285,7 +285,7 @@ export default function WorkoutScreen() {
                         onPress={startWorkout}
                         buttonStyle={styles.startButton}
                         titleStyle={styles.startButtonText}
-                        icon={{ name: 'play', type: 'material-community', color: Theme.colors.dark, size: 20 }}
+                        icon={{ name: 'play', color: Theme.colors.dark, size: 20 }}
                     />
                 </View>
             )}

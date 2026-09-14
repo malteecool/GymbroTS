@@ -6,7 +6,7 @@ import { addExerciseHistory, getExerciseById } from "../../services/ExerciseServ
 import { PersonalRecordSharePrompt } from "../../components/Social/AchievementSharePrompt";
 import { PersonalRecord } from "../../interfaces/Achievement.Interface";
 import { Styles, Theme } from "../../constants/Theme";
-import { Button } from "@rneui/themed";
+import { Button } from "../../components/ui/Button";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { ScrollView, StyleSheet, Text, View, Alert } from "react-native";

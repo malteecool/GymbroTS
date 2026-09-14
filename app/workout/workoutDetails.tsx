@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Theme } from "../../constants/Theme";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
-import { Button } from "@rneui/themed";
+import { Button } from "../../components/ui/Button";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { WorkoutExercise } from "../../interfaces/WorkoutExercise.Interface";
 import { HeaderBackButton } from "@react-navigation/elements";
@@ -392,7 +392,7 @@ export default function WorkoutDetails() {
                         onPress={() => { router.push({ pathname: '/exercise/addExercise', params: { workoutId: workout!.id } }) }}
                         buttonStyle={styles.primaryButton}
                         titleStyle={styles.primaryButtonText}
-                        icon={{ name: 'plus', type: 'material-community', color: Theme.colors.dark, size: 20 }}
+                        icon={{ name: 'plus', color: Theme.colors.dark, size: 20 }}
                     />
                 ) : (
                     <View style={styles.actionRow}>
@@ -417,7 +417,7 @@ export default function WorkoutDetails() {
                             titleStyle={styles.secondaryButtonText}
                             disabledTitleStyle={styles.secondaryButtonTextDisabled}
                             icon={{
-                                name: 'check-circle-outline', type: 'material-community',
+                                name: 'check-circle-outline',
                                 color: time > 0 ? Theme.colors.font : Theme.colors.textMuted, size: 18,
                             }}
                         />

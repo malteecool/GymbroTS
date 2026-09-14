@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { getExercises } from "../services/ExerciseService.Service";
 import { FlatList, StyleSheet, View } from "react-native";
-import { Divider } from '@rneui/themed';
+import { Divider } from './ui/Divider';
 import { Styles, Theme } from "../constants/Theme";
 import { LoadingIndicator } from "./ui/LoadingIndicator";
 import { EmptyState } from "./ui/EmptyState";
