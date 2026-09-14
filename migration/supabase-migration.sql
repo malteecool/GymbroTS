@@ -379,6 +379,16 @@ ON storage.objects FOR SELECT
 USING (bucket_id = 'user-content');
 
 -- -----------------------------------------------------------------------------
+-- Standalone text posts: composer on the social feed
+-- -----------------------------------------------------------------------------
+
+-- 'text' is a post written directly into the feed, with no workout behind it,
+-- so workout_id stays NULL and the card renders no activity label.
+ALTER TABLE post DROP CONSTRAINT IF EXISTS post_post_type_check;
+ALTER TABLE post ADD CONSTRAINT post_post_type_check
+    CHECK (post_type IN ('text', 'workout_complete', 'pr_broken', 'milestone'));
+
+-- -----------------------------------------------------------------------------
 -- Indexes
 -- -----------------------------------------------------------------------------
 
@@ -429,6 +439,47 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE notification;
     END IF;
 END $$;
+
+-- -----------------------------------------------------------------------------
+-- Exercise muscle groups
+-- Adds a single primary muscle group per exercise. NULL means uncategorised,
+-- which the app renders as its own bucket rather than hiding the exercise.
+-- -----------------------------------------------------------------------------
+
+ALTER TABLE EXERCISE ADD COLUMN IF NOT EXISTS EXE_MUSCLE_GROUP TEXT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'exercise_muscle_group_check'
+    ) THEN
+        ALTER TABLE EXERCISE ADD CONSTRAINT exercise_muscle_group_check
+            CHECK (EXE_MUSCLE_GROUP IS NULL OR EXE_MUSCLE_GROUP IN (
+                'chest', 'back', 'shoulders', 'biceps', 'triceps',
+                'legs', 'glutes', 'core', 'cardio', 'other'
+            ));
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_exercise_muscle_group ON EXERCISE(EXE_MUSCLE_GROUP);
+
+-- Backfill from the exercise name. Mirrors guessMuscleGroup() in
+-- constants/MuscleGroups.ts - same rules, same order, first match wins - so keep
+-- the two in step. Only touches rows that have no group yet, so re-running it
+-- never overwrites a choice made in the app.
+UPDATE EXERCISE SET EXE_MUSCLE_GROUP = CASE
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%cardio%', '%treadmill%', '%elliptical%', '%rowing machine%', '%row machine%', '%stationary bike%', '%exercise bike%', '%cycling%', '%spin bike%', '%jump rope%', '%skipping%', '%sprint%', '%stair%', '%jog%', '%running%']) THEN 'cardio'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%squat%', '%lunge%', '%leg press%', '%leg extension%', '%leg curl%', '%calf%', '%quad%', '%hamstring%', '%romanian%', '%bulgarian%', '%step up%', '%hack %']) THEN 'legs'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%glute%', '%hip thrust%', '%hip abduction%', '%hip adduction%']) THEN 'glutes'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%abs%', '%ab wheel%', '%crunch%', '%plank%', '%sit up%', '%situp%', '%oblique%', '%core%', '%leg raise%', '%russian twist%', '%knee raise%']) THEN 'core'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%shoulder%', '%overhead press%', '%military%', '%lateral raise%', '%front raise%', '%delt%', '%upright row%', '%arnold%', '%face pull%', '%shrug%']) THEN 'shoulders'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%tricep%', '%pushdown%', '%push down%', '%skull%', '%kickback%', '%close grip%', '%overhead extension%', '%dip%']) THEN 'triceps'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%row%', '%pull up%', '%pullup%', '%pull-up%', '%pulldown%', '%pull down%', '%chin up%', '%chinup%', '%lat %', '%deadlift%', '%back%']) THEN 'back'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%curl%', '%bicep%', '%preacher%', '%hammer%']) THEN 'biceps'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%bench%', '%chest%', '%pec%', '%fly%', '%flye%', '%push up%', '%pushup%', '%push-up%', '%press%']) THEN 'chest'
+    ELSE NULL
+END
+WHERE EXE_MUSCLE_GROUP IS NULL;
 
 -- -----------------------------------------------------------------------------
 -- Row Level Security (optional — uncomment to enable)
