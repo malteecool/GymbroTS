@@ -243,7 +243,9 @@ export default function WorkoutDetails() {
     }, []);
 
     useEffect(() => {
-        let intervalId: NodeJS.Timeout;
+        // Derived from setInterval itself rather than named outright: React
+        // Native hands back a number where Node hands back a Timeout.
+        let intervalId: ReturnType<typeof setInterval> | undefined;
         if (running) {
             intervalId = setInterval(() => {
                 if (startTime != null) {
@@ -256,7 +258,9 @@ export default function WorkoutDetails() {
             updateHeader(workout.worName);
         }
 
-        return () => clearInterval(intervalId);
+        return () => {
+            if (intervalId !== undefined) clearInterval(intervalId);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [running, time, edit]);
 
