@@ -36,7 +36,8 @@
           "cameraPermission": "Allow Gymbro to access your camera to take a profile picture or a post photo."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
