@@ -1,0 +1,36 @@
+{
+  // VS Code's Java extension (redhat.java) embeds Eclipse JDT with Buildship.
+  // Left alone it discovers every Gradle subproject in the workspace - which,
+  // once Expo autolinking is involved, means the ones inside node_modules - and
+  // imports each as an Eclipse project. That writes .project/.classpath/bin/
+  // into packages npm owns, recreates .gradle directories, and holds file locks.
+  //
+  // The damage is not cosmetic: npm cannot then fully remove a package it is
+  // replacing, so it leaves a directory with no package.json behind. Those
+  // husks shadow module resolution and are invisible to expo-modules-autolinking,
+  // which is how "Cannot find native module" appears for a package that looks
+  // installed. Gradle builds also fail with EBUSY and "Could not move temporary
+  // workspace" while the locks are held.
+  //
+  // Nothing in this project is Java, so the extension has nothing legitimate to
+  // do here. Gradle import is off, and the native folders are excluded outright.
+  "java.import.gradle.enabled": false,
+  "java.import.maven.enabled": false,
+  "java.autobuild.enabled": false,
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/android/**",
+    "**/ios/**"
+  ],
+
+  // Keep the editor's own indexing out of the same places.
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/android/build/**": true,
+    "**/android/.gradle/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/android/build": true
+  }
+}
