@@ -10,7 +10,10 @@ export function useThemeColor(
   props: { light?: string; dark?: string },
   colorName: keyof typeof Colors.light & keyof typeof Colors.dark
 ) {
-  const theme = useColorScheme() ?? 'light';
+  // React Native 0.83 widened ColorSchemeName beyond 'light' | 'dark' | null,
+  // so `?? 'light'` no longer narrows it to a key of Colors. Anything that is
+  // not an explicit dark preference falls back to light, as it did before.
+  const theme = useColorScheme() === 'dark' ? 'dark' : 'light';
   const colorFromProps = props[theme];
 
   if (colorFromProps) {
