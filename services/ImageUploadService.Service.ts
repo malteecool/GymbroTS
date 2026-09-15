@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '../supabaseConfig';
 
@@ -39,7 +39,10 @@ export async function pickImage(source: ImageSource, options?: { aspect?: [numbe
 }
 
 export async function uploadImage(localUri: string, path: string): Promise<string> {
-    const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+    // SDK 54 replaced readAsStringAsync/EncodingType with the File class. Still
+    // read as base64 and decode, rather than the Uint8Array that File.bytes()
+    // would hand back, so what reaches Supabase is byte-for-byte what it was.
+    const base64 = await new File(localUri).base64();
     const arrayBuffer = decode(base64);
 
     console.log(path)

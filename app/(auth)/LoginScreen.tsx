@@ -115,7 +115,7 @@ export default function LoginScreen() {
                             ) : (
                                 <>
                                     <MaterialCommunityIcons 
-                                        name="email-send" 
+                                        name="email-arrow-right"
                                         size={20} 
                                         color={Theme.colors.dark}
                                         style={styles.buttonIcon}
