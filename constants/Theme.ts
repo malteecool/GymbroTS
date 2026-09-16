@@ -1,4 +1,5 @@
 import { StyleSheet, TextStyle } from 'react-native';
+import { DarkTheme, type Theme as NavigationThemeType } from 'expo-router';
 
 /**
  * Raw palette. Nothing outside this file should reference these directly -
@@ -202,6 +203,26 @@ export const Theme = {
         xxl: 32,
     },
 } as const;
+
+/**
+ * Palette React Navigation uses for the surfaces the app never styles itself -
+ * the tab bar background, header bars, and the safe-area padding the tab bar
+ * adds to clear the system navigation bar. Expo Router mounts its
+ * NavigationContainer with the light `DefaultTheme`, so without this those
+ * surfaces render white underneath the dark UI.
+ */
+export const NavigationTheme: NavigationThemeType = {
+    ...DarkTheme,
+    colors: {
+        ...DarkTheme.colors,
+        primary: colors.accent,
+        background: colors.background,
+        card: colors.surface,
+        text: colors.textPrimary,
+        border: colors.divider,
+        notification: colors.danger,
+    },
+};
 
 export const Styles = StyleSheet.create({
     // Backgrounds

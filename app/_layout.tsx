@@ -1,5 +1,6 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack, ThemeProvider, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as SystemUI from 'expo-system-ui';
 import React from 'react';
 import 'react-native-reanimated';
 import { StatusBar, StyleSheet, Text, View } from 'react-native';
@@ -11,12 +12,18 @@ import { ImagePickerHostProvider } from '../providers/ImagePickerHostProvider';
 import { useFonts } from '../hooks/useFonts';
 import { LoadingIndicator } from '../components/ui/LoadingIndicator';
 import LoginScreen from './(auth)/LoginScreen';
-import { Theme, Styles } from '../constants/Theme';
+import { Theme, Styles, NavigationTheme } from '../constants/Theme';
 
 import 'expo-router/entry';
 
 
 WebBrowser.maybeCompleteAuthSession();
+
+// Paints the window background sitting behind the React view tree, so anything
+// the app's own views do not cover - the edge-to-edge strips behind the
+// transparent system bars, and the gap before the first screen mounts - reads as
+// the app background instead of the platform default.
+SystemUI.setBackgroundColorAsync(Theme.colors.background);
 
 /**
  * Root layout content - uses auth context
@@ -172,13 +179,16 @@ function RootLayoutContent() {
 }
 
 /**
- * Root Layout - Wraps everything with AuthProvider
+ * Root Layout - Wraps everything with AuthProvider, under the dark
+ * React Navigation palette so navigator-drawn surfaces match the app.
  */
 export default function RootLayout() {
     return (
-        <AuthProvider>
-            <RootLayoutContent />
-        </AuthProvider>
+        <ThemeProvider value={NavigationTheme}>
+            <AuthProvider>
+                <RootLayoutContent />
+            </AuthProvider>
+        </ThemeProvider>
     );
 }
 

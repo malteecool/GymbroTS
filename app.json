@@ -39,7 +39,14 @@
       "expo-font",
       "expo-asset",
       "expo-web-browser",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-navigation-bar",
+        {
+          "style": "light",
+          "enforceContrast": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -51,6 +58,7 @@
       "eas": {
         "projectId": "bb3bdc10-a425-4aeb-94f6-ab0ab59df2ec"
       }
-    }
+    },
+    "backgroundColor": "#121111"
   }
 }
