@@ -1,12 +1,21 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-    View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Alert,
+    View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
 import { PublicProfile } from '../../interfaces/User.Interface';
-import { getPublicProfile, followUser, unfollowUser } from '../../services/SocialService.Service';
+import { Post, PostCommentCountChange, POST_COMMENT_COUNT_EVENT } from '../../interfaces/Post.Interface';
+import { getPublicProfile, followUser, unfollowUser, blockUser } from '../../services/SocialService.Service';
+import { getPostsForUser, likePost, unlikePost, appendPostPage } from '../../services/PostService.Service';
+import { getStordUserData } from '../../services/UserService.Service';
+import emitter from '../../hooks/CustomEventEmitter';
+import { PostCard } from '../../components/Social/PostCard';
+import { PostOwnerActions } from '../../components/Social/PostOwnerActions';
+import { ProfileHeader } from '../../components/Profile/ProfileHeader';
+
+const PAGE_SIZE = 20;
 
 export default function PublicProfileScreen() {
     const { userId } = useLocalSearchParams<{ userId: string }>();
@@ -15,13 +24,25 @@ export default function PublicProfileScreen() {
     const [profile, setProfile] = useState<PublicProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [followLoading, setFollowLoading] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState('');
+
+    const [posts, setPosts] = useState<Post[]>([]);
+    const [postsLoading, setPostsLoading] = useState(true);
+    /** The post whose owner menu is open, or null when none is. */
+    const [optionsPost, setOptionsPost] = useState<Post | null>(null);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
 
     const load = useCallback(async () => {
         if (!userId) return;
         try {
             setLoading(true);
-            const data = await getPublicProfile(userId);
+            const [data, user] = await Promise.all([
+                getPublicProfile(userId),
+                getStordUserData(),
+            ]);
             setProfile(data);
+            if (user) setCurrentUserId(user.id);
         } catch (e) {
             console.error('Error loading profile:', e);
         } finally {
@@ -29,9 +50,104 @@ export default function PublicProfileScreen() {
         }
     }, [userId]);
 
+    const loadPosts = useCallback(async () => {
+        if (!userId) return;
+        try {
+            setPostsLoading(true);
+            const data = await getPostsForUser(userId, 0);
+            setPosts(data);
+            setHasMore(data.length === PAGE_SIZE);
+        } catch (e) {
+            console.error('Error loading user posts:', e);
+        } finally {
+            setPostsLoading(false);
+        }
+    }, [userId]);
+
     useEffect(() => {
         load();
-    }, [load]);
+        loadPosts();
+    }, [load, loadPosts]);
+
+    useEffect(() => {
+        const onCommentCount = ({ postId, commentCount }: PostCommentCountChange) => {
+            setPosts(prev => prev.map(p => (p.id === postId ? { ...p, commentCount } : p)));
+        };
+        emitter.on(POST_COMMENT_COUNT_EVENT, onCommentCount);
+
+        return () => {
+            emitter.off(POST_COMMENT_COUNT_EVENT, onCommentCount);
+        };
+    }, []);
+
+    const loadMorePosts = useCallback(async () => {
+        // `posts.length === 0` keeps this from fetching page 0: the list renders
+        // empty while the initial load is still in flight, and an empty FlatList
+        // fires onEndReached, which would append the page being loaded.
+        if (!userId || loadingMore || !hasMore || postsLoading || posts.length === 0) return;
+        try {
+            setLoadingMore(true);
+            const data = await getPostsForUser(userId, posts.length);
+            setPosts(prev => appendPostPage(prev, data));
+            setHasMore(data.length === PAGE_SIZE);
+        } catch (e) {
+            console.error('Error loading more posts:', e);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [userId, loadingMore, hasMore, postsLoading, posts.length]);
+
+    const handleLikeToggle = useCallback(async (post: Post) => {
+        setPosts(prev => prev.map(p => p.id === post.id ? {
+            ...p,
+            likedByMe: !p.likedByMe,
+            likeCount: p.likedByMe ? p.likeCount - 1 : p.likeCount + 1,
+        } : p));
+        try {
+            if (post.likedByMe) {
+                await unlikePost(post.id);
+            } else {
+                await likePost(post.id);
+            }
+        } catch (e) {
+            setPosts(prev => prev.map(p => p.id === post.id ? {
+                ...p,
+                likedByMe: post.likedByMe,
+                likeCount: post.likeCount,
+            } : p));
+        }
+    }, []);
+
+    const handlePostDeleted = useCallback((postId: string) => {
+        setPosts(prev => prev.filter(p => p.id !== postId));
+    }, []);
+
+    const handlePostUpdated = useCallback((updated: Post) => {
+        setPosts(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+    }, []);
+
+    const handleBlock = useCallback(() => {
+        if (!profile) return;
+        Alert.alert(
+            `Block ${profile.name}?`,
+            "You won't see each other's posts, profiles or comments, and you'll both stop following each other. You can undo this in Settings.",
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Block', style: 'destructive', onPress: async () => {
+                        try {
+                            await blockUser(profile.id);
+                            // The profile is no longer visible to us, so leave it.
+                            router.back();
+                        } catch (e) {
+                            console.error('Error blocking user:', e);
+                            Alert.alert('Error', 'Could not block this user. Please try again.');
+                        }
+                    }
+                },
+            ]
+        );
+    }, [profile, router]);
 
     const handleFollowToggle = async () => {
         if (!profile) return;
@@ -80,138 +196,156 @@ export default function PublicProfileScreen() {
     }
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <View style={styles.avatarRow}>
-                <View style={styles.avatar}>
-                    <MaterialCommunityIcons name="account" size={52} color={Theme.colors.dark} />
+        <>
+        <FlatList
+            style={styles.container}
+            contentContainerStyle={styles.content}
+            data={posts}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+                <PostCard
+                    post={item}
+                    onLikeToggle={handleLikeToggle}
+                    onOptions={setOptionsPost}
+                    currentUserId={currentUserId}
+                />
+            )}
+            onEndReached={loadMorePosts}
+            onEndReachedThreshold={0.4}
+            ListFooterComponent={loadingMore ? <ActivityIndicator color={Theme.colors.secondary} style={styles.postsFooter} /> : null}
+            ListHeaderComponent={
+                <View style={styles.header}>
+                    <ProfileHeader
+                        avatarUrl={profile.avatarUrl}
+                        name={profile.name}
+                        handle={profile.handle}
+                        bio={profile.bio}
+                        followerCount={profile.followerCount}
+                        followingCount={profile.followingCount}
+                        workoutCount={profile.workoutCount}
+                        onPressFollowers={() => router.push({ pathname: '/social/followers', params: { userId: profile.id, tab: 'followers' } })}
+                        onPressFollowing={() => router.push({ pathname: '/social/followers', params: { userId: profile.id, tab: 'following' } })}
+                        onPressWorkouts={() => router.push({ pathname: '/social/userWorkouts', params: { userId: profile.id, name: profile.name } })}
+                        actionSlot={
+                            <TouchableOpacity
+                                style={[styles.followBtn, profile.isFollowedByMe && styles.followingBtn]}
+                                onPress={handleFollowToggle}
+                                disabled={followLoading}
+                                activeOpacity={0.8}
+                            >
+                                {followLoading ? (
+                                    <ActivityIndicator size="small" color={profile.isFollowedByMe ? Theme.colors.font : Theme.colors.dark} />
+                                ) : (
+                                    <>
+                                        <MaterialCommunityIcons
+                                            name={profile.isFollowedByMe ? 'account-check' : 'account-plus'}
+                                            size={20}
+                                            color={profile.isFollowedByMe ? Theme.colors.font : Theme.colors.dark}
+                                        />
+                                        <Text style={[styles.followBtnText, profile.isFollowedByMe && styles.followingBtnText]}>
+                                            {profile.isFollowedByMe ? 'Following' : 'Follow'}
+                                        </Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        }
+                    />
+
+                    <TouchableOpacity
+                        style={styles.blockBtn}
+                        onPress={handleBlock}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        <MaterialCommunityIcons name="cancel" size={16} color={Theme.colors.danger} />
+                        <Text style={styles.blockBtnText}>Block {profile.name}</Text>
+                    </TouchableOpacity>
+
+                    <Text style={styles.postsTitle}>Posts</Text>
+                    {postsLoading && (
+                        <ActivityIndicator size="small" color={Theme.colors.secondary} style={styles.postsLoading} />
+                    )}
                 </View>
-            </View>
+            }
+            ListEmptyComponent={
+                !postsLoading ? (
+                    <View style={styles.postsEmpty}>
+                        <MaterialCommunityIcons name="image-off-outline" size={48} color={Theme.colors.secondary} />
+                        <Text style={styles.postsEmptyText}>No posts yet</Text>
+                    </View>
+                ) : null
+            }
+        />
 
-            <Text style={styles.name}>{profile.name}</Text>
-            {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
-
-            <View style={styles.statsRow}>
-                <TouchableOpacity
-                    style={styles.stat}
-                    onPress={() => router.push({ pathname: '/social/followers', params: { userId: profile.id, tab: 'followers' } })}
-                >
-                    <Text style={styles.statNumber}>{profile.followerCount}</Text>
-                    <Text style={styles.statLabel}>Followers</Text>
-                </TouchableOpacity>
-                <View style={styles.statDivider} />
-                <TouchableOpacity
-                    style={styles.stat}
-                    onPress={() => router.push({ pathname: '/social/followers', params: { userId: profile.id, tab: 'following' } })}
-                >
-                    <Text style={styles.statNumber}>{profile.followingCount}</Text>
-                    <Text style={styles.statLabel}>Following</Text>
-                </TouchableOpacity>
-                <View style={styles.statDivider} />
-                <TouchableOpacity
-                    style={styles.stat}
-                    onPress={() => router.push({ pathname: '/social/userWorkouts', params: { userId: profile.id, name: profile.name } })}
-                >
-                    <Text style={styles.statNumber}>{profile.workoutCount}</Text>
-                    <Text style={styles.statLabel}>Workouts</Text>
-                </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-                style={[styles.followBtn, profile.isFollowedByMe && styles.followingBtn]}
-                onPress={handleFollowToggle}
-                disabled={followLoading}
-                activeOpacity={0.8}
-            >
-                {followLoading ? (
-                    <ActivityIndicator size="small" color={profile.isFollowedByMe ? Theme.colors.font : Theme.colors.dark} />
-                ) : (
-                    <>
-                        <MaterialCommunityIcons
-                            name={profile.isFollowedByMe ? 'account-check' : 'account-plus'}
-                            size={20}
-                            color={profile.isFollowedByMe ? Theme.colors.font : Theme.colors.dark}
-                        />
-                        <Text style={[styles.followBtnText, profile.isFollowedByMe && styles.followingBtnText]}>
-                            {profile.isFollowedByMe ? 'Following' : 'Follow'}
-                        </Text>
-                    </>
-                )}
-            </TouchableOpacity>
-        </ScrollView>
+        <PostOwnerActions
+            post={optionsPost}
+            onClose={() => setOptionsPost(null)}
+            onDeleted={handlePostDeleted}
+            onUpdated={handlePostUpdated}
+        />
+        </>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     content: {
+        paddingBottom: Theme.spacing.xl,
+        paddingHorizontal: Theme.spacing.md,
+        flexGrow: 1,
+    },
+    header: {
         alignItems: 'center',
         paddingTop: Theme.spacing.xl,
-        paddingBottom: Theme.spacing.xl,
-        paddingHorizontal: Theme.spacing.lg,
+        paddingBottom: Theme.spacing.md,
+        paddingHorizontal: Theme.spacing.sm,
+    },
+    blockBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'center',
+        gap: Theme.spacing.xs,
+        paddingVertical: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.md,
+    },
+    blockBtnText: {
+        color: Theme.colors.danger,
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.medium,
+    },
+    postsTitle: {
+        alignSelf: 'flex-start',
+        color: Theme.colors.font,
+        fontSize: Theme.fontSize.lg,
+        fontWeight: Theme.fontWeight.bold,
+        marginTop: Theme.spacing.lg,
+        marginBottom: Theme.spacing.sm,
+    },
+    postsLoading: {
+        marginTop: Theme.spacing.md,
+    },
+    postsFooter: {
+        paddingVertical: Theme.spacing.lg,
+    },
+    postsEmpty: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: Theme.spacing.xl,
+        gap: Theme.spacing.sm,
+    },
+    postsEmptyText: {
+        color: Theme.colors.secondary,
+        fontSize: Theme.fontSize.md,
     },
     centered: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
         gap: Theme.spacing.md,
-    },
-    avatarRow: {
-        marginBottom: Theme.spacing.md,
-    },
-    avatar: {
-        width: 96,
-        height: 96,
-        borderRadius: 48,
-        backgroundColor: Theme.colors.yellow,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    name: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.xxl,
-        fontWeight: Theme.fontWeight.bold,
-        textAlign: 'center',
-        marginBottom: Theme.spacing.xs,
-    },
-    bio: {
-        color: Theme.colors.secondary,
-        fontSize: Theme.fontSize.md,
-        textAlign: 'center',
-        marginBottom: Theme.spacing.lg,
-    },
-    statsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
-        borderRadius: Theme.borderRadius.md,
-        paddingVertical: Theme.spacing.md,
-        paddingHorizontal: Theme.spacing.lg,
-        marginBottom: Theme.spacing.lg,
-        width: '100%',
-        ...Theme.shadows.small,
-    },
-    stat: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    statNumber: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.xl,
-        fontWeight: Theme.fontWeight.bold,
-    },
-    statLabel: {
-        color: Theme.colors.secondary,
-        fontSize: Theme.fontSize.xs,
-        marginTop: 2,
-    },
-    statDivider: {
-        width: 1,
-        height: 36,
-        backgroundColor: Theme.colors.border,
     },
     followBtn: {
         flexDirection: 'row',
@@ -226,9 +360,9 @@ const styles = StyleSheet.create({
         ...Theme.shadows.small,
     },
     followingBtn: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: Theme.colors.outline,
     },
     followBtnText: {
         color: Theme.colors.dark,

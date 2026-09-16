@@ -10,6 +10,24 @@ export interface WorkoutExercise {
     woe_id?: string;
 }
 
+function mapWorkoutRow(workout: any): Workout {
+    return {
+        id: workout.id,
+        worCompletedCount: workout.wor_completed_count,
+        worEstimateTime: workout.wor_estimate_time,
+        worLastDone: workout.wor_last_done,
+        worName: workout.wor_name,
+        worUserId: workout.wor_user_id,
+        isPublic: workout.is_public ?? false,
+        sourceWorkoutId: workout.source_workout_id ?? null,
+        linkType: workout.link_type ?? null,
+        copyCount: workout.copy_count ?? 0,
+        followerCount: workout.follower_count ?? 0,
+        avgRating: workout.avg_rating ?? null,
+        ratingCount: workout.rating_count ?? 0,
+    };
+}
+
 export async function getWorkouts(usr_id: string): Promise<Workout[]> {
     try {
         const { data, error } = await supabase
@@ -20,18 +38,7 @@ export async function getWorkouts(usr_id: string): Promise<Workout[]> {
 
         if (error) throw error;
 
-        return (data || []).map(workout => ({
-            id: workout.id,
-            worCompletedCount: workout.wor_completed_count,
-            worEstimateTime: workout.wor_estimate_time,
-            worLastDone: workout.wor_last_done,
-            worName: workout.wor_name,
-            worUserId: workout.wor_user_id,
-            isPublic: workout.is_public ?? false,
-            sourceWorkoutId: workout.source_workout_id ?? null,
-            linkType: workout.link_type ?? null,
-            copyCount: workout.copy_count ?? 0,
-        }));
+        return (data || []).map(mapWorkoutRow);
     } catch (error) {
         console.error('Error getting workouts:', error);
         throw error;
@@ -55,18 +62,7 @@ export async function getWorkoutById(wor_id: string): Promise<Workout | null> {
 
         if (!data) return null;
 
-        return {
-            id: data.id,
-            worCompletedCount: data.wor_completed_count,
-            worEstimateTime: data.wor_estimate_time,
-            worLastDone: data.wor_last_done,
-            worName: data.wor_name,
-            worUserId: data.wor_user_id,
-            isPublic: data.is_public ?? false,
-            sourceWorkoutId: data.source_workout_id ?? null,
-            linkType: data.link_type ?? null,
-            copyCount: data.copy_count ?? 0,
-        };
+        return mapWorkoutRow(data);
     } catch (error) {
         console.error('Error getting workout by id:', error);
         throw error;
@@ -174,18 +170,7 @@ export async function getDefaultWorkouts(): Promise<Workout[]> {
 
         if (error) throw error;
 
-        return (data || []).map(workout => ({
-            id: workout.id,
-            worCompletedCount: workout.wor_completed_count,
-            worEstimateTime: workout.wor_estimate_time,
-            worLastDone: workout.wor_last_done,
-            worName: workout.wor_name,
-            worUserId: workout.wor_user_id,
-            isPublic: workout.is_public ?? false,
-            sourceWorkoutId: workout.source_workout_id ?? null,
-            linkType: workout.link_type ?? null,
-            copyCount: workout.copy_count ?? 0,
-        }));
+        return (data || []).map(mapWorkoutRow);
     } catch (error) {
         console.error('Error getting default workouts:', error);
         throw error;
@@ -303,18 +288,7 @@ export async function getPublicWorkouts(userId: string): Promise<Workout[]> {
 
         if (error) throw error;
 
-        return (data || []).map(workout => ({
-            id: workout.id,
-            worCompletedCount: workout.wor_completed_count,
-            worEstimateTime: workout.wor_estimate_time,
-            worLastDone: workout.wor_last_done,
-            worName: workout.wor_name,
-            worUserId: workout.wor_user_id,
-            isPublic: workout.is_public ?? false,
-            sourceWorkoutId: workout.source_workout_id ?? null,
-            linkType: workout.link_type ?? null,
-            copyCount: workout.copy_count ?? 0,
-        }));
+        return (data || []).map(mapWorkoutRow);
     } catch (error) {
         console.error('Error getting public workouts:', error);
         throw error;
@@ -379,7 +353,20 @@ export async function copyWorkout(sourceWorkoutId: string, targetUserId: string)
 
 export async function linkWorkout(sourceWorkoutId: string, targetUserId: string): Promise<string> {
     try {
-        return await cloneWorkoutForUser(sourceWorkoutId, targetUserId, 'follow');
+        const newWorkoutId = await cloneWorkoutForUser(sourceWorkoutId, targetUserId, 'follow');
+
+        const { data: source } = await supabase
+            .from('workout')
+            .select('follower_count')
+            .eq('id', sourceWorkoutId)
+            .single();
+
+        await supabase
+            .from('workout')
+            .update({ follower_count: (source?.follower_count ?? 0) + 1 })
+            .eq('id', sourceWorkoutId);
+
+        return newWorkoutId;
     } catch (error) {
         console.error('Error linking workout:', error);
         throw error;
@@ -421,14 +408,53 @@ export async function syncLinkedWorkout(workoutId: string): Promise<void> {
 
 export async function unlinkWorkout(workoutId: string): Promise<void> {
     try {
+        const workout = await getWorkoutById(workoutId);
+
         const { error } = await supabase
             .from('workout')
             .update({ source_workout_id: null, link_type: null })
             .eq('id', workoutId);
 
         if (error) throw error;
+
+        if (workout?.linkType === 'follow' && workout.sourceWorkoutId) {
+            const { data: source } = await supabase
+                .from('workout')
+                .select('follower_count')
+                .eq('id', workout.sourceWorkoutId)
+                .single();
+
+            await supabase
+                .from('workout')
+                .update({ follower_count: Math.max(0, (source?.follower_count ?? 0) - 1) })
+                .eq('id', workout.sourceWorkoutId);
+        }
     } catch (error) {
         console.error('Error unlinking workout:', error);
+        throw error;
+    }
+}
+
+export async function getPopularWorkouts(
+    sortBy: 'followers' | 'rating',
+    limit: number = 20,
+    offset: number = 0
+): Promise<Workout[]> {
+    try {
+        const orderColumn = sortBy === 'followers' ? 'follower_count' : 'avg_rating';
+
+        const { data, error } = await supabase
+            .from('workout')
+            .select('*')
+            .eq('is_public', true)
+            .order(orderColumn, { ascending: false, nullsFirst: false })
+            .range(offset, offset + limit - 1);
+
+        if (error) throw error;
+
+        return (data || []).map(mapWorkoutRow);
+    } catch (error) {
+        console.error('Error getting popular workouts:', error);
         throw error;
     }
 }

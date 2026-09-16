@@ -16,11 +16,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         detectSessionInUrl: false,
         storage: require('@react-native-async-storage/async-storage').default,
     },
-    global: {
-        headers: {
-            'Content-Type': 'application/json',
-        },
-    },
 });
 
 export { supabase };

@@ -81,6 +81,47 @@ async function getExerciseIdsByUser(userId: string): Promise<string[]> {
     }
 }
 
+/**
+ * Current daily workout streak: consecutive calendar days (ending today or
+ * yesterday) on which the user logged at least one exercise.
+ */
+export async function getWorkoutStreak(usr_id: string): Promise<number> {
+    try {
+        const { data, error } = await supabase
+            .from('exercise_history')
+            .select('exh_date')
+            .in('exercise_id', await getExerciseIdsByUser(usr_id));
+
+        if (error) throw error;
+
+        const workoutDates = new Set(
+            (data || []).map(row => new Date(row.exh_date).toISOString().split('T')[0])
+        );
+
+        if (workoutDates.size === 0) return 0;
+
+        const cursor = roundToDate(new Date());
+        const todayKey = cursor.toISOString().split('T')[0];
+
+        // Missing today shouldn't break an in-progress streak, so start
+        // counting from yesterday if today has no logged workout yet.
+        if (!workoutDates.has(todayKey)) {
+            cursor.setDate(cursor.getDate() - 1);
+        }
+
+        let streak = 0;
+        while (workoutDates.has(cursor.toISOString().split('T')[0])) {
+            streak++;
+            cursor.setDate(cursor.getDate() - 1);
+        }
+
+        return streak;
+    } catch (error) {
+        console.error('Error getting workout streak:', error);
+        return 0;
+    }
+}
+
 export function getWeekNumber(date: Date): number {
     const target = new Date(date);
     target.setHours(0, 0, 0, 0);

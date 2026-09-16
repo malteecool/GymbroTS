@@ -1,5 +1,5 @@
 import { StyleSheet, TouchableOpacity } from "react-native";
-import { Button } from "@rneui/base";
+import { Button } from "./Button";
 import { RelativePathString, router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Theme } from "../../constants/Theme";

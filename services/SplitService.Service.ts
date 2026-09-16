@@ -27,6 +27,7 @@ export interface SplitData {
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 const DAY_INDICES = [1, 2, 3, 4, 5, 6, 0]; // Monday=1 to Sunday=0 (ISO standard)
+const DAY_NAMES_BY_JS_INDEX = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 let splitId: string | null = null;
 
@@ -153,6 +154,105 @@ export async function getReferenceWeek(usr_id: string): Promise<SplitData | null
     } catch (error) {
         console.error('Error getting reference week:', error);
         return null;
+    }
+}
+
+export interface TodaysWorkout {
+    workout: Workout | null;
+    dayName: string;
+    hasSplit: boolean;
+}
+
+/**
+ * Lightweight lookup of just today's assigned workout, without pulling the
+ * full multi-week schedule that getReferenceWeek does.
+ */
+export async function getTodaysSplitWorkout(usr_id: string): Promise<TodaysWorkout> {
+    const todayIndex = new Date().getDay(); // 0=Sunday .. 6=Saturday
+    const dayName = DAY_NAMES_BY_JS_INDEX[todayIndex];
+
+    try {
+        const splitId = await getSplitIdByUser(usr_id);
+        if (!splitId) {
+            return { workout: null, dayName, hasSplit: false };
+        }
+
+        const { data, error } = await supabase
+            .from('split_day')
+            .select('workout_id')
+            .eq('split_id', splitId)
+            .eq('day_of_week', todayIndex)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') return { workout: null, dayName, hasSplit: true }; // No day row found
+            throw error;
+        }
+
+        let workout: Workout | null = null;
+        if (data?.workout_id) {
+            workout = await getWorkoutById(data.workout_id);
+        }
+
+        return { workout, dayName, hasSplit: true };
+    } catch (error) {
+        console.error('Error getting todays split workout:', error);
+        return { workout: null, dayName, hasSplit: false };
+    }
+}
+
+/**
+ * If the workout just completed matches the split's assignment for today,
+ * mark today as completed in the current week automatically. No-op otherwise
+ * (e.g. the user swapped to a different workout for the day, or has no split).
+ */
+export async function markTodayCompletedIfAssigned(usr_id: string, workoutId: string): Promise<void> {
+    try {
+        const splitId = await getSplitIdByUser(usr_id);
+        if (!splitId) return;
+
+        const todayIndex = new Date().getDay();
+        const { data: dayRow, error: dayError } = await supabase
+            .from('split_day')
+            .select('workout_id')
+            .eq('split_id', splitId)
+            .eq('day_of_week', todayIndex)
+            .single();
+
+        if (dayError || !dayRow || dayRow.workout_id !== workoutId) return;
+
+        const currentWeekNumber = getWeekNumber(new Date());
+        const weekId = await getOrCreateSplitWeek(splitId, currentWeekNumber);
+        await markDayAsCompleted(weekId, DAY_NAMES_BY_JS_INDEX[todayIndex], true);
+    } catch (error) {
+        console.error('Error auto-marking split day complete:', error);
+    }
+}
+
+/**
+ * Update the workout (or rest day, via null) assigned to a single day in the
+ * user's split template, without touching the other days or completion history.
+ */
+export async function updateSplitDayWorkout(usr_id: string, dayName: string, workout: Workout | null): Promise<void> {
+    try {
+        const splitId = await getSplitIdByUser(usr_id);
+        if (!splitId) throw new Error('No split found for user');
+
+        const dayIndex = WEEK_DAYS.indexOf(dayName as any);
+        if (dayIndex === -1) throw new Error('Invalid day name');
+
+        const dayOfWeek = DAY_INDICES[dayIndex];
+
+        const { error } = await supabase
+            .from('split_day')
+            .update({ workout_id: workout?.id || null })
+            .eq('split_id', splitId)
+            .eq('day_of_week', dayOfWeek);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error updating split day workout:', error);
+        throw error;
     }
 }
 

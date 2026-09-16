@@ -1,26 +1,23 @@
 import CustomExerciseView from "../../components/CustomExerciseView";
 import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
+import { BrowsePopular } from "../../components/Workout/BrowsePopular";
 import emitter from "../../hooks/CustomEventEmitter";
-import { Exercise } from "../../interfaces/Exercise.Interface";
 import { User } from "../../interfaces/User.Interface";
 import { WorkoutExercise } from "../../interfaces/WorkoutExercise.Interface";
 import { getStordUserData } from "../../services/UserService.Service";
-import { addWorkout, addWorkoutWithExercises, getDefaultWorkouts } from "../../services/WorkoutService.Service";
+import { addWorkout, addWorkoutWithExercises } from "../../services/WorkoutService.Service";
 import { Theme } from "../../constants/Theme";
-import { Card } from "@rneui/themed";
 import { router, Stack } from "expo-router";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { TabView, TabBar, SceneRendererProps } from "react-native-tab-view";
+import { memo, useCallback, useEffect, useState } from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { TabView, SceneRendererProps } from "react-native-tab-view";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import CustomAddWorkout from "../../components/ui/CustomAddWorkout";
+import { SegmentedTabs } from "../../components/ui/SegmentedTabs";
 
 export default function AddWorkout() {
 
     const [isLoading, setLoading] = useState(false);
-    const [search, setSearch] = useState('');
-    const [filteredDataSource, setFilteredDataSource] = useState<Exercise[]>([]);
-    const [masterDataSource, setMasterDataSource] = useState<Exercise[]>([]);
     const [index, setIndex] = useState(0);
     const [workoutName, setWorkoutName] = useState('');
     const [workoutTimeEstimate, setWorkoutTimeEstimate] = useState(null);
@@ -38,9 +35,6 @@ export default function AddWorkout() {
             return;
         }
         setUser(storedUser);
-        const docDataArray = await getDefaultWorkouts();
-        setFilteredDataSource(docDataArray);
-        setMasterDataSource(docDataArray);
         setLoading(false);
     }
 
@@ -72,125 +66,17 @@ export default function AddWorkout() {
             router.back();
         }
     }
-    const searchFilterFunction = (text: string) => {
-        if (text) {
-            const newData = masterDataSource.filter(
-                function (item: any /*default exericse*/) {
-                    const itemData = item.def_name
-                        ? item.def_name.toUpperCase()
-                        : ''.toUpperCase();
-                    const textData = text.toUpperCase();
-                    return itemData.indexOf(textData) > -1;
-                }
-            );
-            setFilteredDataSource(newData);
-            setSearch(text);
-        } else {
-            setFilteredDataSource(masterDataSource);
-            setSearch(text);
-        }
-    };
     const [routes] = useState([
-        { key: 'default', title: 'Default workout' },
+        { key: 'browse', title: 'Browse Popular' },
         { key: 'custom', title: 'Custom workout' },
     ]);
-
-    const DefaultTab = () => {
-        return (
-            <View style={styles.tabContainer}>
-                <View style={styles.searchContainer}>
-                    <MaterialCommunityIcons
-                        name="magnify"
-                        size={20}
-                        color={Theme.colors.font + '80'}
-                        style={styles.searchIcon}
-                    />
-                    <TextInput
-                        onChangeText={(text) => searchFilterFunction(text)}
-                        value={search}
-                        style={styles.searchInput}
-                        placeholder='Search default workouts...'
-                        placeholderTextColor={Theme.colors.font + '60'}
-                    />
-                    {search.length > 0 && (
-                        <TouchableOpacity
-                            onPress={() => searchFilterFunction('')}
-                            style={styles.searchClearButton}
-                        >
-                            <MaterialCommunityIcons
-                                name="close-circle"
-                                size={20}
-                                color={Theme.colors.font + '80'}
-                            />
-                        </TouchableOpacity>
-                    )}
-                </View>
-                <ScrollView
-                    style={styles.scrollView}
-                    contentContainerStyle={styles.scrollContent}
-                >
-                    {filteredDataSource.length > 0 ? (
-                        filteredDataSource.map((item: any /*default workout*/, i) => {
-                            return (
-                                <TouchableOpacity
-                                    key={i}
-                                    onPress={() => onAddWorkout(item.def_name)}
-                                    activeOpacity={0.7}
-                                >
-                                    <Card containerStyle={styles.workoutCard}>
-                                        <View style={styles.workoutContent}>
-                                            <MaterialCommunityIcons
-                                                name="dumbbell"
-                                                size={24}
-                                                color={Theme.colors.font}
-                                            />
-                                            <Text style={styles.workoutText}>{item.def_name}</Text>
-                                            <MaterialCommunityIcons
-                                                name="chevron-right"
-                                                size={20}
-                                                color={Theme.colors.font + '60'}
-                                            />
-                                        </View>
-                                    </Card>
-                                </TouchableOpacity>
-                            );
-                        })
-                    ) : (
-                        <TouchableOpacity
-                            onPress={() => onAddWorkout(search)}
-                            disabled={!search.trim()}
-                            activeOpacity={0.7}
-                        >
-                            <Card containerStyle={[
-                                styles.workoutCard,
-                                !search.trim() && styles.disabledCard
-                            ]}>
-                                <View style={styles.addNewContainer}>
-                                    <MaterialCommunityIcons
-                                        name="plus-circle"
-                                        size={24}
-                                        color={Theme.colors.font}
-                                    />
-                                    <Text style={styles.workoutText}>
-                                        {search.trim()
-                                            ? `Add new: ${search}`
-                                            : 'Search for a workout or type to add new'}
-                                    </Text>
-                                </View>
-                            </Card>
-                        </TouchableOpacity>
-                    )}
-                </ScrollView>
-            </View>
-        );
-    }
 
     const renderTabs = (props: SceneRendererProps & { route: { key: string, title: string } }) => {
         const { route } = props;
         switch (route.key) {
-            case 'default':
+            case 'browse':
                 return (
-                    <DefaultTab />
+                    <BrowsePopular currentUserId={user?.id ?? ''} />
                 )
             case 'custom':
                 return (
@@ -200,9 +86,7 @@ export default function AddWorkout() {
                         workoutTimeEstimate={workoutTimeEstimate}
                         setWorkoutName={setWorkoutName}
                         setWorkoutTimeEstimate={setWorkoutTimeEstimate}
-                        onAddWorkout={onAddWorkout}
                         childToParent={childToParent}
-                        isLoading={isLoading}
                         styles={styles}
                     />
                 )
@@ -215,23 +99,40 @@ export default function AddWorkout() {
         )
     }
 
+    const canCreate = workoutName.trim().length > 0 && !isLoading;
+
     return (
         <View style={{ flex: 1 }}>
             <Stack.Screen
                 options={{
-                    title: 'New workout'
+                    title: 'New workout',
+                    headerRight: index === 1 ? () => (
+                        <TouchableOpacity
+                            onPress={() => onAddWorkout(workoutName)}
+                            disabled={!canCreate}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <MaterialCommunityIcons
+                                name="check"
+                                size={26}
+                                color={canCreate ? Theme.colors.green : Theme.colors.textDisabled}
+                            />
+                        </TouchableOpacity>
+                    ) : undefined,
                 }}
             />
             <TabView
                 swipeEnabled={true}
-                renderTabBar={props => (
-                    <TabBar
-                        {...props}
+                renderTabBar={({ navigationState }) => (
+                    <SegmentedTabs
+                        options={navigationState.routes.map(route => ({
+                            value: route.key,
+                            label: route.title ?? '',
+                        }))}
+                        value={navigationState.routes[navigationState.index].key}
+                        onChange={key => setIndex(routes.findIndex(route => route.key === key))}
+                        stretch
                         style={styles.tabBar}
-                        indicatorStyle={styles.tabIndicator}
-                        //tabStyle={styles.tabLabel}
-                        activeColor={Theme.colors.font}
-                        inactiveColor={Theme.colors.font + '80'}
                     />
                 )}
                 navigationState={{ index, routes }}
@@ -246,65 +147,12 @@ export default function AddWorkout() {
 const styles = StyleSheet.create({
     tabContainer: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
-        margin: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
-        paddingHorizontal: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.md,
-        gap: Theme.spacing.sm,
-    },
-    searchIcon: {
-        marginRight: Theme.spacing.xs,
-    },
-    searchInput: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        paddingVertical: Theme.spacing.sm,
-    },
-    searchClearButton: {
-        padding: Theme.spacing.xs,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingBottom: Theme.spacing.xl,
-    },
-    workoutCard: {
-        marginHorizontal: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-        backgroundColor: Theme.colors.lessDark,
-        padding: Theme.spacing.md,
-    },
-    workoutContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.md,
-    },
-    workoutText: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-    },
-    addNewContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.md,
-    },
-    disabledCard: {
-        opacity: 0.5,
+        backgroundColor: Theme.colors.background,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         marginHorizontal: Theme.spacing.md,
         marginTop: Theme.spacing.sm,
         paddingHorizontal: Theme.spacing.md,
@@ -324,34 +172,9 @@ const styles = StyleSheet.create({
         flex: 1,
         marginTop: Theme.spacing.sm,
     },
-    buttonContainer: {
-        padding: Theme.spacing.md,
-        backgroundColor: Theme.colors.dark,
-        ...Theme.shadows.medium,
-    },
-    createButton: {
-        height: 50,
-        borderRadius: Theme.borderRadius.md,
-        backgroundColor: Theme.colors.green,
-    },
-    createButtonDisabled: {
-        backgroundColor: Theme.colors.lessDark,
-        opacity: 0.5,
-    },
-    buttonTitle: {
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.semibold,
-    },
     tabBar: {
-        backgroundColor: Theme.colors.lessDark,
-    },
-    tabIndicator: {
-        backgroundColor: Theme.colors.green,
-        height: 3,
-    },
-    tabLabel: {
-        fontSize: Theme.fontSize.md,
-        fontWeight: Theme.fontWeight.semibold,
-        textTransform: 'none',
+        paddingHorizontal: Theme.spacing.md,
+        paddingVertical: Theme.spacing.sm,
+        backgroundColor: Theme.colors.background
     },
 });

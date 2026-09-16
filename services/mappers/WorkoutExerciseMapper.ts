@@ -1,4 +1,5 @@
 import { WorkoutExercise } from '../../interfaces/WorkoutExercise.Interface';
+import { isMuscleGroup } from '../../constants/MuscleGroups';
 
 /**
  * Mapper for converting Supabase database rows to WorkoutExercise interface
@@ -17,7 +18,8 @@ export class WorkoutExerciseMapper {
             exeUserId: row.EXE_USER_ID,
             exeDate: row.EXE_DATE || new Date().toISOString(),
             exeMaxReps: row.EXE_MAX_REPS,
-            exeMaxWeight: row.EXE_MAX_WEIGHT
+            exeMaxWeight: row.EXE_MAX_WEIGHT,
+            exeMuscleGroup: isMuscleGroup(row.EXE_MUSCLE_GROUP) ? row.EXE_MUSCLE_GROUP : null
         };
     }
 

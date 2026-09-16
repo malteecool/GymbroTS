@@ -1,15 +1,12 @@
 import React, { useEffect, useImperativeHandle, useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native';
-import { Card, Divider } from '@rneui/themed';
+import { Text, TextInput, View, StyleSheet } from 'react-native';
 import { Theme, Styles } from '../constants/Theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Exercise } from '../interfaces/Exercise.Interface';
 import { Set } from '../interfaces/Set.Interface';
 import { ExerciseHistory } from '../interfaces/ExerciseHistory.Interface';
 import { LoadingIndicator } from './ui/LoadingIndicator';
-
-const LABEL_WEIGHT = "WEIGHT";
-const LABEL_REPS = "REPS";
+import { SetField, SetTable } from './Workout/SetTable';
 
 export interface SetsRef {
     getSets: () => Set[];
@@ -34,34 +31,19 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
             getComment: () => comment
         }));
 
-        const handleChangeWeight = (i: number, value: string) => {
-            setSets(prevSets => {
-                const updated = [...prevSets];
-                updated[i] = {
-                    ...updated[i],
-                    setWeight: parseInt(value) || 0
-                };
-                return updated;
-            });
-        };
-
-        const handleChangeReps = (i: number, value: string) => {
-            setSets(prevSets => {
-                const updated = [...prevSets];
-                updated[i] = {
-                    ...updated[i],
-                    setReps: parseInt(value) || 0
-                };
-                return updated;
-            });
+        const updateSet = (index: number, field: SetField, value: number) => {
+            setSets((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
         };
 
         const onAddSet = () => {
-            setSets([...sets, {
-                setWeight: 0,
-                setReps: 0,
-                setOrder: sets.length + 1
-            }]);
+            setSets((prev) => {
+                const last = prev[prev.length - 1];
+                return [...prev, {
+                    setWeight: last?.setWeight ?? 0,
+                    setReps: last?.setReps ?? 0,
+                    setOrder: prev.length + 1,
+                }];
+            });
         };
 
         const onRemoveSet = (index: number) => {
@@ -73,7 +55,6 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
             if (exerciseHistory) {
                 setDate(new Date(exerciseHistory.exhDate).toDateString());
                 setSets(exerciseHistory.exhSets);
-                console.log(exerciseHistory.exhSets);
                 setComment(exerciseHistory.exhComment || "");
             } else {
                 setSets([{ setWeight: 0, setReps: 0, setOrder: 1 }]);
@@ -91,88 +72,40 @@ export const SetCard = React.forwardRef<SetsRef, SetCardProps>(
 
         return (
             <View style={styles.container}>
-                <Card
-                    containerStyle={styles.card}
-                >
-                    <Card.Title style={styles.cardTitle}>
-                        <Text style={styles.dateText}>{date}</Text>
-                    </Card.Title>
-                    <View style={styles.headerRow}>
-                        <Text style={styles.headerText}>{LABEL_WEIGHT}</Text>
-                        <Text style={styles.headerText}>{LABEL_REPS}</Text>
-                        {editable && <View style={{width: '10%'}} />}
+                <View style={Styles.card}>
+                    <View style={styles.dateRow}>
+                        <View style={styles.dateGroup}>
+                            <MaterialCommunityIcons name="calendar" size={14} color={Theme.colors.textMuted} />
+                            <Text style={styles.dateText}>{date}</Text>
+                        </View>
+                        <View style={styles.countPill}>
+                            <Text style={styles.countText}>
+                                {sets.length} {sets.length === 1 ? 'set' : 'sets'}
+                            </Text>
+                        </View>
                     </View>
-                    {sets.map((set, i) => {
-                        return (
-                            <View key={i} style={styles.setRow}>
-                                <Divider width={1} color={Theme.colors.lessDark} />
-                                <View style={styles.setContent}>
-                                    <View style={editable ? {...styles.inputContainer} : {...styles.inputContainer, width: '50%'}}>
-                                        <TextInput
-                                            keyboardType='number-pad'
-                                            onChangeText={value => handleChangeWeight(i, value)}
-                                            style={styles.input}
-                                            placeholder={String(set.setWeight)}
-                                            placeholderTextColor={Theme.colors.dark + '80'}
-                                            editable={editable}
-                                            defaultValue={set.setWeight > 0 ? String(set.setWeight) : ''}
-                                        />
-                                    </View>
-                                    <View style={editable ? styles.inputContainer : {width: '50%'}}>
-                                        <TextInput
-                                            keyboardType='number-pad'
-                                            onChangeText={value => handleChangeReps(i, value)}
-                                            style={styles.input}
-                                            placeholder={String(set.setReps)}
-                                            placeholderTextColor={Theme.colors.dark + '80'}
-                                            editable={editable}
-                                            defaultValue={set.setReps > 0 ? String(set.setReps) : ''}
-                                        />
-                                    </View>
-                                    {editable && sets.length > 0 && (
-                                        <TouchableOpacity
-                                            onPress={() => onRemoveSet(i)}
-                                            style={styles.removeButton}
-                                        >
-                                            <MaterialCommunityIcons
-                                                name="trash-can"
-                                                size={20}
-                                                color={'#123'}
-                                            />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            </View>
-                        );
-                    })}
 
-                    {editable && (
-                        <TouchableOpacity
-                            style={styles.addButton}
-                            onPress={onAddSet}
-                            activeOpacity={0.7}
-                        >
-                            <MaterialCommunityIcons
-                                name="plus-circle"
-                                size={20}
-                                color={Theme.colors.font}
-                            />
-                            <Text style={styles.addButtonText}>Add set</Text>
-                        </TouchableOpacity>
-                    )}
-                </Card>
+                    <SetTable
+                        sets={sets}
+                        editable={editable}
+                        onChange={updateSet}
+                        onRemove={onRemoveSet}
+                        onAdd={onAddSet}
+                    />
+                </View>
+
                 {(editable || exerciseHistory?.exhComment) && (
                     <View style={styles.commentContainer}>
                         <MaterialCommunityIcons
-                            size={22}
-                            color={Theme.colors.font}
-                            name="comment"
+                            size={16}
+                            color={Theme.colors.textMuted}
+                            name="comment-outline"
                         />
                         <TextInput
                             style={styles.commentInput}
                             onChangeText={(text) => setComment(text)}
-                            placeholder={exerciseHistory?.exhComment || "Comment"}
-                            placeholderTextColor={Theme.colors.font + '80'}
+                            placeholder={exerciseHistory?.exhComment || "Add a note (optional)"}
+                            placeholderTextColor={Theme.colors.textMuted}
                             editable={editable}
                             defaultValue={exerciseHistory?.exhComment || ''}
                             multiline
@@ -188,104 +121,57 @@ SetCard.displayName = 'SetCard';
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
-    card: {
-        ...Styles.setCard,
-        paddingHorizontal: 0,
-        paddingBottom: 0,
+    dateRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Theme.spacing.sm,
+        marginBottom: Theme.spacing.md,
+        paddingBottom: Theme.spacing.sm,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: Theme.colors.divider,
     },
-    cardTitle: {
-        ...Styles.cardTitle,
-        color: Theme.colors.font,
-        alignSelf: 'flex-start',
-        paddingHorizontal: Theme.spacing.md,
-        fontSize: Theme.fontSize.xl,
-        backgroundColor: Theme.colors.green,
-        marginLeft: 0,
-        marginBottom: Theme.spacing.xs,
+    dateGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.xs,
+        flexShrink: 1,
     },
     dateText: {
-        fontSize: Theme.fontSize.xl,
-        color: Theme.colors.font,
-        fontWeight: Theme.fontWeight.bold,
+        ...Theme.typography.bodyStrong,
+        fontSize: Theme.fontSize.sm,
     },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-evenly',
-        alignItems: 'center',
-        width: '100%',
-        paddingHorizontal: Theme.spacing.xs,
+    countPill: {
+        paddingHorizontal: Theme.spacing.sm,
+        paddingVertical: 2,
+        borderRadius: Theme.borderRadius.round,
+        backgroundColor: Theme.colors.neutralSoft,
     },
-    headerText: {
-        ...Styles.detailText,
-        fontWeight: Theme.fontWeight.bold,
-        width: '40%',
-        textAlign: 'center',
-    },
-    setRow: {
-        backgroundColor: Theme.colors.font,
-    },
-    setContent: {
-        flexDirection: 'row',
-        justifyContent: 'space-evenly',
-        alignItems: 'center',
-        width: '100%',
-        paddingHorizontal: Theme.spacing.xs,
-    },
-    inputContainer: {
-        width: '40%',
-        borderRightWidth: 1,
-        borderColor: Theme.colors.lessDark,
-        alignItems: 'center',
-        paddingVertical: Theme.spacing.xs,
-    },
-    input: {
-        ...Styles.detailText,
-        color: Theme.colors.dark,
-        textAlign: 'center',
-        width: '100%',
-        fontSize: Theme.fontSize.md,
-    },
-    removeButton: {
-        padding: Theme.spacing.xs,
-        width: '10%',
-        alignItems: 'center',
-    },
-    addButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Theme.colors.green,
-        padding: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-        margin: Theme.spacing.xs,
-        marginTop: Theme.spacing.sm,
-        gap: Theme.spacing.xs,
-    },
-    addButtonText: {
-        ...Styles.detailText,
-        paddingVertical: 0,
-        marginBottom: 0,
-        textAlign: 'center',
+    countText: {
+        ...Theme.typography.caption,
+        color: Theme.colors.textSecondary,
         fontWeight: Theme.fontWeight.semibold,
     },
     commentContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
-        paddingHorizontal: Theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: Theme.colors.outline,
+        paddingHorizontal: Theme.spacing.md,
         paddingVertical: Theme.spacing.xs,
-        marginHorizontal: Theme.spacing.xs,
         marginTop: Theme.spacing.xs,
+        marginHorizontal: Theme.spacing.sm,
+        gap: Theme.spacing.sm,
     },
     commentInput: {
         flex: 1,
-        marginLeft: Theme.spacing.sm,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
+        color: Theme.colors.textPrimary,
+        fontSize: Theme.fontSize.sm,
         paddingVertical: Theme.spacing.xs,
-        minHeight: 40,
+        minHeight: 36,
     },
 });

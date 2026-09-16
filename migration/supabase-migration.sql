@@ -160,6 +160,149 @@ CREATE TABLE IF NOT EXISTS notification (
 );
 
 -- -----------------------------------------------------------------------------
+-- Social: threaded comment replies
+-- -----------------------------------------------------------------------------
+
+-- A reply points at the comment it answers. NULL means the comment sits at the
+-- top level of the post. Replies are one level deep by convention: the client
+-- always attaches a reply to the top-level comment, never to another reply, so
+-- a thread stays a post -> comment -> replies shape.
+ALTER TABLE comment
+    ADD COLUMN IF NOT EXISTS parent_comment_id UUID REFERENCES comment(id) ON DELETE CASCADE;
+
+-- -----------------------------------------------------------------------------
+-- Social: comment likes
+-- -----------------------------------------------------------------------------
+
+-- Mirrors `reaction`, one row per person per comment. Needed for the "Top"
+-- comment sort, which orders threads by how many likes they drew.
+CREATE TABLE IF NOT EXISTS comment_reaction (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    comment_id UUID NOT NULL REFERENCES comment(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (comment_id, user_id)
+);
+
+-- -----------------------------------------------------------------------------
+-- Social: reply and comment-like notifications
+-- -----------------------------------------------------------------------------
+
+-- 'reply' and 'comment_like' joined the original three. Dropped by lookup
+-- rather than by name: the original CHECK was written inline on the column, so
+-- its generated name is not guaranteed across environments.
+DO $$
+DECLARE c record;
+BEGIN
+    FOR c IN
+        SELECT conname FROM pg_constraint
+        WHERE conrelid = 'notification'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%notif_type%'
+    LOOP
+        EXECUTE format('ALTER TABLE notification DROP CONSTRAINT %I', c.conname);
+    END LOOP;
+END $$;
+
+ALTER TABLE notification ADD CONSTRAINT notification_notif_type_check
+    CHECK (notif_type IN ('like', 'comment', 'follow', 'reply', 'comment_like'));
+
+-- -----------------------------------------------------------------------------
+-- Social: reports
+-- -----------------------------------------------------------------------------
+
+-- Reporting is a record, not an action: nothing in the app reads this table
+-- back yet, it exists so the report option has somewhere to land for review.
+-- `reported_user_id` is kept alongside `post_id` so a report survives the post
+-- being deleted from under it.
+CREATE TABLE IF NOT EXISTS report (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reporter_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    reported_user_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    post_id UUID REFERENCES post(id) ON DELETE SET NULL,
+    reason TEXT NOT NULL CHECK (reason IN ('spam', 'harassment', 'nudity', 'violence', 'other')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CHECK (reporter_id <> reported_user_id)
+);
+
+-- -----------------------------------------------------------------------------
+-- Unique @handles (Phase 6)
+-- -----------------------------------------------------------------------------
+
+-- `name` is free text and not unique, so two people with the same name were
+-- indistinguishable in search. The handle is the stable, unique identifier.
+ALTER TABLE APP_USER ADD COLUMN IF NOT EXISTS HANDLE TEXT;
+
+CREATE OR REPLACE FUNCTION public.generate_handle(base_name text)
+RETURNS text
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    slug text;
+    candidate text;
+    suffix int := 0;
+BEGIN
+    slug := lower(coalesce(base_name, ''));
+    -- Fold accented characters before stripping, so "Håkan" becomes "hakan".
+    slug := translate(slug, 'åäöøæéèüñ', 'aaooaeeun');
+    slug := regexp_replace(slug, '[^a-z0-9]+', '', 'g');
+    slug := left(slug, 20);
+
+    IF length(slug) < 3 THEN
+        slug := 'user';
+    END IF;
+
+    candidate := slug;
+    WHILE EXISTS (SELECT 1 FROM public.app_user WHERE lower(handle) = candidate) LOOP
+        suffix := suffix + 1;
+        candidate := left(slug, 20 - length(suffix::text)) || suffix::text;
+    END LOOP;
+
+    RETURN candidate;
+END;
+$$;
+
+-- Row by row, not one UPDATE: a single statement works from one snapshot, so
+-- two identical names would generate the same handle and the unique index below
+-- would then fail to build.
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT id, name FROM public.app_user WHERE handle IS NULL ORDER BY created_at LOOP
+        UPDATE public.app_user SET handle = public.generate_handle(r.name) WHERE id = r.id;
+    END LOOP;
+END $$;
+
+-- Case-insensitive: @Malte and @malte must not be different people.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_app_user_handle_lower ON APP_USER (lower(handle));
+
+ALTER TABLE APP_USER ALTER COLUMN HANDLE SET NOT NULL;
+
+ALTER TABLE APP_USER DROP CONSTRAINT IF EXISTS app_user_handle_format;
+ALTER TABLE APP_USER ADD CONSTRAINT app_user_handle_format
+    CHECK (HANDLE ~ '^[a-z0-9_]{3,20}$');
+
+-- NOTE: the on_auth_user_created trigger function handle_new_user() was also
+-- updated to mint a handle at signup via generate_handle(). See the Supabase
+-- dashboard, or migration add_user_handle.
+
+-- -----------------------------------------------------------------------------
+-- Social: block table (Phase 6)
+-- -----------------------------------------------------------------------------
+
+-- Mirrors the shape of `follows`: one row per direction, self-block prevented.
+-- Blocking is mutual in the app — see SocialService.blockUser, which also drops
+-- any follow in either direction at block time.
+CREATE TABLE IF NOT EXISTS block (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    blocker_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    blocked_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (blocker_id, blocked_id),
+    CHECK (blocker_id <> blocked_id)
+);
+
+-- -----------------------------------------------------------------------------
 -- Workout sharing: browse/copy/follow public workouts (Phase 4, partial)
 -- -----------------------------------------------------------------------------
 
@@ -167,6 +310,83 @@ ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT 
 ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS source_workout_id UUID REFERENCES WORKOUT(ID) ON DELETE SET NULL;
 ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS link_type TEXT CHECK (link_type IN ('copy', 'follow'));
 ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS copy_count INTEGER NOT NULL DEFAULT 0;
+
+-- -----------------------------------------------------------------------------
+-- Workout discovery: follower counts + ratings (workout-rework-plan.md Phase A)
+-- -----------------------------------------------------------------------------
+
+ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS follower_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS avg_rating NUMERIC(3,2);
+ALTER TABLE WORKOUT ADD COLUMN IF NOT EXISTS rating_count INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS workout_rating (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workout_id UUID NOT NULL REFERENCES WORKOUT(ID) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    rating SMALLINT NOT NULL CHECK (rating BETWEEN 0 AND 5),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (workout_id, user_id)
+);
+
+-- -----------------------------------------------------------------------------
+-- Images: post photo column + Storage bucket/policies (image-upload-plan.md Phase A/D)
+-- -----------------------------------------------------------------------------
+
+ALTER TABLE post ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- Public-read bucket for avatars (avatars/{userId}/avatar.jpg) and post photos
+-- (posts/{userId}/{timestamp}.jpg). userId must be an actual folder segment (not
+-- baked into the filename) in both cases, since the policies below key off
+-- (storage.foldername(name))[2], and storage.foldername() only returns folder
+-- segments, not the filename. Writes are restricted to a user's own folder.
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('user-content', 'user-content', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Users can upload their own content" ON storage.objects;
+CREATE POLICY "Users can upload their own content"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+    bucket_id = 'user-content'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Users can update their own content" ON storage.objects;
+CREATE POLICY "Users can update their own content"
+ON storage.objects FOR UPDATE TO authenticated
+USING (
+    bucket_id = 'user-content'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "Users can delete their own content" ON storage.objects;
+CREATE POLICY "Users can delete their own content"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+    bucket_id = 'user-content'
+    AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+-- Required even though the bucket is public: storage-js always uploads via
+-- INSERT ... ON CONFLICT ... RETURNING *, and under RLS a RETURNING clause needs
+-- a satisfying SELECT policy on the row, not just the INSERT/UPDATE policy - without
+-- this, every upload fails with "new row violates row-level security policy" even
+-- when the INSERT's own WITH CHECK passes.
+DROP POLICY IF EXISTS "Public read access to user content" ON storage.objects;
+CREATE POLICY "Public read access to user content"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'user-content');
+
+-- -----------------------------------------------------------------------------
+-- Standalone text posts: composer on the social feed
+-- -----------------------------------------------------------------------------
+
+-- 'text' is a post written directly into the feed, with no workout behind it,
+-- so workout_id stays NULL and the card renders no activity label.
+ALTER TABLE post DROP CONSTRAINT IF EXISTS post_post_type_check;
+ALTER TABLE post ADD CONSTRAINT post_post_type_check
+    CHECK (post_type IN ('text', 'workout_complete', 'pr_broken', 'milestone'));
 
 -- -----------------------------------------------------------------------------
 -- Indexes
@@ -189,11 +409,22 @@ CREATE INDEX IF NOT EXISTS IDX_POST_CREATED_AT ON post(created_at DESC);
 CREATE INDEX IF NOT EXISTS IDX_REACTION_POST_ID ON reaction(post_id);
 CREATE INDEX IF NOT EXISTS IDX_REACTION_USER_ID ON reaction(user_id);
 CREATE INDEX IF NOT EXISTS IDX_COMMENT_POST_ID ON comment(post_id);
+CREATE INDEX IF NOT EXISTS IDX_COMMENT_PARENT_COMMENT_ID ON comment(parent_comment_id) WHERE parent_comment_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS IDX_COMMENT_REACTION_COMMENT_ID ON comment_reaction(comment_id);
+CREATE INDEX IF NOT EXISTS IDX_COMMENT_REACTION_USER_ID ON comment_reaction(user_id);
+CREATE INDEX IF NOT EXISTS IDX_REPORT_REPORTED_USER_ID ON report(reported_user_id);
+CREATE INDEX IF NOT EXISTS IDX_REPORT_CREATED_AT ON report(created_at DESC);
+CREATE INDEX IF NOT EXISTS IDX_BLOCK_BLOCKER_ID ON block(blocker_id);
+CREATE INDEX IF NOT EXISTS IDX_BLOCK_BLOCKED_ID ON block(blocked_id);
 CREATE INDEX IF NOT EXISTS IDX_NOTIFICATION_RECIPIENT_ID ON notification(recipient_id);
 CREATE INDEX IF NOT EXISTS IDX_NOTIFICATION_RECIPIENT_UNREAD ON notification(recipient_id) WHERE is_read = false;
 CREATE INDEX IF NOT EXISTS IDX_NOTIFICATION_CREATED_AT ON notification(created_at DESC);
 CREATE INDEX IF NOT EXISTS IDX_WORKOUT_SOURCE_WORKOUT_ID ON WORKOUT(source_workout_id);
 CREATE INDEX IF NOT EXISTS IDX_WORKOUT_IS_PUBLIC ON WORKOUT(is_public) WHERE is_public = true;
+CREATE INDEX IF NOT EXISTS IDX_WORKOUT_FOLLOWER_COUNT ON WORKOUT(follower_count DESC) WHERE is_public = true;
+CREATE INDEX IF NOT EXISTS IDX_WORKOUT_AVG_RATING ON WORKOUT(avg_rating DESC) WHERE is_public = true;
+CREATE INDEX IF NOT EXISTS IDX_WORKOUT_RATING_WORKOUT_ID ON workout_rating(workout_id);
+CREATE INDEX IF NOT EXISTS IDX_WORKOUT_RATING_USER_ID ON workout_rating(user_id);
 
 -- -----------------------------------------------------------------------------
 -- Realtime: notification table (Phase 3 unread badge)
@@ -208,6 +439,47 @@ BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE notification;
     END IF;
 END $$;
+
+-- -----------------------------------------------------------------------------
+-- Exercise muscle groups
+-- Adds a single primary muscle group per exercise. NULL means uncategorised,
+-- which the app renders as its own bucket rather than hiding the exercise.
+-- -----------------------------------------------------------------------------
+
+ALTER TABLE EXERCISE ADD COLUMN IF NOT EXISTS EXE_MUSCLE_GROUP TEXT;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'exercise_muscle_group_check'
+    ) THEN
+        ALTER TABLE EXERCISE ADD CONSTRAINT exercise_muscle_group_check
+            CHECK (EXE_MUSCLE_GROUP IS NULL OR EXE_MUSCLE_GROUP IN (
+                'chest', 'back', 'shoulders', 'biceps', 'triceps',
+                'legs', 'glutes', 'core', 'cardio', 'other'
+            ));
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_exercise_muscle_group ON EXERCISE(EXE_MUSCLE_GROUP);
+
+-- Backfill from the exercise name. Mirrors guessMuscleGroup() in
+-- constants/MuscleGroups.ts - same rules, same order, first match wins - so keep
+-- the two in step. Only touches rows that have no group yet, so re-running it
+-- never overwrites a choice made in the app.
+UPDATE EXERCISE SET EXE_MUSCLE_GROUP = CASE
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%cardio%', '%treadmill%', '%elliptical%', '%rowing machine%', '%row machine%', '%stationary bike%', '%exercise bike%', '%cycling%', '%spin bike%', '%jump rope%', '%skipping%', '%sprint%', '%stair%', '%jog%', '%running%']) THEN 'cardio'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%squat%', '%lunge%', '%leg press%', '%leg extension%', '%leg curl%', '%calf%', '%quad%', '%hamstring%', '%romanian%', '%bulgarian%', '%step up%', '%hack %']) THEN 'legs'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%glute%', '%hip thrust%', '%hip abduction%', '%hip adduction%']) THEN 'glutes'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%abs%', '%ab wheel%', '%crunch%', '%plank%', '%sit up%', '%situp%', '%oblique%', '%core%', '%leg raise%', '%russian twist%', '%knee raise%']) THEN 'core'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%shoulder%', '%overhead press%', '%military%', '%lateral raise%', '%front raise%', '%delt%', '%upright row%', '%arnold%', '%face pull%', '%shrug%']) THEN 'shoulders'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%tricep%', '%pushdown%', '%push down%', '%skull%', '%kickback%', '%close grip%', '%overhead extension%', '%dip%']) THEN 'triceps'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%row%', '%pull up%', '%pullup%', '%pull-up%', '%pulldown%', '%pull down%', '%chin up%', '%chinup%', '%lat %', '%deadlift%', '%back%']) THEN 'back'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%curl%', '%bicep%', '%preacher%', '%hammer%']) THEN 'biceps'
+    WHEN EXE_NAME ILIKE ANY (ARRAY['%bench%', '%chest%', '%pec%', '%fly%', '%flye%', '%push up%', '%pushup%', '%push-up%', '%press%']) THEN 'chest'
+    ELSE NULL
+END
+WHERE EXE_MUSCLE_GROUP IS NULL;
 
 -- -----------------------------------------------------------------------------
 -- Row Level Security (optional — uncomment to enable)

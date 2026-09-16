@@ -3,16 +3,13 @@ import { Theme } from "../../constants/Theme";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { memo } from "react";
 import { CustomExerciseView } from "../CustomExerciseView";
-import { Button } from "@rneui/themed";
 
 function CustomAddWorkout({
     user,
     workoutName,
     workoutTimeEstimate,
-    isLoading,
     setWorkoutName,
     setWorkoutTimeEstimate,
-    onAddWorkout,
     childToParent,
     styles,
 }: any) {
@@ -21,8 +18,8 @@ function CustomAddWorkout({
         return null;
     }
 
-    return (
-        <View style={styles.tabContainer}>
+    const headerContent = (
+        <View>
             <View style={styles.inputContainer}>
                 <MaterialCommunityIcons
                     name="format-title"
@@ -52,26 +49,15 @@ function CustomAddWorkout({
                     keyboardType="numeric"
                     placeholder="Estimate time (minutes)"
                     placeholderTextColor={Theme.colors.font + "60"}
-                    
                 />
             </View>
+        </View>
+    );
 
+    return (
+        <View style={styles.tabContainer}>
             <View style={styles.exerciseViewContainer}>
-                <CustomExerciseView userId={user.id} childToParent={childToParent} />
-            </View>
-
-            <View style={styles.buttonContainer}>
-                <Button
-                    disabled={workoutName.length <= 0 || isLoading}
-                    title="Create Workout"
-                    titleStyle={styles.buttonTitle}
-                    buttonStyle={[
-                        styles.createButton,
-                        (workoutName.length <= 0 || isLoading) && styles.createButtonDisabled,
-                    ]}
-                    onPress={() => onAddWorkout(workoutName)}
-                    loading={isLoading}
-                />
+                <CustomExerciseView userId={user.id} childToParent={childToParent} headerContent={headerContent} />
             </View>
         </View>
     );

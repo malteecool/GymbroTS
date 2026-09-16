@@ -13,5 +13,8 @@ export interface Workout {
     sourceWorkoutId?: string | null;
     linkType?: WorkoutLinkType | null;
     copyCount?: number;
+    followerCount?: number;
+    avgRating?: number | null;
+    ratingCount?: number;
     //worExercises?: Exercise[];
 }

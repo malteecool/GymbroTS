@@ -1,54 +1,113 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, FlatList, TouchableOpacity, StyleSheet, Text, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
-import { Post } from '../../interfaces/Post.Interface';
-import { getFeed, likePost, unlikePost, deletePost } from '../../services/PostService.Service';
+import { Post, PostCommentCountChange, POST_COMMENT_COUNT_EVENT } from '../../interfaces/Post.Interface';
+import {
+    getFeed, getExploreFeed, likePost, unlikePost, appendPostPage,
+} from '../../services/PostService.Service';
 import { PostCard } from '../../components/Social/PostCard';
+import { PostComposer } from '../../components/Social/PostComposer';
+import { PostOwnerActions } from '../../components/Social/PostOwnerActions';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { SegmentedTabs } from '../../components/ui/SegmentedTabs';
+import { IconButton } from '../../components/ui/IconButton';
 import { getStordUserData } from '../../services/UserService.Service';
+import { blockUser } from '../../services/SocialService.Service';
+import { useNotificationContext } from '../../providers/NotificationProvider';
+import emitter from '../../hooks/CustomEventEmitter';
 
 const PAGE_SIZE = 20;
 
+type FeedMode = 'following' | 'explore';
+
+const FEED_TABS = [
+    { value: 'following' as const, label: 'Following' },
+    { value: 'explore' as const, label: 'Explore' },
+];
+
+const fetchFeed = (mode: FeedMode, offset: number) =>
+    mode === 'following' ? getFeed(offset) : getExploreFeed(offset);
+
 export default function SocialScreen() {
     const router = useRouter();
+    const { unreadCount } = useNotificationContext();
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [currentUserId, setCurrentUserId] = useState('');
+    const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null);
+    const [mode, setMode] = useState<FeedMode>('following');
+    /** The post whose owner menu is open, or null when none is. */
+    const [optionsPost, setOptionsPost] = useState<Post | null>(null);
+
+    /**
+     * Identifies the newest first-page request. Switching tabs faster than the
+     * network can answer would otherwise let a stale feed land on top of the
+     * one the user is actually looking at.
+     */
+    const requestRef = useRef(0);
 
     const load = useCallback(async (isRefresh: boolean = false) => {
+        const token = ++requestRef.current;
         try {
             if (isRefresh) setRefreshing(true); else setLoading(true);
             const user = await getStordUserData();
-            if (user) setCurrentUserId(user.id);
-            const data = await getFeed(0);
+            const data = await fetchFeed(mode, 0);
+            if (token !== requestRef.current) return;
+            if (user) {
+                setCurrentUserId(user.id);
+                setCurrentUserAvatar(user.avatarUrl ?? null);
+            }
             setPosts(data);
             setHasMore(data.length === PAGE_SIZE);
         } catch (e) {
             console.error('Error loading feed:', e);
         } finally {
-            if (isRefresh) setRefreshing(false); else setLoading(false);
+            if (token === requestRef.current) {
+                if (isRefresh) setRefreshing(false); else setLoading(false);
+            }
         }
-    }, []);
+    }, [mode]);
 
     useEffect(() => { load(); }, [load]);
 
+    useEffect(() => {
+        const onCommentCount = ({ postId, commentCount }: PostCommentCountChange) => {
+            setPosts(prev => prev.map(p => (p.id === postId ? { ...p, commentCount } : p)));
+        };
+        emitter.on(POST_COMMENT_COUNT_EVENT, onCommentCount);
+
+        return () => {
+            emitter.off(POST_COMMENT_COUNT_EVENT, onCommentCount);
+        };
+    }, []);
+
     const loadMore = useCallback(async () => {
-        if (loadingMore || !hasMore) return;
+        // `posts.length === 0` is the important guard: switching tabs empties the
+        // list, and an empty FlatList fires onEndReached before `load` has had a
+        // chance to flip `loading`. Without this, that call would fetch page 0 and
+        // append it on top of the page `load` is already fetching.
+        if (loadingMore || !hasMore || loading || refreshing || posts.length === 0) return;
+
+        const token = requestRef.current;
         try {
             setLoadingMore(true);
-            const data = await getFeed(posts.length);
-            setPosts(prev => [...prev, ...data]);
+            const data = await fetchFeed(mode, posts.length);
+            // A tab switch or refresh started while this page was in flight, so
+            // it belongs to a list that is no longer on screen.
+            if (token !== requestRef.current) return;
+            setPosts(prev => appendPostPage(prev, data));
             setHasMore(data.length === PAGE_SIZE);
         } catch (e) {
             console.error('Error loading more posts:', e);
         } finally {
             setLoadingMore(false);
         }
-    }, [loadingMore, hasMore, posts.length]);
+    }, [loadingMore, hasMore, loading, refreshing, posts.length, mode]);
 
     const handleLikeToggle = useCallback(async (post: Post) => {
         // Optimistic update
@@ -73,32 +132,87 @@ export default function SocialScreen() {
         }
     }, []);
 
-    const handleDelete = useCallback((post: Post) => {
-        Alert.alert('Delete post', 'Are you sure you want to delete this post?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Delete', style: 'destructive', onPress: async () => {
-                    try {
-                        await deletePost(post.id);
-                        setPosts(prev => prev.filter(p => p.id !== post.id));
-                    } catch (e) {
-                        Alert.alert('Error', 'Could not delete post. Please try again.');
-                    }
-                }
-            },
-        ]);
+    const handleDeleted = useCallback((postId: string) => {
+        setPosts(prev => prev.filter(p => p.id !== postId));
     }, []);
 
-    if (loading) {
-        return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color={Theme.colors.font} />
-            </View>
+    const handleUpdated = useCallback((updated: Post) => {
+        setPosts(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+    }, []);
+
+    const handleBlock = useCallback((post: Post) => {
+        Alert.alert(
+            `Block ${post.authorName}?`,
+            "You won't see each other's posts, profiles or comments, and you'll both stop following each other. You can undo this in Settings.",
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Block', style: 'destructive', onPress: async () => {
+                        try {
+                            await blockUser(post.userId);
+                            // Drop everything of theirs already on screen rather
+                            // than refetching the whole feed.
+                            setPosts(prev => prev.filter(p => p.userId !== post.userId));
+                        } catch (e) {
+                            console.error('Error blocking user:', e);
+                            Alert.alert('Error', 'Could not block this user. Please try again.');
+                        }
+                    }
+                },
+            ]
         );
-    }
+    }, []);
+
+    const handlePosted = useCallback((post: Post) => {
+        // Straight to the top rather than refetching - the feed is ordered by
+        // recency, so this is exactly where the next load would put it.
+        setPosts(prev => [post, ...prev]);
+    }, []);
+
+    const switchMode = useCallback((next: FeedMode) => {
+        if (next === mode) return;
+        // Invalidate here rather than waiting for `load` to do it, so a page
+        // already in flight for the outgoing tab cannot land on the new list.
+        requestRef.current++;
+        setMode(next);
+        setPosts([]);
+        setHasMore(true);
+    }, [mode]);
 
     return (
         <View style={styles.container}>
+            <View style={styles.topBar}>
+                <SegmentedTabs
+                    options={FEED_TABS}
+                    value={mode}
+                    onChange={switchMode}
+                    stretch
+                    style={styles.feedTabs}
+                />
+                <View style={styles.topBarActions}>
+                    <IconButton
+                        icon="account-search-outline"
+                        onPress={() => router.push('/social/discover')}
+                        accessibilityLabel="Find people"
+                        variant="plain"
+                        size={24}
+                    />
+                    <IconButton
+                        icon="bell-outline"
+                        onPress={() => router.push('/social/notifications')}
+                        accessibilityLabel="Notifications"
+                        variant="plain"
+                        size={24}
+                        badgeCount={unreadCount}
+                    />
+                </View>
+            </View>
+
+            {loading ? (
+                <View style={styles.centered}>
+                    <ActivityIndicator size="large" color={Theme.colors.font} />
+                </View>
+            ) : (
             <FlatList
                 data={posts}
                 keyExtractor={item => item.id}
@@ -106,31 +220,70 @@ export default function SocialScreen() {
                     <PostCard
                         post={item}
                         onLikeToggle={handleLikeToggle}
-                        onDelete={handleDelete}
+                        onOptions={setOptionsPost}
+                        onBlock={handleBlock}
                         currentUserId={currentUserId}
                     />
                 )}
                 contentContainerStyle={styles.list}
+                keyboardShouldPersistTaps="handled"
+                ListHeaderComponent={
+                    // Only on Following: Explore deliberately leaves out your own
+                    // posts, so a new one would vanish on the next refresh.
+                    mode === 'following'
+                        ? <PostComposer avatarUrl={currentUserAvatar} onPosted={handlePosted} />
+                        : null
+                }
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.4}
                 onRefresh={() => load(true)}
                 refreshing={refreshing}
                 ListFooterComponent={loadingMore ? <ActivityIndicator color={Theme.colors.secondary} style={styles.footer} /> : null}
                 ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <MaterialCommunityIcons name="account-group-outline" size={72} color={Theme.colors.secondary} />
-                        <Text style={styles.emptyTitle}>Your feed is empty</Text>
-                        <Text style={styles.emptySubtitle}>Follow people to see their workouts here</Text>
-                        <TouchableOpacity
-                            style={styles.discoverButton}
-                            onPress={() => router.push('/social/discover')}
-                            activeOpacity={0.8}
-                        >
-                            <MaterialCommunityIcons name="magnify" size={20} color={Theme.colors.dark} />
-                            <Text style={styles.discoverButtonText}>Find People</Text>
-                        </TouchableOpacity>
-                    </View>
+                    mode === 'following' ? (
+                        <EmptyState
+                            icon="account-group-outline"
+                            title="Your feed is empty"
+                            subtitle="Follow people to see their workouts here, or browse Explore to find them."
+                            style={styles.emptyState}
+                            action={
+                                <View style={styles.emptyActions}>
+                                    <TouchableOpacity
+                                        style={styles.discoverButton}
+                                        onPress={() => switchMode('explore')}
+                                        activeOpacity={0.8}
+                                    >
+                                        <MaterialCommunityIcons name="compass-outline" size={20} color={Theme.colors.textOnAccent} />
+                                        <Text style={styles.discoverButtonText}>Browse Explore</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.secondaryButton}
+                                        onPress={() => router.push('/social/discover')}
+                                        activeOpacity={0.8}
+                                    >
+                                        <MaterialCommunityIcons name="magnify" size={20} color={Theme.colors.textPrimary} />
+                                        <Text style={styles.secondaryButtonText}>Find People</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            }
+                        />
+                    ) : (
+                        <EmptyState
+                            icon="compass-outline"
+                            title="Nothing to explore yet"
+                            subtitle="Public posts from public profiles show up here. Yours are hidden from this list."
+                            style={styles.emptyState}
+                        />
+                    )
                 }
+            />
+            )}
+
+            <PostOwnerActions
+                post={optionsPost}
+                onClose={() => setOptionsPost(null)}
+                onDeleted={handleDeleted}
+                onUpdated={handleUpdated}
             />
         </View>
     );
@@ -139,13 +292,30 @@ export default function SocialScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
+    },
+    topBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: Theme.spacing.sm,
+        paddingHorizontal: Theme.spacing.md,
+        paddingVertical: Theme.spacing.sm,
+    },
+    feedTabs: {
+        // Claims the row's leftover width so the pills reach the action buttons.
+        flex: 1,
+    },
+    topBarActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Theme.spacing.sm,
     },
     centered: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Theme.colors.dark,
+        backgroundColor: Theme.colors.background,
     },
     list: {
         padding: Theme.spacing.md,
@@ -157,36 +327,40 @@ const styles = StyleSheet.create({
     },
     emptyState: {
         flex: 1,
+        paddingTop: '20%',
+    },
+    emptyActions: {
+        gap: Theme.spacing.sm,
+    },
+    secondaryButton: {
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: Theme.spacing.sm,
+        paddingVertical: Theme.spacing.md,
         paddingHorizontal: Theme.spacing.xl,
-        gap: Theme.spacing.md,
-        paddingTop: '30%',
+        borderRadius: Theme.borderRadius.lg,
+        borderWidth: 1,
+        borderColor: Theme.colors.outline,
     },
-    emptyTitle: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.xl,
-        fontWeight: Theme.fontWeight.bold,
-        textAlign: 'center',
-    },
-    emptySubtitle: {
-        color: Theme.colors.secondary,
+    secondaryButtonText: {
+        color: Theme.colors.textPrimary,
         fontSize: Theme.fontSize.md,
-        textAlign: 'center',
-        marginBottom: Theme.spacing.sm,
+        fontWeight: Theme.fontWeight.semibold,
     },
     discoverButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Theme.spacing.sm,
-        backgroundColor: Theme.colors.yellow,
+        backgroundColor: Theme.colors.accent,
         paddingVertical: Theme.spacing.md,
         paddingHorizontal: Theme.spacing.xl,
         borderRadius: Theme.borderRadius.lg,
+        justifyContent: 'center',
         ...Theme.shadows.small,
     },
     discoverButtonText: {
-        color: Theme.colors.dark,
+        color: Theme.colors.textOnAccent,
         fontSize: Theme.fontSize.md,
         fontWeight: Theme.fontWeight.semibold,
     },

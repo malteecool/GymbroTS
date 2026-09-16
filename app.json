@@ -8,7 +8,6 @@
     "scheme": "com.malteiscool.gymbrots",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "jsEngine": "jsc",
     "ios": {
       "supportsTablet": true
     },
@@ -29,6 +28,24 @@
           "resizeMode": "contain",
           "backgroundColor": "#1c1a1a"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Gymbro to access your photos to set a profile picture or attach a photo to a post.",
+          "cameraPermission": "Allow Gymbro to access your camera to take a profile picture or a post photo."
+        }
+      ],
+      "expo-font",
+      "expo-asset",
+      "expo-web-browser",
+      "expo-status-bar",
+      [
+        "expo-navigation-bar",
+        {
+          "style": "light",
+          "enforceContrast": false
+        }
       ]
     ],
     "experiments": {
@@ -41,6 +58,7 @@
       "eas": {
         "projectId": "bb3bdc10-a425-4aeb-94f6-ab0ab59df2ec"
       }
-    }
+    },
+    "backgroundColor": "#121111"
   }
 }

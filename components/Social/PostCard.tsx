@@ -1,15 +1,35 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Theme } from '../../constants/Theme';
 import { Post } from '../../interfaces/Post.Interface';
+import { Avatar } from '../ui/Avatar';
 
 interface PostCardProps {
     post: Post;
     onLikeToggle: (post: Post) => void;
-    onDelete?: (post: Post) => void;
+    /**
+     * Opens the owner menu (edit / delete) behind the dots on your own posts.
+     * The menu itself lives on the screen - see PostOwnerActions.
+     */
+    onOptions?: (post: Post) => void;
+    /** Offered on other people's posts, so blocking is reachable from the feed. */
+    onBlock?: (post: Post) => void;
     currentUserId: string;
+    /**
+     * 'feed' makes the card and its comment button open the post detail.
+     * 'detail' is the card already on that screen, so both are inert.
+     */
+    variant?: 'feed' | 'detail';
+    /**
+     * Follow state for the author, or null while it is still unknown. Omit it
+     * entirely and the card shows no follow button - the feed does, because
+     * resolving this per row would be a query per card.
+     */
+    isFollowingAuthor?: boolean | null;
+    onToggleFollow?: (post: Post) => void;
+    followPending?: boolean;
 }
 
 function timeAgo(dateStr: string): string {
@@ -24,27 +44,53 @@ function timeAgo(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString();
 }
 
-const POST_TYPE_ICON: Record<Post['postType'], string> = {
+/**
+ * Only posts that announce an activity get the label row - a plain `text` post
+ * is just the author and what they wrote, so it is left out of both maps.
+ */
+type ActivityPostType = Exclude<Post['postType'], 'text'>;
+
+const POST_TYPE_ICON: Record<ActivityPostType, string> = {
     workout_complete: 'check-circle',
     pr_broken: 'trophy',
     milestone: 'star-circle',
 };
 
-const POST_TYPE_LABEL: Record<Post['postType'], string> = {
+const POST_TYPE_LABEL: Record<ActivityPostType, string> = {
     workout_complete: 'Completed a workout',
     pr_broken: 'Set a new PR',
     milestone: 'Hit a milestone',
 };
 
-export function PostCard({ post, onLikeToggle, onDelete, currentUserId }: PostCardProps) {
+export function PostCard({
+    post,
+    onLikeToggle,
+    onOptions,
+    onBlock,
+    currentUserId,
+    variant = 'feed',
+    isFollowingAuthor,
+    onToggleFollow,
+    followPending,
+}: PostCardProps) {
     const router = useRouter();
     const isOwn = post.userId === currentUserId;
+    const isFeed = variant === 'feed';
+
+    const openPost = () =>
+        router.push({ pathname: '/social/post/[postId]', params: { postId: post.id } });
+
+    // Hidden until the state is known, so the button never flips label under
+    // the reader a moment after the card appears.
+    const showFollow = !isOwn && !!onToggleFollow && isFollowingAuthor !== null
+        && isFollowingAuthor !== undefined;
+
+    const CardContainer = isFeed ? TouchableOpacity : View;
 
     return (
-        <TouchableOpacity
+        <CardContainer
             style={styles.card}
-            onPress={() => router.push({ pathname: '/social/post/[postId]', params: { postId: post.id } })}
-            activeOpacity={0.85}
+            {...(isFeed ? { onPress: openPost, activeOpacity: 0.85 } : {})}
         >
             {/* Header row */}
             <View style={styles.header}>
@@ -53,44 +99,86 @@ export function PostCard({ post, onLikeToggle, onDelete, currentUserId }: PostCa
                     onPress={() => router.push({ pathname: '/profile/[userId]', params: { userId: post.userId } })}
                     activeOpacity={0.7}
                 >
-                    <View style={styles.avatar}>
-                        <MaterialCommunityIcons name="account" size={22} color={Theme.colors.dark} />
-                    </View>
+                    <Avatar uri={post.authorAvatarUrl} size={40} />
                     <View>
                         <Text style={styles.authorName}>{post.authorName}</Text>
                         <Text style={styles.timestamp}>{timeAgo(post.createdAt)}</Text>
                     </View>
                 </TouchableOpacity>
 
-                {isOwn && onDelete && (
-                    <TouchableOpacity onPress={() => onDelete(post)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                {showFollow && (
+                    <TouchableOpacity
+                        style={[styles.followButton, isFollowingAuthor && styles.followingButton]}
+                        onPress={() => onToggleFollow!(post)}
+                        disabled={followPending}
+                        activeOpacity={0.8}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                        {followPending ? (
+                            <ActivityIndicator
+                                size="small"
+                                color={isFollowingAuthor ? Theme.colors.font : Theme.colors.dark}
+                            />
+                        ) : (
+                            <Text style={[styles.followText, isFollowingAuthor && styles.followingText]}>
+                                {isFollowingAuthor ? 'Following' : 'Follow'}
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                )}
+
+                {isOwn && onOptions && (
+                    <TouchableOpacity
+                        onPress={() => onOptions(post)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Post options"
+                    >
+                        <MaterialCommunityIcons name="dots-vertical" size={20} color={Theme.colors.secondary} />
+                    </TouchableOpacity>
+                )}
+
+                {!isOwn && onBlock && (
+                    <TouchableOpacity
+                        onPress={() => onBlock(post)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Post options"
+                    >
                         <MaterialCommunityIcons name="dots-vertical" size={20} color={Theme.colors.secondary} />
                     </TouchableOpacity>
                 )}
             </View>
 
             {/* Activity label */}
-            <View style={styles.activityRow}>
-                <MaterialCommunityIcons
-                    name={POST_TYPE_ICON[post.postType] as any}
-                    size={16}
-                    color={Theme.colors.yellow}
-                />
-                <Text style={styles.activityLabel}>{POST_TYPE_LABEL[post.postType]}</Text>
-                {post.workoutName && (
-                    <Text style={styles.workoutName}> · {post.workoutName}</Text>
-                )}
-            </View>
+            {post.postType !== 'text' && (
+                <View style={styles.activityRow}>
+                    <MaterialCommunityIcons
+                        name={POST_TYPE_ICON[post.postType] as any}
+                        size={16}
+                        color={Theme.colors.yellow}
+                    />
+                    <Text style={styles.activityLabel}>{POST_TYPE_LABEL[post.postType]}</Text>
+                    {post.workoutName && (
+                        <Text style={styles.workoutName}> · {post.workoutName}</Text>
+                    )}
+                </View>
+            )}
+
+            {/* Photo */}
+            {post.imageUrl ? (
+                <Image source={{ uri: post.imageUrl }} style={styles.postImage} />
+            ) : null}
 
             {/* Caption */}
             {post.caption ? (
                 <Text style={styles.caption}>{post.caption}</Text>
             ) : null}
 
-            {/* Footer: like button */}
+            {/* Footer: engagement actions */}
             <View style={styles.footer}>
                 <TouchableOpacity
-                    style={styles.likeButton}
+                    style={styles.action}
                     onPress={() => onLikeToggle(post)}
                     activeOpacity={0.7}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -101,19 +189,38 @@ export function PostCard({ post, onLikeToggle, onDelete, currentUserId }: PostCa
                         color={post.likedByMe ? Theme.colors.danger : Theme.colors.secondary}
                     />
                     {post.likeCount > 0 && (
-                        <Text style={[styles.likeCount, post.likedByMe && styles.likeCountActive]}>
+                        <Text style={[styles.actionCount, post.likedByMe && styles.actionCountActive]}>
                             {post.likeCount}
                         </Text>
                     )}
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.action}
+                    onPress={openPost}
+                    disabled={!isFeed}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                    <MaterialCommunityIcons
+                        name="comment-outline"
+                        size={20}
+                        color={Theme.colors.secondary}
+                    />
+                    <Text style={styles.actionCount}>
+                        {post.commentCount > 0
+                            ? post.commentCount
+                            : isFeed ? 'Comment' : 'No comments yet'}
+                    </Text>
+                </TouchableOpacity>
             </View>
-        </TouchableOpacity>
+        </CardContainer>
     );
 }
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: Theme.colors.lessDark,
+        backgroundColor: Theme.colors.surface,
         borderRadius: Theme.borderRadius.md,
         padding: Theme.spacing.md,
         marginBottom: Theme.spacing.sm,
@@ -131,14 +238,6 @@ const styles = StyleSheet.create({
         gap: Theme.spacing.sm,
         flex: 1,
     },
-    avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: Theme.colors.yellow,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
     authorName: {
         color: Theme.colors.font,
         fontSize: Theme.fontSize.md,
@@ -148,6 +247,28 @@ const styles = StyleSheet.create({
         color: Theme.colors.secondary,
         fontSize: Theme.fontSize.xs,
         marginTop: 1,
+    },
+    followButton: {
+        minWidth: 88,
+        paddingVertical: Theme.spacing.xs,
+        paddingHorizontal: Theme.spacing.md,
+        borderRadius: Theme.borderRadius.round,
+        backgroundColor: Theme.colors.yellow,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    followingButton: {
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: Theme.colors.outline,
+    },
+    followText: {
+        color: Theme.colors.dark,
+        fontSize: Theme.fontSize.sm,
+        fontWeight: Theme.fontWeight.semibold,
+    },
+    followingText: {
+        color: Theme.colors.font,
     },
     activityRow: {
         flexDirection: 'row',
@@ -164,6 +285,13 @@ const styles = StyleSheet.create({
         fontSize: Theme.fontSize.sm,
         fontWeight: Theme.fontWeight.medium,
     },
+    postImage: {
+        width: '100%',
+        aspectRatio: 4 / 3,
+        borderRadius: Theme.borderRadius.md,
+        backgroundColor: Theme.colors.background,
+        marginBottom: Theme.spacing.sm,
+    },
     caption: {
         color: Theme.colors.font,
         fontSize: Theme.fontSize.md,
@@ -173,21 +301,22 @@ const styles = StyleSheet.create({
     footer: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: Theme.spacing.lg,
         marginTop: Theme.spacing.sm,
         paddingTop: Theme.spacing.sm,
-        borderTopWidth: 1,
-        borderTopColor: Theme.colors.border,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: Theme.colors.divider,
     },
-    likeButton: {
+    action: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Theme.spacing.xs,
     },
-    likeCount: {
+    actionCount: {
         color: Theme.colors.secondary,
         fontSize: Theme.fontSize.sm,
     },
-    likeCountActive: {
+    actionCountActive: {
         color: Theme.colors.danger,
     },
 });

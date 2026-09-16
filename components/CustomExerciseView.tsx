@@ -1,45 +1,91 @@
-import React, { useEffect, useState, useCallback, memo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, memo } from "react";
 import { getExercises } from "../services/ExerciseService.Service";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { Card } from '@rneui/themed';
-import { Theme } from "../constants/Theme";
+import { FlatList, StyleSheet, View } from "react-native";
+import { Divider } from './ui/Divider';
+import { Styles, Theme } from "../constants/Theme";
 import { LoadingIndicator } from "./ui/LoadingIndicator";
+import { EmptyState } from "./ui/EmptyState";
+import { SearchBar } from "./ui/SearchBar";
+import { SelectRow } from "./ui/SelectRow";
+import {
+    MuscleGroup,
+    muscleGroupIcon,
+    MUSCLE_GROUP_OPTIONS,
+    UNCATEGORISED_ICON,
+    UNCATEGORISED_LABEL,
+} from "../constants/MuscleGroups";
+import { FilterChips, FilterChipOption } from "./ui/FilterChips";
 import { Exercise } from "../interfaces/Exercise.Interface";
 import { WorkoutExercise } from "../interfaces/WorkoutExercise.Interface";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 
-export function CustomExerciseView(props: { userId: string, childToParent: (selectedExercises: WorkoutExercise[]) => void }) {
+/** 'all' shows everything, 'none' narrows to exercises with no group set. */
+type GroupFilter = 'all' | 'none' | MuscleGroup;
 
-    const { userId, childToParent } = props;
+export function CustomExerciseView(props: {
+    userId: string,
+    childToParent: (selectedExercises: WorkoutExercise[]) => void,
+    headerContent?: React.ReactNode,
+}) {
+
+    const { userId, childToParent, headerContent } = props;
 
     const [data, setData] = useState<Exercise[]>([]);
     const [isLoading, setLoading] = useState(false);
     const [selectedExercises, setSelectedExercises] = useState<WorkoutExercise[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filteredData, setFilteredData] = useState<Exercise[]>([]);
+    const [groupFilter, setGroupFilter] = useState<GroupFilter>('all');
 
     useEffect(() => {
         const getAvailableExericses = async () => {
             setLoading(true);
             const fetchedData = await getExercises(userId)
             setData(fetchedData);
-            setFilteredData(fetchedData);
             setLoading(false);
         }
         getAvailableExericses();
     }, [userId]);
 
-    useEffect(() => {
-        if (searchQuery.trim() === '') {
-            setFilteredData(data);
-        } else {
-            const filtered = data.filter(exercise =>
-                exercise.exeName.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-            setFilteredData(filtered);
+    // Same chip row as the exercise tab, limited to the groups actually present.
+    const groupOptions = useMemo<FilterChipOption<GroupFilter>[]>(() => {
+        const present = new Set(data.map((exercise) => exercise.exeMuscleGroup));
+        const options: FilterChipOption<GroupFilter>[] = [{ value: 'all', label: 'All' }];
+
+        for (const option of MUSCLE_GROUP_OPTIONS) {
+            if (present.has(option.value)) {
+                options.push({ value: option.value, label: option.label, icon: option.icon });
+            }
         }
-    }, [searchQuery, data]);
+
+        if (present.has(null)) {
+            options.push({ value: 'none', label: UNCATEGORISED_LABEL, icon: UNCATEGORISED_ICON });
+        }
+
+        return options;
+    }, [data]);
+
+    useEffect(() => {
+        if (!groupOptions.some((option) => option.value === groupFilter)) {
+            setGroupFilter('all');
+        }
+    }, [groupOptions, groupFilter]);
+
+    const filteredData = useMemo(() => {
+        const needle = searchQuery.trim().toLowerCase();
+
+        return data.filter((exercise) => {
+            const matchesGroup =
+                groupFilter === 'all' ||
+                (groupFilter === 'none'
+                    ? exercise.exeMuscleGroup === null
+                    : exercise.exeMuscleGroup === groupFilter);
+
+            if (!matchesGroup) return false;
+            if (!needle) return true;
+
+            return exercise.exeName.toLowerCase().includes(needle);
+        });
+    }, [data, searchQuery, groupFilter]);
 
     const addSelectedExercise = useCallback((exercise: Exercise) => {
         setSelectedExercises((prev) => {
@@ -54,181 +100,63 @@ export function CustomExerciseView(props: { userId: string, childToParent: (sele
         });
     }, [childToParent]);
 
-    if (isLoading) {
-        return (
-            <LoadingIndicator text='Loading exercises...' />
-        )
-    }
-
     return (
-        <View style={styles.container}>
-            <View style={styles.searchContainer}>
-                <MaterialCommunityIcons
-                    name="magnify"
-                    size={20}
-                    color={Theme.colors.font + '80'}
-                    style={styles.searchIcon}
-                />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search exercises..."
-                    placeholderTextColor={Theme.colors.font + '60'}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoCapitalize="none"
-                />
-                {searchQuery.length > 0 && (
-                    <TouchableOpacity
-                        onPress={() => setSearchQuery('')}
-                        style={styles.searchClearButton}
-                    >
-                        <MaterialCommunityIcons
-                            name="close-circle"
-                            size={20}
-                            color={Theme.colors.font + '80'}
+        <FlatList
+            style={Styles.screen}
+            contentContainerStyle={Styles.listContent}
+            data={filteredData}
+            keyExtractor={(item, i) => item.id || String(i)}
+            keyboardShouldPersistTaps="handled"
+            ListHeaderComponent={
+                <View>
+                    {headerContent}
+                    {headerContent && <Divider style={styles.headerDivider} color={Theme.colors.dividerSubtle} />}
+                    <SearchBar
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholder="Search exercises..."
+                    />
+                    {groupOptions.length > 1 && (
+                        <FilterChips
+                            options={groupOptions}
+                            value={groupFilter}
+                            onChange={setGroupFilter}
                         />
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-            >
-                {filteredData.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <MaterialCommunityIcons
-                            name="dumbbell"
-                            size={48}
-                            color={Theme.colors.font + '40'}
-                        />
-                        <Text style={styles.emptyText}>
-                            {searchQuery ? 'No exercises found' : 'No exercises available'}
-                        </Text>
-                        <Text style={styles.emptySubtext}>
-                            {searchQuery
-                                ? 'Try a different search term'
-                                : 'Create exercises first to add them to your workout'}
-                        </Text>
-                    </View>
+                    )}
+                </View>
+            }
+            ListEmptyComponent={
+                isLoading ? (
+                    <LoadingIndicator text='Loading exercises...' />
                 ) : (
-                    filteredData.map((item: Exercise, i: number) => {
-                        const isSelected = selectedExercises.map(x => x.id).includes(item.id);
-                        return (
-                            <TouchableOpacity
-                                key={item.id || i}
-                                onPress={() => addSelectedExercise(item)}
-                                activeOpacity={0.7}
-                            >
-                                <Card containerStyle={[
-                                    styles.exerciseCard,
-                                    isSelected && styles.exerciseCardSelected
-                                ]}>
-                                    <View style={styles.exerciseContent}>
-                                        <MaterialCommunityIcons
-                                            name="dumbbell"
-                                            size={24}
-                                            color={isSelected ? Theme.colors.green : Theme.colors.font}
-                                        />
-                                        <Text style={[
-                                            styles.exerciseText,
-                                            isSelected && styles.exerciseTextSelected
-                                        ]}>
-                                            {item.exeName}
-                                        </Text>
-                                        {isSelected && (
-                                            <MaterialCommunityIcons
-                                                name="check-circle"
-                                                size={24}
-                                                color={Theme.colors.green}
-                                            />
-                                        )}
-                                    </View>
-                                </Card>
-                            </TouchableOpacity>
-                        );
-                    })
-                )}
-            </ScrollView>
-        </View>
+                    <EmptyState
+                        icon="dumbbell"
+                        size="compact"
+                        title={searchQuery || groupFilter !== 'all' ? 'No exercises found' : 'No exercises available'}
+                        subtitle={searchQuery
+                            ? 'Try a different search term'
+                            : groupFilter !== 'all'
+                                ? 'Nothing in this group yet'
+                                : 'Create exercises first to add them to your workout'}
+                    />
+                )
+            }
+            renderItem={({ item }) => (
+                <SelectRow
+                    icon={muscleGroupIcon(item.exeMuscleGroup)}
+                    label={item.exeName}
+                    selected={selectedExercises.some((x) => x.id === item.id)}
+                    onPress={() => addSelectedExercise(item)}
+                />
+            )}
+        />
     )
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Theme.colors.dark,
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.lessDark,
-        margin: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
-        paddingHorizontal: Theme.spacing.md,
-        borderRadius: Theme.borderRadius.md,
-        gap: Theme.spacing.sm,
-    },
-    searchIcon: {
-        marginRight: Theme.spacing.xs,
-    },
-    searchInput: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-        paddingVertical: Theme.spacing.sm,
-    },
-    searchClearButton: {
-        padding: Theme.spacing.xs,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingBottom: Theme.spacing.xl,
-    },
-    exerciseCard: {
+    headerDivider: {
+        marginTop: Theme.spacing.sm,
         marginHorizontal: Theme.spacing.md,
-        marginBottom: Theme.spacing.sm,
-        borderRadius: Theme.borderRadius.md,
-        backgroundColor: Theme.colors.lessDark,
-        borderWidth: 2,
-        borderColor: 'transparent',
-        padding: Theme.spacing.md,
-    },
-    exerciseCardSelected: {
-        backgroundColor: Theme.colors.green + '20',
-        borderColor: Theme.colors.green,
-    },
-    exerciseContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Theme.spacing.md,
-    },
-    exerciseText: {
-        flex: 1,
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.md,
-    },
-    exerciseTextSelected: {
-        fontWeight: Theme.fontWeight.semibold,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: Theme.spacing.xl * 2,
-    },
-    emptyText: {
-        color: Theme.colors.font,
-        fontSize: Theme.fontSize.lg,
-        fontWeight: Theme.fontWeight.semibold,
-        marginTop: Theme.spacing.md,
-    },
-    emptySubtext: {
-        color: Theme.colors.font + '80',
-        fontSize: Theme.fontSize.sm,
-        marginTop: Theme.spacing.xs,
-        textAlign: 'center',
     },
 });
 
