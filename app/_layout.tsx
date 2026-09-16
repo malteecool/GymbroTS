@@ -3,7 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import React from 'react';
 import 'react-native-reanimated';
 import { StatusBar, StyleSheet, Text, View } from 'react-native';
-import { HeaderBackButton } from "@react-navigation/elements";
+import { HeaderBackButton } from "expo-router/react-navigation";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthProvider, useAuthContext } from '../providers/AuthProvider';
 import { NotificationProvider } from '../providers/NotificationProvider';

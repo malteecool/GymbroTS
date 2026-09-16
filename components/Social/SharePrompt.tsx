@@ -175,7 +175,7 @@ export function SharePrompt({
 
 const styles = StyleSheet.create({
     root: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         zIndex: 500,
         elevation: 500,
     },

@@ -18,7 +18,7 @@ import { LoadingIndicator } from "../../components/ui/LoadingIndicator";
 import { Button } from "../../components/ui/Button";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { WorkoutExercise } from "../../interfaces/WorkoutExercise.Interface";
-import { HeaderBackButton } from "@react-navigation/elements";
+import { HeaderBackButton } from "expo-router/react-navigation";
 import { ActiveExerciseCard } from "../../components/Workout/ActiveExerciseCard";
 import { PersonalRecordSharePrompt } from "../../components/Social/AchievementSharePrompt";
 import { PersonalRecord } from "../../interfaces/Achievement.Interface";

@@ -1,11 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, type ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Theme } from '../../constants/Theme';
 import { useNotificationContext } from '../../providers/NotificationProvider';
 
-function TabIconWithBadge({ name, color, size, count }: { name: any; color: string; size: number; count: number }) {
+// `color` is whatever the navigator hands its tabBarIcon, which is a ColorValue
+// rather than a plain string as of React Native 0.85 - it can be a platform
+// colour, not only a literal.
+function TabIconWithBadge({ name, color, size, count }: { name: any; color: ColorValue; size: number; count: number }) {
     return (
         <View>
             <MaterialCommunityIcons name={name} color={color} size={size} />
