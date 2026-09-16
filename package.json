@@ -12,7 +12,6 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@react-native-google-signin/google-signin": "^13.1.0",
     "@supabase/supabase-js": "^2.43.0",
     "base64-arraybuffer": "^1.0.2",
     "class-transformer": "^0.5.1",
