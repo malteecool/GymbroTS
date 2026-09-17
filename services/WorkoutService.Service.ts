@@ -329,22 +329,14 @@ async function cloneWorkoutForUser(
     return newWorkout.id;
 }
 
+// copy_count and follower_count are maintained by database triggers on the
+// insert below (migration/counter-triggers.sql) - the client neither reads nor
+// writes them. Incrementing here as well would double-count, and the counters
+// sit on the source workout, which belongs to someone else: once RLS lands, a
+// write from here would be rejected outright.
 export async function copyWorkout(sourceWorkoutId: string, targetUserId: string): Promise<string> {
     try {
-        const newWorkoutId = await cloneWorkoutForUser(sourceWorkoutId, targetUserId, 'copy');
-
-        const { data: source } = await supabase
-            .from('workout')
-            .select('copy_count')
-            .eq('id', sourceWorkoutId)
-            .single();
-
-        await supabase
-            .from('workout')
-            .update({ copy_count: (source?.copy_count ?? 0) + 1 })
-            .eq('id', sourceWorkoutId);
-
-        return newWorkoutId;
+        return await cloneWorkoutForUser(sourceWorkoutId, targetUserId, 'copy');
     } catch (error) {
         console.error('Error copying workout:', error);
         throw error;
@@ -353,20 +345,7 @@ export async function copyWorkout(sourceWorkoutId: string, targetUserId: string)
 
 export async function linkWorkout(sourceWorkoutId: string, targetUserId: string): Promise<string> {
     try {
-        const newWorkoutId = await cloneWorkoutForUser(sourceWorkoutId, targetUserId, 'follow');
-
-        const { data: source } = await supabase
-            .from('workout')
-            .select('follower_count')
-            .eq('id', sourceWorkoutId)
-            .single();
-
-        await supabase
-            .from('workout')
-            .update({ follower_count: (source?.follower_count ?? 0) + 1 })
-            .eq('id', sourceWorkoutId);
-
-        return newWorkoutId;
+        return await cloneWorkoutForUser(sourceWorkoutId, targetUserId, 'follow');
     } catch (error) {
         console.error('Error linking workout:', error);
         throw error;
@@ -406,29 +385,19 @@ export async function syncLinkedWorkout(workoutId: string): Promise<void> {
     }
 }
 
+// Clearing the link is the whole operation: the trigger watching
+// source_workout_id/link_type recounts the source's follower_count off the back
+// of this update. Deleting the workout outright decrements it the same way,
+// which the old client-side path missed - removeWorkout never walked the
+// counter back, so follower counts only ever drifted upward.
 export async function unlinkWorkout(workoutId: string): Promise<void> {
     try {
-        const workout = await getWorkoutById(workoutId);
-
         const { error } = await supabase
             .from('workout')
             .update({ source_workout_id: null, link_type: null })
             .eq('id', workoutId);
 
         if (error) throw error;
-
-        if (workout?.linkType === 'follow' && workout.sourceWorkoutId) {
-            const { data: source } = await supabase
-                .from('workout')
-                .select('follower_count')
-                .eq('id', workout.sourceWorkoutId)
-                .single();
-
-            await supabase
-                .from('workout')
-                .update({ follower_count: Math.max(0, (source?.follower_count ?? 0) - 1) })
-                .eq('id', workout.sourceWorkoutId);
-        }
     } catch (error) {
         console.error('Error unlinking workout:', error);
         throw error;

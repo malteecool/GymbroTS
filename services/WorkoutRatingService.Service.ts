@@ -22,38 +22,26 @@ export async function getUserRatingForWorkout(workoutId: string, userId: string)
 }
 
 /**
- * Rate a workout 0-5 (upserts — one rating per user per workout), then
- * recomputes and persists the workout's avg_rating/rating_count.
+ * Rate a workout 0-5 (upserts — one rating per user per workout).
+ *
+ * Writing the rating is the whole operation. The workout's avg_rating and
+ * rating_count are recomputed from `workout_rating` by a trigger
+ * (migration/counter-triggers.sql), so the aggregate follows from the rows
+ * rather than being asserted by the rater. That matters here more than
+ * anywhere else: the average lives on the *creator's* workout row, so a client
+ * that computes it is a client that can write any score it likes to someone
+ * else's workout.
  */
 export async function rateWorkout(workoutId: string, userId: string, rating: number): Promise<void> {
     try {
-        const { error: upsertError } = await supabase
+        const { error } = await supabase
             .from('workout_rating')
             .upsert(
                 { workout_id: workoutId, user_id: userId, rating, updated_at: new Date().toISOString() },
                 { onConflict: 'workout_id,user_id' }
             );
 
-        if (upsertError) throw upsertError;
-
-        const { data: ratings, error: fetchError } = await supabase
-            .from('workout_rating')
-            .select('rating')
-            .eq('workout_id', workoutId);
-
-        if (fetchError) throw fetchError;
-
-        const ratingCount = ratings?.length ?? 0;
-        const avgRating = ratingCount > 0
-            ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratingCount
-            : null;
-
-        const { error: updateError } = await supabase
-            .from('workout')
-            .update({ avg_rating: avgRating, rating_count: ratingCount })
-            .eq('id', workoutId);
-
-        if (updateError) throw updateError;
+        if (error) throw error;
     } catch (error) {
         console.error('Error rating workout:', error);
         throw error;
