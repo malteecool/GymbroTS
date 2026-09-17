@@ -11,7 +11,12 @@
 CREATE TABLE IF NOT EXISTS APP_USER (
     ID UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     NAME VARCHAR(255) NOT NULL,
-    EMAIL VARCHAR(255) NOT NULL UNIQUE,
+    -- No EMAIL column. It was declared here as NOT NULL UNIQUE but has never
+    -- existed in production, and on a fresh database it broke signup outright:
+    -- handle_new_user() inserts (id, name, handle) only, so the NOT NULL fired
+    -- on every new account. The address lives in auth.users, which is where it
+    -- belongs -- app_user is the public profile, and copying an email into a
+    -- world-readable table is how you leak one.
     BIO TEXT,
     AVATAR_URL TEXT,
     IS_PUBLIC BOOLEAN NOT NULL DEFAULT false,
@@ -22,8 +27,12 @@ CREATE TABLE IF NOT EXISTS APP_USER (
 CREATE TABLE IF NOT EXISTS EXERCISE (
     ID UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     EXE_NAME VARCHAR(255) NOT NULL,
-    EXE_USER_ID UUID NOT NULL REFERENCES APP_USER(ID) ON DELETE CASCADE,
-    EXE_DATE TIMESTAMP NOT NULL,
+    -- Nullable, matching production. A NULL owner marks a seeded "default"
+    -- exercise from the shared library that getDefaultExercises() offers in the
+    -- picker (70 rows today). Declaring this NOT NULL, as this file used to,
+    -- would make a fresh database reject the seed data outright.
+    EXE_USER_ID UUID REFERENCES APP_USER(ID) ON DELETE CASCADE,
+    EXE_DATE TIMESTAMP,
     EXE_MAX_REPS INTEGER,
     EXE_MAX_WEIGHT DECIMAL(10, 2),
     CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -83,6 +92,22 @@ CREATE TABLE IF NOT EXISTS split_day (
     day_of_week INTEGER NOT NULL,  -- ISO day: Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=0
     workout_id UUID REFERENCES WORKOUT(ID) ON DELETE SET NULL,  -- NULL = rest day
     ordinal INTEGER NOT NULL  -- 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+);
+
+-- Legacy, superseded by split_day. Still present in production and still
+-- exposed through the API, so it is declared here rather than left as an
+-- undocumented table that the next person finds only in the dashboard. It has
+-- RLS in step 3 like everything else. Nothing in the app reads or writes it;
+-- drop it once you have confirmed that against your own data.
+CREATE TABLE IF NOT EXISTS day (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    split_id UUID NOT NULL REFERENCES split(id) ON DELETE CASCADE,
+    workout_id UUID REFERENCES WORKOUT(ID) ON DELETE SET NULL,
+    day_name VARCHAR(255) NOT NULL,
+    completed BOOLEAN,
+    week_day_index INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS split_week (
@@ -481,22 +506,46 @@ UPDATE EXERCISE SET EXE_MUSCLE_GROUP = CASE
 END
 WHERE EXE_MUSCLE_GROUP IS NULL;
 
--- -----------------------------------------------------------------------------
--- Row Level Security (optional — uncomment to enable)
--- -----------------------------------------------------------------------------
-
--- ALTER TABLE EXERCISE ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE WORKOUT ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE WORKOUT_EXERCISE ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE EXERCISE_HISTORY ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE SET ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE split ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE split_day ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE split_week ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
-
--- CREATE POLICY "Users can view their own exercises" ON EXERCISE
---     FOR SELECT USING (auth.uid()::uuid = EXE_USER_ID);
-
--- CREATE POLICY "Users can view their own workouts" ON WORKOUT
---     FOR SELECT USING (auth.uid()::uuid = WOR_USER_ID);
+-- =============================================================================
+-- Row Level Security -- NOT OPTIONAL. This file alone is not a working database.
+-- =============================================================================
+-- This section used to be a commented-out sketch headed "optional — uncomment
+-- to enable". It was never uncommented. The result, found on 2026-09-16: RLS
+-- was disabled on all 19 tables in production while the `anon` role held full
+-- SELECT/INSERT/UPDATE/DELETE on every one of them. Since the anon key ships
+-- inside the APK and is extractable in minutes, every user's training history,
+-- posts and private splits were readable -- and deletable -- by anyone who
+-- installed the app. Verified by querying the live API with no session at all.
+--
+-- So: the schema above is the FIRST of five files, not the whole thing. Run
+-- them in this order. Each is idempotent and carries its own rollback block.
+--
+--   1. supabase-migration.sql      (this file)  -- tables, indexes, constraints
+--   2. counter-triggers.sql                     -- server-authoritative counters
+--   3. rls-step2-training-data.sql              -- RLS: exercise/history/set/workout_exercise
+--   4. rls-step3-social.sql                     -- RLS: the remaining 15 tables
+--   5. rls-step4-subscriptions.sql              -- creator subscriptions + paid content gating
+--
+-- The order is load-bearing, not cosmetic:
+--
+-- * (2) must precede (3) and (4). The client used to maintain copy_count,
+--   follower_count and avg_rating with a read-modify-write against ANOTHER
+--   user's workout row. No ownership policy can permit that, so the counters had
+--   to move into SECURITY DEFINER triggers before `workout` could be locked
+--   down. Applying the RLS steps without (2) breaks copy, follow and rating.
+--
+-- * (5) must come last. It replaces two helpers from (3) that predate paid
+--   content and would hand out a subscriber-only workout's exercise list to
+--   anyone who could see the workout listed -- which is everyone.
+--
+-- See migration/README.md for the full picture, including the parts that are
+-- deliberately NOT enforced here.
+--
+-- Two rules worth keeping when extending this schema:
+--
+--   * A new table in the public schema is exposed to the internet the moment it
+--     exists. It needs RLS in the same change that creates it, not later.
+--   * Anything a client must not forge -- a counter, an entitlement, a payment
+--     state -- belongs in a SECURITY DEFINER trigger or a service-role writer,
+--     never in a column the client updates directly.
+-- =============================================================================
