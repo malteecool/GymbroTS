@@ -49,3 +49,7 @@ migration/.env.migration
 # JVM crash dumps (Gradle/Android builds)
 hs_err_pid*.log
 replay_pid*.log
+
+# Supabase CLI local state (linked project, cached versions)
+supabase/.temp/
+supabase/.branches/
