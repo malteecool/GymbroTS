@@ -96,6 +96,19 @@ export default function ProfileSettingsScreen() {
 
             <TouchableOpacity
                 style={styles.linkRow}
+                onPress={() => router.push('/profile/creatorPlan')}
+                activeOpacity={0.7}
+            >
+                <MaterialCommunityIcons name="cash-multiple" size={20} color={Theme.colors.secondary} />
+                <View style={styles.linkTextBlock}>
+                    <Text style={styles.linkLabel}>Creator Plan</Text>
+                    <Text style={styles.linkHint}>Charge for your subscriber-only workouts</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={Theme.colors.secondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={styles.linkRow}
                 onPress={() => router.push('/social/blocked')}
                 activeOpacity={0.7}
             >

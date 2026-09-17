@@ -4,6 +4,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { AuthService } from '../services/AuthService.Service';
 import { setStordUserData, getUserDataById } from '../services/UserService.Service';
+import { configurePurchases, resetPurchaser } from '../services/PurchaseService.Service';
 import { User } from '../interfaces/User.Interface';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -104,6 +105,25 @@ export function useAuth() {
         };
     }, []);
 
+    /**
+     * Keeps the store's idea of who is buying in step with Supabase's.
+     *
+     * RevenueCat's app_user_id is what billing-webhook looks up in `app_user`
+     * to decide who to grant an entitlement to. If the two ever diverge the
+     * webhook records `failed: unknown subscriber <id>` - the payment goes
+     * through and the entitlement never lands, which is the worst failure this
+     * feature has. Tying it to the session rather than to any purchase screen
+     * means it is already right before anyone can tap Subscribe.
+     *
+     * Deliberately not in the auth listener above: that also fires on token
+     * refresh, and re-identifying the SDK every hour is noise. Keyed on the id
+     * so it runs once per user.
+     */
+    useEffect(() => {
+        if (!user?.id) return;
+        configurePurchases(user.id);
+    }, [user?.id]);
+
     // Handle Google OAuth response
     useEffect(() => {
         if (response?.type === 'success') {
@@ -193,6 +213,11 @@ export function useAuth() {
             if (result.error) {
                 throw result.error;
             }
+
+            // Detaches the store identity too, so the next person on this
+            // device does not inherit the last one's entitlements out of the
+            // SDK's cache.
+            await resetPurchaser();
 
             setSession(null);
             setUser(null);

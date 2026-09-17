@@ -142,6 +142,10 @@ function RootLayoutContent() {
                             options={{ headerShown: true, title: 'Settings' }}
                         />
                         <Stack.Screen
+                            name="profile/creatorPlan"
+                            options={{ headerShown: true, title: 'Creator Plan' }}
+                        />
+                        <Stack.Screen
                             name="social/discover"
                             options={{ headerShown: true, title: 'Find People' }}
                         />

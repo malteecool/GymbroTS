@@ -3,8 +3,11 @@ import { Exercise } from "../../interfaces/Exercise.Interface";
 import { Workout } from "../../interfaces/Workout.Interface";
 import {
     getFormattedTime, getWorkoutById, getWorkoutExercises, updateWorkout, updateWorkoutExerciseOrdinal,
-    toggleWorkoutVisibility, syncLinkedWorkout, unlinkWorkout,
+    toggleWorkoutVisibility, syncLinkedWorkout, unlinkWorkout, setWorkoutAccessTier,
 } from "../../services/WorkoutService.Service";
+import { getCreatorPlan } from "../../services/SubscriptionService.Service";
+import { AccessTier, CreatorPlan } from "../../interfaces/Subscription.Interface";
+import { AccessTierControl } from "../../components/Workout/AccessTierControl";
 import {
     removeWorkoutExercise as removeWorkoutExerciseService, getCompletedExerciseIdsForDate,
 } from '../../services/ExerciseService.Service';
@@ -39,6 +42,9 @@ export default function WorkoutDetails() {
     const [linkedOwnerName, setLinkedOwnerName] = useState<string | null>(null);
     const [sourceRating, setSourceRating] = useState<{ avgRating: number | null; ratingCount: number } | null>(null);
     const [publicToggleLoading, setPublicToggleLoading] = useState<boolean>(false);
+    const [tierSaving, setTierSaving] = useState<boolean>(false);
+    const [ownPlan, setOwnPlan] = useState<CreatorPlan | null>(null);
+    const planRequested = useRef(false);
     const [bottomBarHeight, setBottomBarHeight] = useState<number>(140);
     const [completedTodayIds, setCompletedTodayIds] = useState<string[]>([]);
     const [expandedExerciseId, setExpandedExerciseId] = useState<string | null>(null);
@@ -103,6 +109,25 @@ export default function WorkoutDetails() {
         }
     };
 
+    /**
+     * The tier is written straight through rather than staged behind a save.
+     * The public switch above it already works that way, and a half-applied
+     * paywall - the control says subscribers, the database still says free - is
+     * worse than an extra round trip.
+     */
+    const handleChangeTier = async (tier: AccessTier) => {
+        if (!workout || tier === (workout.accessTier ?? 'free')) return;
+        try {
+            setTierSaving(true);
+            await setWorkoutAccessTier(workout.id, tier);
+            setWorkout({ ...workout, accessTier: tier });
+        } catch (error) {
+            console.error('Error setting workout access tier:', error);
+        } finally {
+            setTierSaving(false);
+        }
+    };
+
     const handleUnlink = () => {
         if (!workout) return;
         Alert.alert('Unlink workout', 'This workout will stop syncing exercises from the original. Continue?', [
@@ -120,6 +145,24 @@ export default function WorkoutDetails() {
     useEffect(() => {
         load();
     }, []);
+
+    // Fetched only once the editor is opened. The tier control needs it to tell
+    // "free by choice" from "subscriber-only with nothing behind it", which is
+    // a question nobody asks while reading.
+    //
+    // Guarded by a ref rather than by ownPlan being set, because a creator with
+    // no plan yet resolves to null and would otherwise be re-fetched every time
+    // the workout object changed identity - which toggling the tier does.
+    useEffect(() => {
+        if (!edit || !workout || planRequested.current) return;
+        planRequested.current = true;
+        getCreatorPlan(workout.worUserId)
+            .then(setOwnPlan)
+            .catch(err => {
+                console.error('Error loading creator plan:', err);
+                planRequested.current = false;
+            });
+    }, [edit, workout]);
 
     useEffect(() => {
         if (workout && autostart === 'true' && !autostartHandled.current) {
@@ -354,15 +397,25 @@ export default function WorkoutDetails() {
                 contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarHeight + Theme.spacing.md }]}
             >
                 {edit && (
-                    <View style={styles.publicRow}>
-                        <Text style={styles.publicRowText}>Public (visible on your profile)</Text>
-                        <Switch
-                            value={workout?.isPublic ?? false}
-                            onValueChange={handleTogglePublic}
-                            disabled={publicToggleLoading}
-                            trackColor={{ false: Theme.colors.border, true: Theme.colors.accent }}
+                    <>
+                        <View style={styles.publicRow}>
+                            <Text style={styles.publicRowText}>Public (visible on your profile)</Text>
+                            <Switch
+                                value={workout?.isPublic ?? false}
+                                onValueChange={handleTogglePublic}
+                                disabled={publicToggleLoading}
+                                trackColor={{ false: Theme.colors.border, true: Theme.colors.accent }}
+                            />
+                        </View>
+                        <AccessTierControl
+                            value={workout?.accessTier ?? 'free'}
+                            onChange={handleChangeTier}
+                            isPublic={workout?.isPublic ?? false}
+                            plan={ownPlan}
+                            saving={tierSaving}
+                            onSetUpPlan={() => router.push('/profile/creatorPlan')}
                         />
-                    </View>
+                    </>
                 )}
 
                 {data.map((workoutExercise, i) => (

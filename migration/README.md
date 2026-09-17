@@ -126,6 +126,28 @@ Sandbox events are rejected unless `BILLING_ALLOW_SANDBOX=true`. Sandbox
 purchases are free, so honouring them on a production project would make the
 paywall free to anyone running a debug build.
 
+### The app side
+
+Built, and deliberately thin. The tier control is in the workout editor, the
+paywall is on the creator's workout list, and the RevenueCat wiring is in
+`services/PurchaseService.Service.ts`. None of it enforces anything — a client
+with every check patched out gets an unlocked-looking screen with no content on
+it, because `has_creator_access()` is evaluated server-side on every read.
+
+Two seams worth knowing before changing any of it:
+
+- **A purchase is not an entitlement.** The store says yes, then RevenueCat
+  posts to the webhook, then the row appears. The app polls Postgres for it
+  (`awaitEntitlement()` in `hooks/useCreatorAccess.ts`) rather than believing the
+  purchase result, which would show content the next query refuses to return.
+- **RevenueCat's `app_user_id` must be the Supabase user id.** It is set from the
+  session in `hooks/useAuth.ts`. If it drifts, the webhook records
+  `failed: unknown subscriber <id>` — the payment succeeds and access never
+  lands.
+
+Onboarding a creator onto a real store product is a runbook, not a code change:
+[`../docs/creator-onboarding.md`](../docs/creator-onboarding.md).
+
 ### Adding columns to `creator_plan`
 
 `external_product_id` must not be settable by creators, which is a column

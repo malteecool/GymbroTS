@@ -14,6 +14,8 @@ import emitter from '../../hooks/CustomEventEmitter';
 import { PostCard } from '../../components/Social/PostCard';
 import { PostOwnerActions } from '../../components/Social/PostOwnerActions';
 import { ProfileHeader } from '../../components/Profile/ProfileHeader';
+import { CreatorSubscribeCard } from '../../components/Profile/CreatorSubscribeCard';
+import { useCreatorAccess } from '../../hooks/useCreatorAccess';
 
 const PAGE_SIZE = 20;
 
@@ -25,6 +27,10 @@ export default function PublicProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [followLoading, setFollowLoading] = useState(false);
     const [currentUserId, setCurrentUserId] = useState('');
+
+    // Drives the subscribe card below the header. Renders nothing at all when
+    // this person has no plan, so the cost on an ordinary profile is one query.
+    const creatorAccess = useCreatorAccess(userId);
 
     const [posts, setPosts] = useState<Post[]>([]);
     const [postsLoading, setPostsLoading] = useState(true);
@@ -249,6 +255,12 @@ export default function PublicProfileScreen() {
                                 )}
                             </TouchableOpacity>
                         }
+                    />
+
+                    <CreatorSubscribeCard
+                        creatorId={profile.id}
+                        creatorName={profile.name}
+                        access={creatorAccess}
                     />
 
                     <TouchableOpacity

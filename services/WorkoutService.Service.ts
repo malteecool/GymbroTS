@@ -1,8 +1,10 @@
 import { supabase } from '../supabaseConfig';
 import { Workout } from '../interfaces/Workout.Interface';
 import { Exercise } from '../interfaces/Exercise.Interface';
+import { AccessTier } from '../interfaces/Subscription.Interface';
 import { ExerciseMapper } from './mappers';
 import { addExercise, removeWorkoutExercise } from './ExerciseService.Service';
+import { hasAccessToCreator } from './SubscriptionService.Service';
 
 export interface WorkoutExercise {
     woe_exercise: string;
@@ -19,6 +21,7 @@ function mapWorkoutRow(workout: any): Workout {
         worName: workout.wor_name,
         worUserId: workout.wor_user_id,
         isPublic: workout.is_public ?? false,
+        accessTier: workout.access_tier ?? 'free',
         sourceWorkoutId: workout.source_workout_id ?? null,
         linkType: workout.link_type ?? null,
         copyCount: workout.copy_count ?? 0,
@@ -277,6 +280,30 @@ export async function toggleWorkoutVisibility(workoutId: string, isPublic: boole
     }
 }
 
+/**
+ * Marks a workout's contents free or subscriber-only.
+ *
+ * Separate from toggleWorkoutVisibility on purpose. The two compose rather than
+ * overlap, and merging them would mean un-sharing a workout had to rewrite its
+ * tier — after which re-sharing would silently make paid content free.
+ *
+ * Only the owner can do this, enforced by the workout UPDATE policy rather than
+ * by anything here.
+ */
+export async function setWorkoutAccessTier(workoutId: string, accessTier: AccessTier): Promise<void> {
+    try {
+        const { error } = await supabase
+            .from('workout')
+            .update({ access_tier: accessTier })
+            .eq('id', workoutId);
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error setting workout access tier:', error);
+        throw error;
+    }
+}
+
 export async function getPublicWorkouts(userId: string): Promise<Workout[]> {
     try {
         const { data, error } = await supabase
@@ -295,6 +322,23 @@ export async function getPublicWorkouts(userId: string): Promise<Workout[]> {
     }
 }
 
+/**
+ * Thrown when someone tries to take a copy of a workout they have not paid for.
+ *
+ * Copying a subscriber-only workout already fails safe without this: RLS makes
+ * the exercise rows unreadable, so the clone comes out empty. But it fails as
+ * an empty workout rather than as an explanation, and an empty workout looks
+ * like a bug in the app rather than a paywall. The check below turns that into
+ * something the UI can put a price on — it is a message, not a security
+ * boundary, and removing it would leak nothing.
+ */
+export class WorkoutLockedError extends Error {
+    constructor(public readonly creatorId: string) {
+        super('This workout is for subscribers');
+        this.name = 'WorkoutLockedError';
+    }
+}
+
 async function cloneWorkoutForUser(
     sourceWorkoutId: string,
     targetUserId: string,
@@ -302,6 +346,10 @@ async function cloneWorkoutForUser(
 ): Promise<string> {
     const source = await getWorkoutById(sourceWorkoutId);
     if (!source) throw new Error('Source workout not found');
+
+    if (source.accessTier === 'subscribers' && !(await hasAccessToCreator(source.worUserId))) {
+        throw new WorkoutLockedError(source.worUserId);
+    }
 
     const sourceExercises = await getWorkoutExercises(sourceWorkoutId);
 
