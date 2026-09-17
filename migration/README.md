@@ -12,6 +12,7 @@ block at the bottom.
 | 5 | `rls-step4-subscriptions.sql` | Creator subscriptions and paid-content gating |
 | 6 | `rls-step6-creator-assets.sql` | Private bucket for paid creator assets |
 | 7 | `rls-step7-auth-hardening.sql` | Signup no longer leaks the email; fixed `search_path` |
+| 8 | `rls-step8-billing-webhook.sql` | Product→creator mapping, replay protection, event ordering |
 
 `mock-data.sql` is seed data for a scratch database. It is not part of the
 sequence and should never be run against production.
@@ -95,10 +96,44 @@ regardless of a cancellation or refund behind it. Revocation is only as fast as
 the TTL, which is why `ASSET_URL_TTL_SECONDS` is 120 and URLs are minted on
 demand rather than cached.
 
-## Still open
+## The billing webhook
 
-- The billing webhook itself (an edge function; the service role key must never
-  reach the app bundle).
+`supabase/functions/billing-webhook/` is deployed with `verify_jwt = false`,
+because the caller is RevenueCat rather than a signed-in user. That makes the
+shared-secret check inside the function the only thing between the open internet
+and free subscriptions. It holds the service role key, so it is the single door
+through which entitlements are ever written.
+
+It fails closed: with `BILLING_WEBHOOK_SECRET` unset it returns 500 to
+everything rather than degrading into "accept anything".
+
+Before it can work:
+
+```bash
+supabase secrets set BILLING_WEBHOOK_SECRET=<a long random value>
+```
+
+Paste the same value into RevenueCat's webhook Authorization header field, and
+point it at `https://<project>.supabase.co/functions/v1/billing-webhook`.
+
+Creator attribution works by **one store product per creator**:
+`creator_plan.external_product_id` maps the product back to a creator. The
+alternative — one shared product with the creator as a subscriber attribute —
+cannot represent subscribing to two creators at once, since subscriber
+attributes are per-user, not per-purchase.
+
+Sandbox events are rejected unless `BILLING_ALLOW_SANDBOX=true`. Sandbox
+purchases are free, so honouring them on a production project would make the
+paywall free to anyone running a debug build.
+
+### Adding columns to `creator_plan`
+
+`external_product_id` must not be settable by creators, which is a column
+privilege, not a policy. Because the only working shape is "revoke the table
+privilege, grant back the allowed columns", **any column added to that table
+later is unwritable by clients until it is added to the GRANT** in step 8.
+
+## Still open
 - Large video uploads. `CreatorAssetService.uploadCreatorAsset()` reads the
   file into memory as base64, which is fine for images and PDFs and will
   exhaust memory on a few-hundred-MB video. That needs a resumable (TUS)
